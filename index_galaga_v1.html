@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Galaga Vector Game</title>
+    <style>
+        /* Retro Vector Aesthetic */
+        body {
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; 
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #gameCanvas {
+            border: 2px solid #0F0;
+            background-color: #000;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+            display: block;
+            max-width: 90%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        /* Basic message box styling for better UX than alert() */
+        #messageBox {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #0F0;
+            box-shadow: 0 0 20px #0F0;
+            color: #0F0;
+            padding: 20px 40px;
+            font-size: 24px;
+            text-align: center;
+            display: none;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="600" height="800"></canvas>
+    <div id="messageBox"></div>
+
+    <script>
+        // Use requestAnimationFrame for smoother game loop
+        let animationFrameId;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageBox = document.getElementById('messageBox');
+
+        // Game Constants
+        const COLOR = '#0F0'; // Neon Green for vector style
+        const FONT_SCORE = '24px Courier New';
+        const GAME_WIDTH = canvas.width;
+        const GAME_HEIGHT = canvas.height;
+        const INITIAL_LIVES = 3;
+
+        // --- Utility Functions ---
+        function showMessage(text, duration = 2000) {
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            if (duration > 0) {
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                }, duration);
+            }
+        }
+
+        function showModal(text, callback) {
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+            cancelAnimationFrame(animationFrameId);
+
+            function keyHandler(e) {
+                // Prevent accidental firing from triggering restart
+                if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') return;
+                window.removeEventListener('keydown', keyHandler);
+                messageBox.style.display = 'none';
+                callback();
+                gameLoop();
+            }
+            window.addEventListener('keydown', keyHandler);
+        }
+
+        function checkCollision(objA, objB) {
+            // Check collision between two objects based on their x, y, width, and height properties
+            return objA.x < objB.x + objB.width &&
+                   objA.x + objA.width > objB.x &&
+                   objA.y < objB.y + objB.height &&
+                   objA.y + objA.height > objB.y;
+        }
+
+        // --- Player Class ---
+        class Player {
+            constructor() {
+                this.width = 30;
+                this.height = 30;
+                this.x = (GAME_WIDTH / 2) - (this.width / 2);
+                // Initial Y position
+                this.y = GAME_HEIGHT - 50; 
+                this.speed = 7;
+                this.dx = 0; // horizontal movement
+                this.dy = 0; // vertical movement
+                this.fireCooldown = 200;
+                this.lastFireTime = 0;
+
+                // Define vertical movement bounds (100px range)
+                this.MIN_Y = GAME_HEIGHT - 100;
+                this.MAX_Y = GAME_HEIGHT - 50;
+            }
+
+            draw() {
+                ctx.strokeStyle = COLOR;
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'; // Faint fill to make it visible
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                // Ship shape: triangle
+                ctx.moveTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.stroke();
+                ctx.fill();
+            }
+
+            update() {
+                // Apply horizontal movement
+                this.x += this.dx;
+                // Apply vertical movement
+                this.y += this.dy;
+
+                // Clamp horizontal position
+                if (this.x < 0) this.x = 0;
+                if (this.x + this.width > GAME_WIDTH) this.x = GAME_WIDTH - this.width;
+
+                // Clamp vertical position within the defined range
+                if (this.y < this.MIN_Y) this.y = this.MIN_Y;
+                if (this.y > this.MAX_Y) this.y = this.MAX_Y;
+            }
+        }
+
+        // --- Player Bullet Class ---
+        class PlayerBullet {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 3;
+                this.height = 10;
+                this.speed = 10;
+            }
+
+            draw() {
+                ctx.fillStyle = COLOR;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.y -= this.speed;
+            }
+        }
+        
+        // --- Enemy Bullet Class ---
+        class EnemyBullet {
+            constructor(x, y, targetX) {
+                this.x = x;
+                this.y = y;
+                this.width = 4;
+                this.height = 8;
+                this.speed = 5;
+                // Simple targeting vector
+                const angle = Math.atan2(playerInstance.y + playerInstance.height / 2 - y, targetX - x);
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+            }
+
+            draw() {
+                ctx.strokeStyle = '#F00'; // Red bullet
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.stroke();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+
+        // --- Enemy Class ---
+        class Enemy {
+            constructor(x, y, initialCol, initialRow, levelSpeed) {
+                this.x = x;
+                this.y = y;
+                this.initialX = x;
+                this.initialY = y;
+                this.col = initialCol;
+                this.row = initialRow;
+                this.size = 25;
+                this.alive = true;
+                this.moveDirection = 1;
+                this.formationSpeed = 0.5 + levelSpeed * 0.15;
+                this.scoreValue = 100;
+                
+                // CRITICAL FIX: Add width and height for generic collision checking
+                this.width = this.size;
+                this.height = this.size; 
+
+                // Dive variables
+                this.isDiving = false;
+                this.diveSpeed = 4;
+                this.diveTargetX = 0;
+                this.diveTargetY = GAME_HEIGHT + 50;
+                this.diveCooldown = 5000 + Math.random() * 5000; // 5 to 10 seconds
+                this.lastDiveTime = Date.now() + this.col * 500; // Stagger initial dives
+                
+                this.canFire = true;
+                this.fireRate = 1500; // Fire every 1.5 seconds when diving
+                this.lastFireTime = Date.now() + Math.random() * 1000;
+            }
+
+            draw() {
+                if (!this.alive) return;
+                ctx.strokeStyle = this.isDiving ? '#FF0' : COLOR; // Yellow border when diving
+                ctx.lineWidth = 2;
+                
+                // Enemy shape: simple square with internal X and a central dot
+                ctx.strokeRect(this.x, this.y, this.size, this.size);
+                
+                // Internal cross
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.size, this.y + this.size);
+                ctx.moveTo(this.x + this.size, this.y);
+                ctx.lineTo(this.x, this.y + this.size);
+                ctx.stroke();
+
+                // Central Core
+                ctx.fillStyle = this.isDiving ? '#FF0' : COLOR;
+                ctx.beginPath();
+                ctx.arc(this.x + this.size / 2, this.y + this.size / 2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update(maxX, minX) {
+                if (!this.alive) return;
+
+                if (!this.isDiving) {
+                    // --- FORMATION MOVEMENT ---
+                    this.x += this.formationSpeed * this.moveDirection;
+
+                    // Wall bouncing and downward shift for formation
+                    if (this.x + this.size >= maxX || this.x <= minX) {
+                        this.moveDirection *= -1; // Reverse direction
+                        this.y += 15; // Drop down slightly
+                    }
+                    
+                    // Check if it's time to dive
+                    if (Date.now() - this.lastDiveTime > this.diveCooldown && Math.random() < 0.005) {
+                        this.startDive();
+                    }
+
+                } else {
+                    // --- DIVING MOVEMENT ---
+                    // Simple straight line dive towards the bottom edge
+                    this.y += this.diveSpeed;
+                    
+                    // Fire when diving
+                    if (Date.now() - this.lastFireTime > this.fireRate) {
+                        enemyFire(this);
+                        this.lastFireTime = Date.now();
+                    }
+
+                    // Reset dive if it goes off screen
+                    if (this.y > GAME_HEIGHT + 20) {
+                        this.resetToFormation();
+                    }
+                }
+            }
+            
+            startDive() {
+                this.isDiving = true;
+                // Target the center X of the player at the moment of dive start
+                this.diveTargetX = playerInstance.x + playerInstance.width / 2;
+                this.diveTargetY = GAME_HEIGHT + 50; 
+                this.diveSpeed = 4 + gameLevel * 0.5; // Dive speed increases with level
+            }
+
+            resetToFormation() {
+                this.isDiving = false;
+                // Reset to initial formation position
+                this.x = this.initialX;
+                this.y = this.initialY;
+                this.lastDiveTime = Date.now();
+                this.diveCooldown = 5000 + Math.random() * 5000;
+            }
+        }
+
+        // --- Game State Variables ---
+        let playerInstance;
+        let playerBullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let score = 0;
+        let lives = INITIAL_LIVES;
+        let gameLevel = 1;
+
+        // --- Setup Enemies (Initial Formation) ---
+        function setupEnemies() {
+            const rows = 4;
+            const cols = 8;
+            const spacing = 55;
+            const enemySize = 25;
+            
+            const formationWidth = cols * spacing;
+            const startX = (GAME_WIDTH - formationWidth + spacing - enemySize) / 2;
+            const startY = 80;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = startX + c * spacing;
+                    const y = startY + r * spacing;
+                    enemies.push(new Enemy(x, y, c, r, gameLevel));
+                }
+            }
+        }
+
+        // --- Game Initialization and Reset ---
+        function resetGame() {
+            playerInstance = new Player();
+            playerBullets = [];
+            enemyBullets = [];
+            enemies = [];
+            score = 0;
+            lives = INITIAL_LIVES;
+            gameLevel = 1;
+            setupEnemies();
+        }
+
+        function advanceLevel() {
+            gameLevel++;
+            showMessage(`LEVEL ${gameLevel} START!`, 1500);
+            playerBullets = [];
+            enemyBullets = [];
+            enemies = [];
+            setupEnemies();
+        }
+        
+        function playerHit() {
+            lives--;
+            if (lives <= 0) {
+                showModal(`GAME OVER! Final Score: ${score}. Press any key to restart.`, resetGame);
+            } else {
+                showMessage(`HIT! ${lives} lives remaining.`, 1500);
+                // Reset player position and clear enemy bullets upon hit
+                playerInstance = new Player();
+                enemyBullets = [];
+            }
+        }
+
+
+        // --- Input Handling ---
+        const keys = {};
+
+        function handleKeyDown(e) {
+            keys[e.key] = true;
+            
+            // Prevent default action for game controls
+            if ([' ', 'ArrowUp', 'w', 'ArrowDown', 's'].includes(e.key)) {
+                 e.preventDefault();
+            }
+
+            // Handle firing keys (Space, Up, W)
+            if (keys[' '] || keys['ArrowUp'] || keys['w']) {
+                firePlayerBullet();
+            }
+        }
+
+        function handleKeyUp(e) {
+            keys[e.key] = false;
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        function firePlayerBullet() {
+            const now = Date.now();
+            if (now - playerInstance.lastFireTime > playerInstance.fireCooldown) {
+                // Fire two bullets from the corners of the player ship
+                playerBullets.push(new PlayerBullet(playerInstance.x + 5, playerInstance.y));
+                playerBullets.push(new PlayerBullet(playerInstance.x + playerInstance.width - 8, playerInstance.y));
+                playerInstance.lastFireTime = now;
+            }
+        }
+        
+        function enemyFire(enemy) {
+            if (Math.random() < 0.8) { // 80% chance to fire straight down
+                // Enemy bullets now target the player's current location to make them more challenging
+                enemyBullets.push(new EnemyBullet(enemy.x + enemy.size / 2, enemy.y + enemy.size, playerInstance.x + playerInstance.width/2));
+            }
+        }
+
+        // --- Update Game Objects ---
+        function update() {
+            if (lives <= 0) return;
+
+            // 1. Handle Player Movement
+            playerInstance.dx = 0;
+            playerInstance.dy = 0;
+            
+            // Horizontal movement
+            if (keys['ArrowLeft'] || keys['a']) playerInstance.dx = -playerInstance.speed;
+            if (keys['ArrowRight'] || keys['d']) playerInstance.dx = playerInstance.speed;
+            
+            // Vertical movement (New feature)
+            if (keys['ArrowDown'] || keys['s']) playerInstance.dy = playerInstance.speed;
+            // Up/W is reserved for firing, so we'll use a slightly different key for moving up, let's use Ctrl/Shift or just ArrowUp/W which is currently used for firing. 
+            // Since the user asked for "up slightly" but W/ArrowUp is fire, let's allow "S/Down" to move down to the limit, and let's use the mouse to move up instead.
+            // For now, let's stick to the current key pattern and remove the UP logic to avoid conflict with fire. We'll rely on the clamping to prevent movement past the max Y.
+            if (keys['ArrowUp'] || keys['w']) {
+                // Moving up slightly is now handled by allowing the Down/S key to move towards the maximum Y boundary (bottom), and lack of input allows the ship to "float" up towards the MIN_Y boundary.
+                // Revert: Let's use `keys['ArrowUp']` or `keys['w']` for upward movement, and allow firing separately, as requested.
+                // The fire action is handled in handleKeyDown, which is good. We can use W/ArrowUp for moving up when the key is held down.
+                playerInstance.dy = -playerInstance.speed;
+            }
+
+
+            playerInstance.update();
+
+            // 2. Update Bullets
+            playerBullets.forEach(bullet => bullet.update());
+            enemyBullets.forEach(bullet => bullet.update());
+            
+            // Remove off-screen bullets
+            playerBullets = playerBullets.filter(bullet => bullet.y > -bullet.height);
+            enemyBullets = enemyBullets.filter(bullet => bullet.y < GAME_HEIGHT);
+
+            // 3. Update Enemies
+            const padding = 10;
+            const minX = padding;
+            const maxX = GAME_WIDTH - padding;
+            enemies.forEach(enemy => enemy.update(maxX, minX));
+
+            // 4. Handle Collisions
+
+            // 4a. Player Bullet -> Enemy Collision
+            playerBullets.forEach((bullet, bIndex) => {
+                enemies.forEach((enemy, eIndex) => {
+                    if (!enemy.alive) return;
+
+                    if (checkCollision(bullet, enemy)) {
+                        enemy.alive = false; // Destroy enemy
+                        playerBullets.splice(bIndex, 1); 
+                        score += enemy.scoreValue;
+                    }
+                });
+            });
+
+            // 4b. Enemy Bullet -> Player Collision
+            enemyBullets.forEach((bullet, bIndex) => {
+                // Re-approximate bullet width/height just in case
+                bullet.width = 4;
+                bullet.height = 8;
+                
+                if (checkCollision(bullet, playerInstance)) {
+                    playerHit();
+                    enemyBullets.splice(bIndex, 1);
+                }
+            });
+            
+            // 4c. Enemy (Diving or Formation) -> Player Collision (New Loss Condition)
+            enemies.forEach(enemy => {
+                if (checkCollision(enemy, playerInstance)) {
+                    // Direct collision with the player means immediate hit
+                    playerHit();
+                    enemy.alive = false; 
+                }
+            });
+
+
+            // 5. Remove dead enemies
+            const initialEnemyCount = enemies.length;
+            enemies = enemies.filter(enemy => enemy.alive);
+            
+            // Reset diving enemies that went off screen
+            enemies.forEach(enemy => {
+                if (enemy.isDiving && enemy.y > GAME_HEIGHT) {
+                    enemy.resetToFormation();
+                }
+            });
+
+
+            // 6. Check Win Condition
+            if (enemies.length === 0 && initialEnemyCount > 0) {
+                // Level cleared
+                advanceLevel();
+            }
+            
+            // Removed: Old loss condition for enemies reaching the bottom line. Now only direct collision counts.
+        }
+
+        // --- Draw Game Objects ---
+        function draw() {
+            // Clear canvas with a slight trail effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Draw Score and Info
+            ctx.fillStyle = COLOR;
+            ctx.font = FONT_SCORE;
+            ctx.fillText(`SCORE: ${score}`, 10, 30);
+            ctx.fillText(`LEVEL: ${gameLevel}`, GAME_WIDTH - 120, 30);
+            
+            // Draw Lives
+            ctx.fillText(`LIVES: ${lives}`, 10, 60);
+
+            // Draw Bullets, Enemies, and Player
+            enemyBullets.forEach(bullet => bullet.draw());
+            playerBullets.forEach(bullet => bullet.draw());
+            enemies.forEach(enemy => enemy.draw());
+            playerInstance.draw();
+        }
+
+        // --- Main Game Loop ---
+        function gameLoop() {
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Ensure the game starts when the window is fully loaded
+        window.onload = function () {
+            resetGame();
+            showMessage("CONTROLS: A/D or Arrows to Move. W/Up to Fire. S/Down for vertical movement.", 3000);
+            gameLoop();
+        }
+
+    </script>
+</body>
+</html>
