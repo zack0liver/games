@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Asteroids: Monkey Mania</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap');
+        
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        #game-container {
+            width: 95vw;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid #23a0ff; /* Neon blue border */
+            border-radius: 12px;
+            box-shadow: 0 0 20px #23a0ff, inset 0 0 20px #23a0ff;
+            background: #000000;
+            padding: 10px;
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: #000000;
+            border: 1px solid #113355;
+            box-shadow: 0 0 10px rgba(35, 160, 255, 0.5);
+            border-radius: 6px;
+        }
+
+        #ui-panel {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            font-size: 1.2rem;
+            color: #00ffaa; /* Neon green */
+        }
+        
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.98);
+            border: 3px solid #ff55aa;
+            padding: 25px 50px;
+            border-radius: 10px;
+            text-align: center;
+            color: #ff55aa;
+            box-shadow: 0 0 30px #ff55aa;
+            z-index: 100;
+            display: none; /* Initially hidden */
+            max-width: 90vw;
+            width: 400px;
+        }
+
+        #modal-content-container h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        #modal-content-container p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        
+        /* Form Styling */
+        #name-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        #player-name-input {
+            width: 80%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 2px solid #00ffaa;
+            border-radius: 4px;
+            color: #00ffaa;
+            font-family: 'Space Mono', monospace;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        #submit-score-button {
+            background-color: #00ffaa;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            transition: all 0.2s;
+            box-shadow: 0 4px #00b377;
+        }
+
+        #submit-score-button:hover {
+            background-color: #33ffcc;
+        }
+
+        #submit-score-button:active {
+            box-shadow: 0 0 #00b377;
+            transform: translateY(4px);
+        }
+
+        /* General Button Styling (for Restart) */
+        #restart-button {
+            background-color: #ff55aa;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            transition: all 0.2s;
+            box-shadow: 0 4px #c93d86;
+        }
+
+        #restart-button:hover {
+            background-color: #ff77bb;
+        }
+        
+        #restart-button:active {
+            box-shadow: 0 0 #c93d86;
+            transform: translateY(4px);
+        }
+
+        /* Styling for the score list inside the message box */
+        #game-over-scores-container {
+            margin-top: 25px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        #game-over-scores-container h2 {
+            font-size: 1.1rem;
+            color: #ffaa00; /* Neon yellow/orange */
+            margin-bottom: 5px;
+        }
+
+        #game-over-scores-list {
+            list-style: none;
+            padding: 0;
+            font-size: 0.9rem;
+        }
+
+        #game-over-scores-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            color: #00ffaa;
+        }
+
+        #game-over-scores-list li .score-value {
+            font-weight: 700;
+        }
+        
+        /* Responsive Touch Controls (Unchanged) */
+        #touch-controls {
+            display: none; 
+            width: 100%;
+            max-width: 800px;
+            margin-top: 10px;
+            padding: 10px 0;
+        }
+
+        .d-pad {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .d-pad > div {
+            display: flex;
+            gap: 10px;
+        }
+
+        .touch-button {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(35, 160, 255, 0.2);
+            border: 2px solid #23a0ff;
+            color: #23a0ff;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            user-select: none;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        .touch-button.fire {
+            background-color: rgba(255, 85, 170, 0.2);
+            border-color: #ff55aa;
+            color: #ff55aa;
+        }
+        
+        .touch-button:active {
+            background-color: rgba(35, 160, 255, 0.5);
+        }
+
+        .touch-button.fire:active {
+            background-color: rgba(255, 85, 170, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            #touch-controls {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            #game-container {
+                width: 98vw;
+                max-width: 98vw;
+            }
+            .touch-button {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-panel">
+        <div id="score-display">SCORE: 0</div>
+        <div id="lives-display">LIVES: 3</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<div id="touch-controls">
+    <div class="d-pad">
+        <div>
+            <!-- Rotate Left -->
+            <div class="touch-button" id="btn-left">&#x21BA;</div> 
+            <!-- Thrust -->
+            <div class="touch-button" id="btn-thrust">&#x25B2;</div> 
+            <!-- Rotate Right -->
+            <div class="touch-button" id="btn-right">&#x21BB;</div>
+        </div>
+        <div>
+            <!-- Fire -->
+            <div class="touch-button fire" id="btn-fire">&#x25C6;</div> 
+        </div>
+    </div>
+</div>
+
+<div id="message-box">
+    <div id="modal-content-container">
+        <!-- Dynamic content will be injected here -->
+    </div>
+    <button id="restart-button">RESTART</button>
+</div>
+
+
+<script type="module">
+    // --- Firebase Imports and Setup ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    setLogLevel('Debug');
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+    let app;
+    let db;
+    let auth;
+    let userId;
+    let isFirebaseAvailable = false; // Flag to track successful Firebase initialization
+
+    // --- Configuration and Utilities ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score-display');
+    const livesDisplay = document.getElementById('lives-display');
+    const messageBox = document.getElementById('message-box');
+    const modalContentContainer = document.getElementById('modal-content-container');
+    const PI = Math.PI;
+
+    let game; 
+
+    // A small function for utility
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const formatUserId = (uid) => uid.substring(0, 4) + '...' + uid.substring(uid.length - 4);
+
+    // --- Canvas Drawing Helpers (for Retro Vector Look) ---
+
+    // Helper function to draw a simple 2D monkey outline (vector style)
+    function drawMonkeyOutline(ctx, x, y, radius, color) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        
+        // Head (Main circle)
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, PI * 2);
+        ctx.stroke();
+
+        // Ears (Simple V-shape/Triangle outlines)
+        const earR = radius * 0.25;
+        const earOffset = radius * 0.8;
+        ctx.beginPath();
+        ctx.arc(-earOffset, -earOffset, earR, 0, PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(earOffset, -earOffset, earR, 0, PI * 2);
+        ctx.stroke();
+
+        // Eyes (Small circles/dots)
+        const eyeOffset = radius * 0.4;
+        const eyeR = 1.5;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(-eyeOffset, 0, eyeR, 0, PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(eyeOffset, 0, eyeR, 0, PI * 2);
+        ctx.fill();
+        
+        // Smile (Curved line)
+        ctx.beginPath();
+        ctx.arc(0, radius * 0.2, radius * 0.3, PI * 0.2, PI * 0.8, false);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // Helper function to draw a simple 2D banana outline (vector style)
+    function drawBananaOutline(ctx, x, y, size, color, alpha = 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // Convert hex to RGBA for alpha control
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.lineWidth = 2;
+
+        const r_banana = size;
+        ctx.beginPath();
+        // Simplified crescent shape
+        ctx.arc(0, 0, r_banana, PI * 0.8, PI * 0.2, true);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+
+    // --- Firebase Score Logic ---
+
+    async function ensureAuth() {
+        if (!isFirebaseAvailable) {
+            return false;
+        }
+
+        if (auth && auth.currentUser) {
+            userId = auth.currentUser.uid;
+            return true;
+        }
+        
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                userId = userCredential.user.uid;
+            } else {
+                const userCredential = await signInAnonymously(auth);
+                userId = userCredential.user.uid;
+            }
+            console.log("Firebase Auth successful. User ID:", userId);
+            return true;
+        } catch (error) {
+            console.error("Firebase Auth failed:", error);
+            return false;
+        }
+    }
+
+    async function saveScore(score, userName) {
+        if (!isFirebaseAvailable || !userId) {
+            console.error("Cannot save score: Firebase unavailable or user not authenticated.");
+            return;
+        }
+
+        try {
+            const scoresRef = collection(db, `artifacts/${appId}/public/data/highscores`);
+            await addDoc(scoresRef, {
+                score: score,
+                userId: userId,
+                userName: userName || formatUserId(userId),
+                timestamp: Timestamp.now()
+            });
+            console.log("Score saved successfully.");
+        } catch (e) {
+            console.error("Error adding document: ", e);
+        }
+    }
+
+    /**
+     * Fetches high scores and returns them as an HTML string list.
+     * @returns {Promise<string>} HTML string containing list items.
+     */
+    async function loadHighScores() {
+        if (!isFirebaseAvailable || !userId) {
+            return '<li style="color: #ffaa00;">High scores unavailable.</li>';
+        }
+
+        try {
+            const scoresRef = collection(db, `artifacts/${appId}/public/data/highscores`);
+            const q = query(scoresRef, orderBy("score", "desc"), limit(10));
+            const querySnapshot = await getDocs(q);
+
+            let scoreHtml = '';
+            
+            if (querySnapshot.empty) {
+                return '<li style="color: #ffaa00;">No scores recorded yet.</li>';
+            }
+
+            querySnapshot.forEach((doc, index) => {
+                const data = doc.data();
+                const isCurrentPlayer = data.userId === userId && data.score === game.finalScore;
+                
+                const displayName = data.userName || formatUserId(data.userId); 
+                
+                const nameStyle = isCurrentPlayer ? 'style="color: #ffaa00; font-weight: 700;"' : 'style="font-style: italic;"';
+                const scoreStyle = isCurrentPlayer ? 'style="color: #ff55aa;"' : 'style="color: #00ffaa;"';
+                
+                const userText = `<span ${nameStyle}>${displayName}</span>`;
+                const scoreText = `<span class="score-value" ${scoreStyle}>${data.score}</span>`;
+                
+                scoreHtml += `<li><span>#${index + 1}: ${userText}</span> ${scoreText}</li>`;
+            });
+            return scoreHtml;
+        } catch (e) {
+            console.error("Error loading scores: ", e);
+            return '<li style="color: #ffaa00;">Error loading scores. Check console for details.</li>';
+        }
+    }
+
+    // --- Game Classes ---
+
+    class GameObject {
+        constructor(x, y, radius, color, isAlive = true) {
+            this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+            this.radius = radius; this.color = color; this.isAlive = isAlive;
+        }
+        update(dt) {
+            this.x += this.vx * dt; this.y += this.vy * dt; this.wrapAround();
+        }
+        wrapAround() {
+            if (this.x < -this.radius) this.x = canvas.width + this.radius;
+            if (this.x > canvas.width + this.radius) this.x = -this.radius;
+            if (this.y < -this.radius) this.y = canvas.height + this.radius;
+            if (this.y > canvas.height + this.radius) this.y = -this.radius;
+        }
+        isColliding(other) {
+            const dx = this.x - other.x;
+            const dy = this.y - other.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < this.radius + other.radius;
+        }
+    }
+
+    class Player extends GameObject {
+        constructor() {
+            super(canvas.width / 2, canvas.height / 2, 12, '#00ffaa');
+            this.angle = -PI / 2; this.rotationSpeed = 3; this.thrustPower = 300;
+            this.maxSpeed = 400; this.lives = 3; this.isAccelerating = false;
+            this.isTurningLeft = false; this.isTurningRight = false;
+            this.isShooting = false; this.bulletCooldown = 0; this.maxCooldown = 0.2;
+            this.invulnerabilityTimer = 0; this.invulnerabilityDuration = 2;
+        }
+        update(dt) {
+            if (this.isTurningLeft) this.angle -= this.rotationSpeed * dt;
+            if (this.isTurningRight) this.angle += this.rotationSpeed * dt;
+            if (this.isAccelerating) {
+                const thrustX = Math.cos(this.angle) * this.thrustPower * dt;
+                const thrustY = Math.sin(this.angle) * this.thrustPower * dt;
+                this.vx += thrustX; this.vy += thrustY;
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > this.maxSpeed) {
+                    this.vx = (this.vx / speed) * this.maxSpeed;
+                    this.vy = (this.vy / speed) * this.maxSpeed;
+                }
+            } else {
+                this.vx *= (1 - 0.05 * dt); this.vy *= (1 - 0.05 * dt);
+            }
+            super.update(dt);
+            if (this.bulletCooldown > 0) this.bulletCooldown -= dt;
+            if (this.invulnerabilityTimer > 0) this.invulnerabilityTimer -= dt;
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+            
+            // Player Ship Outline (Neon Green)
+            ctx.strokeStyle = this.color; ctx.lineWidth = 2.5; // Slightly thicker line
+            
+            if (this.invulnerabilityTimer > 0 && Math.floor(this.invulnerabilityTimer * 8) % 2 === 0) {
+                ctx.strokeStyle = 'transparent';
+            } else {
+                ctx.strokeStyle = this.color;
+            }
+            
+            ctx.beginPath();
+            ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10);
+            ctx.closePath(); ctx.stroke();
+            
+            // Thrust flame (Neon Pink/Red)
+            if (this.isAccelerating && ctx.strokeStyle !== 'transparent') {
+                ctx.strokeStyle = '#ff55aa';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-10, 5); 
+                ctx.lineTo(-15 - rand(0, 5), 0); 
+                ctx.lineTo(-10, -5);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+        resetPosition() {
+            this.x = canvas.width / 2; this.y = canvas.height / 2;
+            this.vx = 0; this.vy = 0; this.angle = -PI / 2;
+            this.invulnerabilityTimer = this.invulnerabilityDuration;
+        }
+        canShoot() { return this.bulletCooldown <= 0; }
+        shoot(game) {
+            if (this.canShoot()) {
+                const bulletX = this.x + Math.cos(this.angle) * this.radius * 1.5;
+                const bulletY = this.y + Math.sin(this.angle) * this.radius * 1.5;
+                game.bullets.push(new Bullet(bulletX, bulletY, this.angle));
+                this.bulletCooldown = this.maxCooldown;
+            }
+        }
+    }
+
+    class Bullet extends GameObject {
+        constructor(x, y, angle) {
+            super(x, y, 3, '#ffaa00');
+            this.speed = 800;
+            this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed;
+            this.lifetime = 1; this.age = 0;
+        }
+        update(dt) {
+            super.update(dt); this.age += dt;
+            if (this.age > this.lifetime) this.isAlive = false;
+        }
+        draw() {
+            // Draw a bright square (more retro feel than a circle)
+            ctx.fillStyle = this.color;
+            const size = this.radius * 2;
+            ctx.fillRect(this.x - size/2, this.y - size/2, size, size);
+        }
+    }
+    
+    // New class for the exploding banana particles
+    class Particle extends GameObject {
+        constructor(x, y, vx, vy, color, size, lifetime) {
+            super(x, y, size, color);
+            this.vx = vx;
+            this.vy = vy;
+            this.lifetime = lifetime;
+            this.age = 0;
+            this.rotation = rand(0, PI * 2);
+            this.rotationRate = rand(-2, 2);
+        }
+
+        update(dt) {
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            this.rotation += this.rotationRate * dt;
+            this.age += dt;
+            if (this.age >= this.lifetime) {
+                this.isAlive = false;
+            }
+            // Simple friction to slow down particles
+            this.vx *= 0.98;
+            this.vy *= 0.98;
+        }
+
+        draw() {
+            const alpha = 1 - (this.age / this.lifetime);
+            
+            // Draw simplified banana shape using the helper function
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            drawBananaOutline(ctx, 0, 0, this.radius, this.color, alpha);
+            ctx.restore();
+        }
+    }
+
+    class Asteroid extends GameObject {
+        constructor(x, y, size) {
+            const radiusMap = { 3: 40, 2: 25, 1: 15 };
+            const speedMap = { 3: 50, 2: 80, 1: 120 };
+            super(x, y, radiusMap[size], '#ffffff');
+            this.size = size; this.speed = speedMap[size];
+            const angle = rand(0, PI * 2);
+            this.vx = Math.cos(angle) * this.speed; this.vy = Math.sin(angle) * this.speed;
+            this.rotation = 0; this.rotationRate = rand(-0.5, 0.5);
+            
+            // Set type: Large is Monkey, Small is Banana, Medium is Mixed
+            if (this.size === 3) {
+                 this.type = 'monkey';
+            } else if (this.size === 1) {
+                 this.type = 'banana';
+            } else { // size === 2
+                 this.type = Math.random() < 0.5 ? 'monkey' : 'banana';
+            }
+            
+            // Adjust collision radius slightly based on type
+            this.collisionRadiusFactor = (this.type === 'monkey' ? 1.0 : 0.8);
+            this.radius = radiusMap[this.size] * this.collisionRadiusFactor;
+        }
+        update(dt) {
+            super.update(dt); this.rotation += this.rotationRate * dt;
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y); 
+            ctx.rotate(this.rotation);
+            
+            // Draw the simplified vector graphic based on type
+            if (this.type === 'monkey') {
+                drawMonkeyOutline(ctx, 0, 0, this.radius * 0.8, '#ffffff'); // White outline for monkey
+            } else if (this.type === 'banana') { 
+                drawBananaOutline(ctx, 0, 0, this.radius * 0.7, '#ffaa00', 1); // Neon Yellow/Orange outline for banana
+            } else {
+                 // Fallback (shouldn't happen with the current type logic)
+                 ctx.strokeStyle = '#ffffff';
+                 ctx.lineWidth = 2;
+                 ctx.beginPath();
+                 ctx.arc(0, 0, this.radius * 0.8, 0, PI * 2);
+                 ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+    }
+    
+    // --- Game Logic ---
+
+    class Game {
+        constructor() {
+            this.player = null; 
+            this.asteroids = []; 
+            this.bullets = [];
+            this.particles = [];
+            this.score = 0; 
+            this.lastTime = 0; 
+            this.isRunning = false;
+            this.spawnTimer = 0; 
+            this.spawnInterval = 1.0; 
+            this.minAsteroidCount = 6;
+            this.finalScore = 0;
+        }
+
+        init() {
+            this.score = 0;
+            this.player = new Player();
+            this.asteroids = [];
+            this.bullets = [];
+            this.particles = [];
+            this.isRunning = true;
+            this.spawnTimer = 0;
+            this.setupAsteroids(8);
+            this.updateUI();
+            messageBox.style.display = 'none';
+        }
+
+        setupAsteroids(count) {
+            for (let i = 0; i < count; i++) {
+                let x, y;
+                do {
+                    x = rand(0, canvas.width);
+                    y = rand(0, canvas.height);
+                } while (Math.abs(x - canvas.width / 2) < 150 && Math.abs(y - canvas.height / 2) < 150);
+                this.asteroids.push(new Asteroid(x, y, 3));
+            }
+        }
+
+        update(dt) {
+            if (this.player.isShooting) this.player.shoot(this);
+            this.spawnTimer += dt;
+            if (this.asteroids.length < this.minAsteroidCount && this.spawnTimer >= this.spawnInterval) {
+                this.spawnRandomSmallAsteroid();
+                this.spawnTimer = 0;
+            }
+
+            this.player.update(dt);
+            this.bullets.forEach(b => b.update(dt));
+            this.asteroids.forEach(a => a.update(dt));
+            this.particles.forEach(p => p.update(dt));
+
+            this.handleCollisions();
+
+            this.bullets = this.bullets.filter(b => b.isAlive);
+            this.asteroids = this.asteroids.filter(a => a.isAlive);
+            this.particles = this.particles.filter(p => p.isAlive);
+            
+            if (this.asteroids.filter(a => a.size === 3).length === 0 && this.isRunning) {
+                this.setupAsteroids(this.asteroids.length > 10 ? 4 : 8); 
+            }
+            
+            if (this.player.lives <= 0) {
+                this.gameOver();
+            }
+            
+            this.updateUI();
+        }
+
+        handleCollisions() {
+            this.bullets.forEach(bullet => {
+                if (!bullet.isAlive) return;
+                this.asteroids.forEach(asteroid => {
+                    if (!asteroid.isAlive) return;
+                    if (bullet.isColliding(asteroid)) {
+                        bullet.isAlive = false;
+                        asteroid.isAlive = false;
+                        this.breakAsteroid(asteroid);
+                        this.score += 10 * (4 - asteroid.size) * (asteroid.type === 'monkey' ? 2 : 1);
+                    }
+                });
+            });
+
+            if (this.player.invulnerabilityTimer <= 0) {
+                this.asteroids.forEach(asteroid => {
+                    if (!asteroid.isAlive) return;
+                    if (this.player.isColliding(asteroid)) {
+                        this.playerHit();
+                    }
+                });
+            }
+        }
+        
+        breakAsteroid(asteroid) {
+            // Create banana particle explosion if it's a monkey asteroid
+            if (asteroid.type === 'monkey') {
+                const numParticles = asteroid.size * 15;
+                const particleColor = '#ffaa00'; // Neon Yellow/Orange
+                for (let i = 0; i < numParticles; i++) {
+                    const angle = rand(0, PI * 2);
+                    const speed = rand(50, 250);
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+                    const lifetime = rand(0.5, 1.5);
+                    const particleSize = rand(4, 8);
+                    game.particles.push(new Particle(asteroid.x, asteroid.y, vx, vy, particleColor, particleSize, lifetime));
+                }
+            }
+
+            // Existing logic to split into smaller asteroids (if size > 1)
+            if (asteroid.size > 1) {
+                const newSize = asteroid.size - 1;
+                const newSpeed = 150 * (4 - newSize) / 3;
+                for (let i = 0; i < 2; i++) {
+                    const newAsteroid = new Asteroid(asteroid.x, asteroid.y, newSize);
+                    
+                    const angleOffset = rand(-PI/4, PI/4);
+                    const newAngle = rand(0, PI * 2); 
+                    newAsteroid.vx = Math.cos(newAngle) * newSpeed * rand(0.8, 1.2);
+                    newAsteroid.vy = Math.sin(newAngle) * newSpeed * rand(0.8, 1.2);
+                    this.asteroids.push(newAsteroid);
+                }
+            }
+        }
+
+        spawnRandomSmallAsteroid() {
+            const edge = Math.floor(rand(0, 4));
+            let x, y, angle;
+            if (edge === 0) { x = rand(0, canvas.width); y = -100; angle = rand(PI * 0.25, PI * 0.75);
+            } else if (edge === 1) { x = canvas.width + 100; y = rand(0, canvas.height); angle = rand(PI * 0.75, PI * 1.25);
+            } else if (edge === 2) { x = rand(0, canvas.width); y = canvas.height + 100; angle = rand(PI * 1.25, PI * 1.75);
+            } else { x = -100; y = rand(0, canvas.height); angle = rand(-PI * 0.25, PI * 0.25); }
+            
+            const newAsteroid = new Asteroid(x, y, 1);
+            newAsteroid.vx = Math.cos(angle) * newAsteroid.speed;
+            newAsteroid.vy = Math.sin(angle) * newAsteroid.speed;
+            this.asteroids.push(newAsteroid);
+        }
+        
+        playerHit() {
+            this.player.lives--;
+            this.player.resetPosition();
+            this.bullets = [];
+        }
+        
+        draw() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw retro starfield (faint white dots)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            for (let i = 0; i < 50; i++) {
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
+            }
+
+            this.particles.forEach(p => p.draw());
+            this.asteroids.forEach(a => a.draw());
+            this.bullets.forEach(b => b.draw());
+            this.player.draw();
+        }
+        
+        // Function to handle the score submission sequence (Unchanged)
+        showSubmissionForm(score) {
+            this.finalScore = score; // Store score temporarily
+            
+            modalContentContainer.innerHTML = `
+                <h1>GAME OVER</h1>
+                <p>Score: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
+                <form id="name-form">
+                    <label for="player-name-input" style="color: #00ffaa;">Enter your name/initials (max 8):</label>
+                    <input type="text" id="player-name-input" maxlength="8" placeholder="PLAYER" value="${localStorage.getItem('lastUserName') || ''}">
+                    <button type="submit" id="submit-score-button">SUBMIT SCORE</button>
+                </form>
+            `;
+            messageBox.style.display = 'block';
+            document.getElementById('restart-button').style.display = 'none'; // Hide restart initially
+            
+            document.getElementById('name-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById('player-name-input');
+                const userName = nameInput.value.trim().substring(0, 8) || 'PLAYER';
+                
+                localStorage.setItem('lastUserName', userName); // Save name locally for next time
+
+                this.displayFinalScores(this.finalScore, userName);
+            });
+        }
+        
+        async displayFinalScores(score, userName) {
+            modalContentContainer.innerHTML = `<h1>SAVING SCORE...</h1><p>Fetching Top 10...</p>`;
+            
+            // Only try to save score if Firebase is available
+            if (isFirebaseAvailable) {
+                await saveScore(score, userName);
+            }
+            
+            const scoreListHtml = await loadHighScores();
+
+            modalContentContainer.innerHTML = `
+                <h1>GAME OVER</h1>
+                <p>Score Saved: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
+                <div id="game-over-scores-container">
+                    <h2>TOP 10 SCORES (Jungle Aces)</h2>
+                    <ul id="game-over-scores-list">
+                        ${scoreListHtml}
+                    </ul>
+                </div>
+            `;
+            document.getElementById('restart-button').style.display = 'block'; // Show restart after submission
+        }
+
+        gameOver() {
+            this.isRunning = false;
+            this.showSubmissionForm(this.score);
+        }
+
+        gameLoop(currentTime) {
+            if (!this.isRunning) return;
+
+            const dt = (currentTime - this.lastTime) / 1000;
+            this.lastTime = currentTime;
+
+            this.update(dt);
+            this.draw();
+
+            requestAnimationFrame(this.gameLoop.bind(this));
+        }
+        
+        updateUI() {
+            scoreDisplay.textContent = 'SCORE: ' + this.score;
+            livesDisplay.textContent = 'LIVES: ' + Math.max(0, this.player.lives);
+        }
+    }
+
+    // --- Input Handling ---
+
+    function handleKeyDown(event) {
+        if (!game || !game.isRunning) return;
+        const player = game.player;
+
+        switch (event.key) {
+            case 'ArrowLeft': case 'a':
+                player.isTurningLeft = true; event.preventDefault(); break;
+            case 'ArrowRight': case 'd':
+                player.isTurningRight = true; event.preventDefault(); break;
+            case 'ArrowUp': case 'w':
+                player.isAccelerating = true; event.preventDefault(); break;
+            case ' ': // Spacebar
+                if (!player.isShooting) { player.shoot(game); }
+                player.isShooting = true; event.preventDefault(); break;
+        }
+    }
+
+    function handleKeyUp(event) {
+        if (!game || !game.isRunning) return;
+        const player = game.player;
+
+        switch (event.key) {
+            case 'ArrowLeft': case 'a': player.isTurningLeft = false; break;
+            case 'ArrowRight': case 'd': player.isTurningRight = false; break;
+            case 'ArrowUp': case 'w': player.isAccelerating = false; break;
+            case ' ': player.isShooting = false; break;
+        }
+    }
+
+    // --- Touch Controls (Adaptive Design - COMPLETION) ---
+    function setupTouchControls() {
+        const controls = [
+            { id: 'btn-left', key: 'ArrowLeft', isToggle: true },
+            { id: 'btn-right', key: 'ArrowRight', isToggle: true },
+            { id: 'btn-thrust', key: 'ArrowUp', isToggle: true },
+            { id: 'btn-fire', key: ' ', isToggle: false }
+        ];
+
+        controls.forEach(control => {
+            const button = document.getElementById(control.id);
+            if (!button) return;
+
+            const simulateKey = (key, type) => {
+                const event = new KeyboardEvent(type, { key: key });
+                if (type === 'keydown') {
+                    handleKeyDown(event);
+                } else {
+                    handleKeyUp(event); // The missing piece from the previous file
+                }
+            };
+
+            const handleInteraction = (type) => (event) => {
+                event.preventDefault();
+                const eventType = (type === 'start' || event.type === 'pointerdown' || event.type === 'touchstart') ? 'keydown' : 'keyup';
+                simulateKey(control.key, eventType);
+            };
+
+            // Use pointer events for cross-device compatibility
+            button.addEventListener('pointerdown', handleInteraction('start'));
+            button.addEventListener('pointerup', handleInteraction('end'));
+            
+            // Handle pointer moving off the button while pressed
+            button.addEventListener('pointerleave', (e) => {
+                if (e.buttons === 0) { // Check if no buttons are pressed
+                    handleInteraction('end')(e);
+                }
+            });
+            
+            // Ensure keyup is called on touch end/cancel
+            button.addEventListener('touchend', handleInteraction('end'));
+            button.addEventListener('touchcancel', handleInteraction('end'));
+        });
+    } 
+
+    // --- Game Initialization & Firebase Setup ---
+
+    async function initFirebase() {
+        try {
+            // Check if config seems valid before attempting init
+            if (Object.keys(firebaseConfig).length > 0 && typeof firebaseConfig.apiKey === 'string') {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                isFirebaseAvailable = true;
+                console.log("Firebase initialized successfully. Attempting authentication...");
+                await ensureAuth(); // Authenticate immediately
+            } else {
+                console.warn("Firebase configuration incomplete. Running game without high score support.");
+                isFirebaseAvailable = false;
+            }
+        } catch (e) {
+            // Catches errors during initializeApp or getAuth/getFirestore
+            console.error("Critical error during Firebase setup. Running game without high score support.", e);
+            isFirebaseAvailable = false;
+        }
+    }
+
+    function resizeCanvas() {
+        const container = document.getElementById('game-container');
+        // Subtract container padding (20px) to determine max size, then cap at 780
+        const size = Math.min(container.clientWidth - 20, 780); 
+        canvas.width = size;
+        canvas.height = size * (9/16); // 16:9 aspect ratio
+    }
+
+    function startGame() {
+        // Hide modal, set up controls, and start game loop
+        messageBox.style.display = 'none';
+        game = new Game();
+        game.init();
+        game.lastTime = performance.now();
+        // Request animation frame starts the game loop
+        requestAnimationFrame(game.gameLoop.bind(game));
+    }
+
+    document.getElementById('restart-button').addEventListener('click', startGame);
+
+    window.onload = async function() {
+        // 1. Initial size setup and event listener
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 2. Setup Input Handlers
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        setupTouchControls();
+        
+        // 3. Initialize Firebase (asynchronously)
+        await initFirebase(); 
+        
+        // 4. Set up the initial instruction screen
+        modalContentContainer.innerHTML = `
+            <h1>ARCADE ASTEROIDS</h1>
+            <p>Destroy the cosmic monkeys and bananas!</p>
+            <p style="font-size: 0.9rem; color: #ffaa00;">
+                PC: WASD/Arrows to move/rotate, SPACE to shoot.<br>
+                Mobile: Use on-screen controls.
+            </p>
+        `;
+        messageBox.style.display = 'block';
+        document.getElementById('restart-button').textContent = 'START GAME';
+        document.getElementById('restart-button').style.display = 'block';
+
+        // The game officially starts when the user clicks 'START GAME'
+    }
+</script>
+</body>
+</html>
