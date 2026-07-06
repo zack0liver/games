@@ -2,28 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Simple Galaga Vector Game</title>
     <style>
         /* Retro Vector Aesthetic */
+        html, body {
+            height: 100%;
+        }
         body {
             background-color: #000;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh; 
+            height: 100dvh;
+            min-height: 100vh;
             margin: 0;
+            padding: 8px;
+            box-sizing: border-box;
             overflow: hidden;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
             font-family: 'Courier New', Courier, monospace;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+            max-width: min(700px, 96vw);
+            max-height: min(900px, 96vh);
+            display: flex;
         }
         #gameCanvas {
             border: 2px solid #0F0;
             background-color: #000;
             box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
             display: block;
-            max-width: 90%;
-            height: auto;
+            width: 100%;
+            height: 100%;
             border-radius: 8px;
+            touch-action: none;
         }
 
         /* Basic message box styling for better UX than alert() */
@@ -42,28 +61,70 @@
             display: none;
             border-radius: 10px;
             z-index: 1000;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+            #messageBox {
+                font-size: 18px;
+                padding: 16px 24px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <canvas id="gameCanvas" width="600" height="800"></canvas>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
     <div id="messageBox"></div>
 
     <script>
         // Use requestAnimationFrame for smoother game loop
         let animationFrameId;
+        let lastFrameTime = 0;
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
         const messageBox = document.getElementById('messageBox');
 
         // Game Constants
         const COLOR = '#0F0'; // Neon Green for vector style
-        const FONT_SCORE = '24px Courier New';
-        const GAME_WIDTH = canvas.width;
-        const GAME_HEIGHT = canvas.height;
         const INITIAL_LIVES = 3;
+
+        // Logical (CSS-pixel) game resolution. Kept separate from canvas.width/
+        // height, which are scaled by devicePixelRatio for crisp rendering on
+        // mobile/retina screens. These fill whatever space the container gives
+        // them (portrait or landscape) instead of a fixed 600x800 box.
+        let GAME_WIDTH = 600;
+        let GAME_HEIGHT = 800;
+
+        function resizeCanvas() {
+            const rect = gameContainer.getBoundingClientRect();
+            GAME_WIDTH = Math.max(240, Math.floor(rect.width));
+            GAME_HEIGHT = Math.max(320, Math.floor(rect.height));
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(GAME_WIDTH * dpr);
+            canvas.height = Math.floor(GAME_HEIGHT * dpr);
+            canvas.style.width = GAME_WIDTH + 'px';
+            canvas.style.height = GAME_HEIGHT + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // Keep an in-progress player within the new bounds immediately
+            // rather than waiting for the next input to clamp it.
+            if (typeof playerInstance !== 'undefined' && playerInstance) {
+                playerInstance.MIN_Y = GAME_HEIGHT - 100;
+                playerInstance.MAX_Y = GAME_HEIGHT - 50;
+                playerInstance.x = Math.min(playerInstance.x, GAME_WIDTH - playerInstance.width);
+                playerInstance.y = Math.min(Math.max(playerInstance.y, playerInstance.MIN_Y), playerInstance.MAX_Y);
+            }
+        }
 
         // --- Utility Functions ---
         function showMessage(text, duration = 2000) {
@@ -81,15 +142,26 @@
             messageBox.style.display = 'block';
             cancelAnimationFrame(animationFrameId);
 
-            function keyHandler(e) {
-                // Prevent accidental firing from triggering restart
-                if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') return;
+            function dismiss() {
                 window.removeEventListener('keydown', keyHandler);
+                messageBox.removeEventListener('pointerdown', dismiss);
                 messageBox.style.display = 'none';
                 callback();
-                gameLoop();
+                lastFrameTime = performance.now();
+                gameLoop(lastFrameTime);
+            }
+
+            function keyHandler(e) {
+                // Ignore OS auto-repeat from a key that was already held down
+                // when the modal appeared (e.g. still holding a movement key
+                // at the moment of death), so it can't instantly dismiss this.
+                if (e.repeat) return;
+                dismiss();
             }
             window.addEventListener('keydown', keyHandler);
+            // Tapping anywhere on the message box restarts on touch devices,
+            // which have no keyboard to press.
+            messageBox.addEventListener('pointerdown', dismiss);
         }
 
         function checkCollision(objA, objB) {
@@ -134,11 +206,12 @@
                 ctx.fill();
             }
 
-            update() {
+            update(dt) {
+                const f = dt * 60; // normalizes original 60fps-tuned speeds to real time
                 // Apply horizontal movement
-                this.x += this.dx;
+                this.x += this.dx * f;
                 // Apply vertical movement
-                this.y += this.dy;
+                this.y += this.dy * f;
 
                 // Clamp horizontal position
                 if (this.x < 0) this.x = 0;
@@ -158,6 +231,7 @@
                 this.width = 3;
                 this.height = 10;
                 this.speed = 10;
+                this.alive = true;
             }
 
             draw() {
@@ -165,11 +239,11 @@
                 ctx.fillRect(this.x, this.y, this.width, this.height);
             }
 
-            update() {
-                this.y -= this.speed;
+            update(dt) {
+                this.y -= this.speed * dt * 60;
             }
         }
-        
+
         // --- Enemy Bullet Class ---
         class EnemyBullet {
             constructor(x, y, targetX) {
@@ -178,6 +252,7 @@
                 this.width = 4;
                 this.height = 8;
                 this.speed = 5;
+                this.alive = true;
                 // Simple targeting vector
                 const angle = Math.atan2(playerInstance.y + playerInstance.height / 2 - y, targetX - x);
                 this.vx = Math.cos(angle) * this.speed;
@@ -193,9 +268,10 @@
                 ctx.stroke();
             }
 
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
+            update(dt) {
+                const f = dt * 60;
+                this.x += this.vx * f;
+                this.y += this.vy * f;
             }
         }
 
@@ -255,29 +331,32 @@
                 ctx.fill();
             }
 
-            update(maxX, minX) {
+            update(dt, maxX, minX) {
                 if (!this.alive) return;
+                const f = dt * 60;
 
                 if (!this.isDiving) {
                     // --- FORMATION MOVEMENT ---
-                    this.x += this.formationSpeed * this.moveDirection;
+                    this.x += this.formationSpeed * this.moveDirection * f;
 
                     // Wall bouncing and downward shift for formation
                     if (this.x + this.size >= maxX || this.x <= minX) {
                         this.moveDirection *= -1; // Reverse direction
                         this.y += 15; // Drop down slightly
                     }
-                    
-                    // Check if it's time to dive
-                    if (Date.now() - this.lastDiveTime > this.diveCooldown && Math.random() < 0.005) {
+
+                    // Check if it's time to dive. Expressed as a chance per
+                    // second (not per frame) so higher refresh-rate mobile
+                    // screens don't trigger dives more often than 60Hz ones.
+                    if (Date.now() - this.lastDiveTime > this.diveCooldown && Math.random() < 0.3 * dt) {
                         this.startDive();
                     }
 
                 } else {
                     // --- DIVING MOVEMENT ---
                     // Simple straight line dive towards the bottom edge
-                    this.y += this.diveSpeed;
-                    
+                    this.y += this.diveSpeed * f;
+
                     // Fire when diving
                     if (Date.now() - this.lastFireTime > this.fireRate) {
                         enemyFire(this);
@@ -321,10 +400,13 @@
         // --- Setup Enemies (Initial Formation) ---
         function setupEnemies() {
             const rows = 4;
-            const cols = 8;
             const spacing = 55;
             const enemySize = 25;
-            
+            // Fit the formation to whatever width the screen actually has
+            // (narrow phones get fewer columns) instead of a fixed 8 that can
+            // overflow a narrow portrait viewport.
+            const cols = Math.max(4, Math.min(8, Math.floor((GAME_WIDTH - 40) / spacing)));
+
             const formationWidth = cols * spacing;
             const startX = (GAME_WIDTH - formationWidth + spacing - enemySize) / 2;
             const startY = 80;
@@ -348,6 +430,10 @@
             lives = INITIAL_LIVES;
             gameLevel = 1;
             setupEnemies();
+            // Defensive reset in case a previous session ended without a
+            // clean pointerup/cancel for the steering finger.
+            moveTouchId = null;
+            lastTouchPos = null;
         }
 
         function advanceLevel() {
@@ -362,7 +448,7 @@
         function playerHit() {
             lives--;
             if (lives <= 0) {
-                showModal(`GAME OVER! Final Score: ${score}. Press any key to restart.`, resetGame);
+                showModal(`GAME OVER! Final Score: ${score}. Press any key or tap to restart.`, resetGame);
             } else {
                 showMessage(`HIT! ${lives} lives remaining.`, 1500);
                 // Reset player position and clear enemy bullets upon hit
@@ -373,19 +459,17 @@
 
 
         // --- Input Handling ---
+        // The ship auto-fires continuously (see update()), so every direction
+        // key is free for movement instead of splitting Up/W between "fire"
+        // and "move up" as before.
         const keys = {};
 
         function handleKeyDown(e) {
             keys[e.key] = true;
-            
-            // Prevent default action for game controls
-            if ([' ', 'ArrowUp', 'w', 'ArrowDown', 's'].includes(e.key)) {
-                 e.preventDefault();
-            }
 
-            // Handle firing keys (Space, Up, W)
-            if (keys[' '] || keys['ArrowUp'] || keys['w']) {
-                firePlayerBullet();
+            // Prevent default action for game controls
+            if ([' ', 'ArrowUp', 'w', 'ArrowDown', 's', 'ArrowLeft', 'a', 'ArrowRight', 'd'].includes(e.key)) {
+                 e.preventDefault();
             }
         }
 
@@ -396,6 +480,53 @@
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
 
+        // --- Touch Drag Controls ---
+        // Press anywhere on the canvas and drag; the ship moves by the same
+        // delta as the finger each event, rather than jumping straight to the
+        // touch point. Firing is automatic (see update()), so movement is the
+        // only thing touch needs to do.
+        let lastTouchPos = null;
+        let moveTouchId = null;
+
+        function canvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function setupTouchDragControls() {
+            canvas.addEventListener('pointerdown', (e) => {
+                if (!playerInstance || lives <= 0 || moveTouchId !== null) return;
+                e.preventDefault();
+                moveTouchId = e.pointerId;
+                lastTouchPos = canvasPos(e);
+                try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+            });
+
+            canvas.addEventListener('pointermove', (e) => {
+                if (e.pointerId !== moveTouchId || !lastTouchPos || !playerInstance) return;
+                e.preventDefault();
+                const pos = canvasPos(e);
+                const dx = pos.x - lastTouchPos.x;
+                const dy = pos.y - lastTouchPos.y;
+                lastTouchPos = pos;
+
+                let x = playerInstance.x + dx;
+                let y = playerInstance.y + dy;
+                x = Math.min(Math.max(x, 0), GAME_WIDTH - playerInstance.width);
+                y = Math.min(Math.max(y, playerInstance.MIN_Y), playerInstance.MAX_Y);
+                playerInstance.x = x;
+                playerInstance.y = y;
+            });
+
+            const endTouch = (e) => {
+                if (e.pointerId !== moveTouchId) return;
+                moveTouchId = null;
+                lastTouchPos = null;
+            };
+            canvas.addEventListener('pointerup', endTouch);
+            canvas.addEventListener('pointercancel', endTouch);
+        }
+
         function firePlayerBullet() {
             const now = Date.now();
             if (now - playerInstance.lastFireTime > playerInstance.fireCooldown) {
@@ -405,7 +536,7 @@
                 playerInstance.lastFireTime = now;
             }
         }
-        
+
         function enemyFire(enemy) {
             if (Math.random() < 0.8) { // 80% chance to fire straight down
                 // Enemy bullets now target the player's current location to make them more challenging
@@ -414,36 +545,35 @@
         }
 
         // --- Update Game Objects ---
-        function update() {
+        function update(dt) {
             if (lives <= 0) return;
 
             // 1. Handle Player Movement
             playerInstance.dx = 0;
             playerInstance.dy = 0;
-            
+
             // Horizontal movement
             if (keys['ArrowLeft'] || keys['a']) playerInstance.dx = -playerInstance.speed;
             if (keys['ArrowRight'] || keys['d']) playerInstance.dx = playerInstance.speed;
-            
-            // Vertical movement (New feature)
+
+            // Vertical movement
             if (keys['ArrowDown'] || keys['s']) playerInstance.dy = playerInstance.speed;
-            // Up/W is reserved for firing, so we'll use a slightly different key for moving up, let's use Ctrl/Shift or just ArrowUp/W which is currently used for firing. 
-            // Since the user asked for "up slightly" but W/ArrowUp is fire, let's allow "S/Down" to move down to the limit, and let's use the mouse to move up instead.
-            // For now, let's stick to the current key pattern and remove the UP logic to avoid conflict with fire. We'll rely on the clamping to prevent movement past the max Y.
-            if (keys['ArrowUp'] || keys['w']) {
-                // Moving up slightly is now handled by allowing the Down/S key to move towards the maximum Y boundary (bottom), and lack of input allows the ship to "float" up towards the MIN_Y boundary.
-                // Revert: Let's use `keys['ArrowUp']` or `keys['w']` for upward movement, and allow firing separately, as requested.
-                // The fire action is handled in handleKeyDown, which is good. We can use W/ArrowUp for moving up when the key is held down.
-                playerInstance.dy = -playerInstance.speed;
-            }
+            if (keys['ArrowUp'] || keys['w']) playerInstance.dy = -playerInstance.speed;
 
+            // Touch dragging (see setupTouchDragControls) moves the ship
+            // directly on pointermove rather than through dx/dy, so it isn't
+            // affected by keyboard state here.
+            playerInstance.update(dt);
 
-            playerInstance.update();
+            // The ship auto-fires continuously; players only worry about
+            // dodging and positioning, which reads better on a touchscreen
+            // than juggling a separate fire input.
+            firePlayerBullet();
 
             // 2. Update Bullets
-            playerBullets.forEach(bullet => bullet.update());
-            enemyBullets.forEach(bullet => bullet.update());
-            
+            playerBullets.forEach(bullet => bullet.update(dt));
+            enemyBullets.forEach(bullet => bullet.update(dt));
+
             // Remove off-screen bullets
             playerBullets = playerBullets.filter(bullet => bullet.y > -bullet.height);
             enemyBullets = enemyBullets.filter(bullet => bullet.y < GAME_HEIGHT);
@@ -452,41 +582,42 @@
             const padding = 10;
             const minX = padding;
             const maxX = GAME_WIDTH - padding;
-            enemies.forEach(enemy => enemy.update(maxX, minX));
+            enemies.forEach(enemy => enemy.update(dt, maxX, minX));
 
             // 4. Handle Collisions
 
-            // 4a. Player Bullet -> Enemy Collision
-            playerBullets.forEach((bullet, bIndex) => {
-                enemies.forEach((enemy, eIndex) => {
-                    if (!enemy.alive) return;
-
+            // 4a. Player Bullet -> Enemy Collision. Mark-and-filter (rather
+            // than splicing mid-forEach) avoids skipped array indices and
+            // lets a bullet only ever destroy the first enemy it touches.
+            playerBullets.forEach(bullet => {
+                if (!bullet.alive) return;
+                enemies.forEach(enemy => {
+                    if (!enemy.alive || !bullet.alive) return;
                     if (checkCollision(bullet, enemy)) {
-                        enemy.alive = false; // Destroy enemy
-                        playerBullets.splice(bIndex, 1); 
+                        enemy.alive = false;
+                        bullet.alive = false;
                         score += enemy.scoreValue;
                     }
                 });
             });
+            playerBullets = playerBullets.filter(bullet => bullet.alive);
 
             // 4b. Enemy Bullet -> Player Collision
-            enemyBullets.forEach((bullet, bIndex) => {
-                // Re-approximate bullet width/height just in case
-                bullet.width = 4;
-                bullet.height = 8;
-                
+            enemyBullets.forEach(bullet => {
+                if (!bullet.alive) return;
                 if (checkCollision(bullet, playerInstance)) {
+                    bullet.alive = false;
                     playerHit();
-                    enemyBullets.splice(bIndex, 1);
                 }
             });
-            
+            enemyBullets = enemyBullets.filter(bullet => bullet.alive);
+
             // 4c. Enemy (Diving or Formation) -> Player Collision (New Loss Condition)
             enemies.forEach(enemy => {
                 if (checkCollision(enemy, playerInstance)) {
                     // Direct collision with the player means immediate hit
                     playerHit();
-                    enemy.alive = false; 
+                    enemy.alive = false;
                 }
             });
 
@@ -494,7 +625,7 @@
             // 5. Remove dead enemies
             const initialEnemyCount = enemies.length;
             enemies = enemies.filter(enemy => enemy.alive);
-            
+
             // Reset diving enemies that went off screen
             enemies.forEach(enemy => {
                 if (enemy.isDiving && enemy.y > GAME_HEIGHT) {
@@ -508,24 +639,27 @@
                 // Level cleared
                 advanceLevel();
             }
-            
+
             // Removed: Old loss condition for enemies reaching the bottom line. Now only direct collision counts.
         }
 
         // --- Draw Game Objects ---
         function draw() {
             // Clear canvas with a slight trail effect
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-            // Draw Score and Info
+            // Draw Score and Info (font scales down a little on narrow screens)
+            const fontSize = Math.max(16, Math.min(24, Math.round(GAME_WIDTH / 22)));
             ctx.fillStyle = COLOR;
-            ctx.font = FONT_SCORE;
-            ctx.fillText(`SCORE: ${score}`, 10, 30);
-            ctx.fillText(`LEVEL: ${gameLevel}`, GAME_WIDTH - 120, 30);
-            
-            // Draw Lives
-            ctx.fillText(`LIVES: ${lives}`, 10, 60);
+            ctx.font = `${fontSize}px Courier New`;
+            ctx.textAlign = 'left';
+            ctx.fillText(`SCORE: ${score}`, 10, fontSize + 6);
+            ctx.fillText(`LIVES: ${lives}`, 10, (fontSize + 6) * 2);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`LEVEL: ${gameLevel}`, GAME_WIDTH - 10, fontSize + 6);
+            ctx.textAlign = 'left';
 
             // Draw Bullets, Enemies, and Player
             enemyBullets.forEach(bullet => bullet.draw());
@@ -535,17 +669,44 @@
         }
 
         // --- Main Game Loop ---
-        function gameLoop() {
-            update();
+        function gameLoop(currentTime) {
+            // Clamp dt so a backgrounded tab/phone lock screen doesn't cause a
+            // huge simulation jump (a wave of enemies suddenly diving, bullets
+            // teleporting past the player, etc).
+            const dt = Math.min((currentTime - lastFrameTime) / 1000, 0.05) || 0;
+            lastFrameTime = currentTime;
+
+            update(dt);
             draw();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
+        // Auto-pause when the tab/app is backgrounded, and resync the frame
+        // clock on return so the pause itself doesn't count as elapsed dt.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                cancelAnimationFrame(animationFrameId);
+            } else if (lives > 0) {
+                lastFrameTime = performance.now();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        });
+
         // Ensure the game starts when the window is fully loaded
         window.onload = function () {
+            resizeCanvas();
+            let resizeRAF;
+            window.addEventListener('resize', () => {
+                cancelAnimationFrame(resizeRAF);
+                resizeRAF = requestAnimationFrame(resizeCanvas);
+            });
+            window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
             resetGame();
-            showMessage("CONTROLS: A/D or Arrows to Move. W/Up to Fire. S/Down for vertical movement.", 3000);
-            gameLoop();
+            setupTouchDragControls();
+            showMessage("Drag to move, auto-fire is on. (Keyboard: Arrows/WASD to move)", 3500);
+            lastFrameTime = performance.now();
+            gameLoop(lastFrameTime);
         }
 
     </script>
