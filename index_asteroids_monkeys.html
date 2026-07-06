@@ -215,80 +215,11 @@
             font-weight: 700;
         }
         
-        /* Touch controls: floating overlay directly on the canvas so the
-           play area doesn't lose vertical space to a separate control bar. */
-        #touch-controls {
-            display: none;
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .d-pad {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            padding: 0 10px max(10px, env(safe-area-inset-bottom)) 10px;
-            box-sizing: border-box;
-        }
-
-        .d-pad > div {
-            display: flex;
-            gap: 12px;
-            pointer-events: auto;
-        }
-
-        .touch-button {
-            width: 64px;
-            height: 64px;
-            background-color: rgba(35, 160, 255, 0.18);
-            border: 2px solid #23a0ff;
-            color: #23a0ff;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            touch-action: none;
-            cursor: pointer;
-            transition: background-color 0.1s;
-        }
-
-        .touch-button.fire {
-            background-color: rgba(255, 85, 170, 0.18);
-            border-color: #ff55aa;
-            color: #ff55aa;
-        }
-
-        .touch-button.active {
-            background-color: rgba(35, 160, 255, 0.55);
-        }
-
-        .touch-button.fire.active {
-            background-color: rgba(255, 85, 170, 0.55);
-        }
-
-        /* Show on-screen controls for touch/coarse-pointer devices regardless
-           of viewport width (covers touch laptops and tablets too). */
-        @media (pointer: coarse), (max-width: 768px) {
-            #touch-controls {
-                display: block;
-            }
-        }
-
-        @media (max-height: 420px) {
-            .touch-button {
-                width: 48px;
-                height: 48px;
-                font-size: 1.2rem;
-            }
-        }
+        /* Touch play is gesture-based (drag to steer, second-finger tap to
+           fire) and rendered directly on the canvas — see Game.draw() and
+           setupTouchGestureControls(). No DOM control buttons are needed,
+           which also avoids them ever being obscured by mobile browser
+           chrome (e.g. Safari's bottom bar). */
     </style>
 </head>
 <body>
@@ -301,22 +232,6 @@
     </div>
     <div id="canvas-wrap">
         <canvas id="gameCanvas"></canvas>
-        <div id="touch-controls">
-            <div class="d-pad">
-                <div>
-                    <!-- Rotate Left -->
-                    <div class="touch-button" id="btn-left">&#x21BA;</div>
-                    <!-- Thrust -->
-                    <div class="touch-button" id="btn-thrust">&#x25B2;</div>
-                    <!-- Rotate Right -->
-                    <div class="touch-button" id="btn-right">&#x21BB;</div>
-                </div>
-                <div>
-                    <!-- Fire -->
-                    <div class="touch-button fire" id="btn-fire">&#x25C6;</div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -572,13 +487,14 @@
             this.isTurningLeft = false; this.isTurningRight = false;
             this.isShooting = false; this.bulletCooldown = 0; this.maxCooldown = 0.2;
             this.invulnerabilityTimer = 0; this.invulnerabilityDuration = 2;
+            this.thrustScale = 1; // 0-1, set by the touch drag distance; always 1 for keyboard
         }
         update(dt) {
             if (this.isTurningLeft) this.angle -= this.rotationSpeed * dt;
             if (this.isTurningRight) this.angle += this.rotationSpeed * dt;
             if (this.isAccelerating) {
-                const thrustX = Math.cos(this.angle) * this.thrustPower * dt;
-                const thrustY = Math.sin(this.angle) * this.thrustPower * dt;
+                const thrustX = Math.cos(this.angle) * this.thrustPower * this.thrustScale * dt;
+                const thrustY = Math.sin(this.angle) * this.thrustPower * this.thrustScale * dt;
                 this.vx += thrustX; this.vy += thrustY;
                 const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
                 if (speed > this.maxSpeed) {
@@ -624,6 +540,7 @@
         resetPosition() {
             this.x = VIEW_W / 2; this.y = VIEW_H / 2;
             this.vx = 0; this.vy = 0; this.angle = -PI / 2;
+            this.isAccelerating = false; this.thrustScale = 1;
             this.invulnerabilityTimer = this.invulnerabilityDuration;
         }
         canShoot() { return this.bulletCooldown <= 0; }
@@ -760,6 +677,7 @@
             this.wave = 1;
             this.waveBanner = { text: '', timer: 0 };
             this.isPaused = false;
+            this.touchIndicator = null;
         }
 
         init() {
@@ -773,6 +691,7 @@
             this.spawnTimer = 0;
             this.wave = 1;
             this.waveBanner = { text: '', timer: 0 };
+            this.touchIndicator = null;
             this.setupAsteroids(8);
             this.updateUI();
             messageBox.style.display = 'none';
@@ -925,6 +844,28 @@
                 ctx.fillText(this.waveBanner.text, VIEW_W / 2, VIEW_H * 0.3);
                 ctx.restore();
             }
+
+            // Drag-to-move indicator: rendered on the canvas itself (not a DOM
+            // element) so it's always correctly placed regardless of mobile
+            // browser chrome covering fixed/absolute page elements.
+            if (this.touchIndicator) {
+                const { anchorX, anchorY, x, y } = this.touchIndicator;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 255, 170, 0.55)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(anchorX, anchorY, 30, 0, PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(anchorX, anchorY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(0, 255, 170, 0.3)';
+                ctx.beginPath();
+                ctx.arc(x, y, 16, 0, PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         }
         
         // Function to handle the score submission sequence (Unchanged)
@@ -1044,48 +985,69 @@
         }
     }
 
-    // --- Touch Controls ---
-    function setupTouchControls() {
-        const controls = [
-            { id: 'btn-left', key: 'ArrowLeft' },
-            { id: 'btn-right', key: 'ArrowRight' },
-            { id: 'btn-thrust', key: 'ArrowUp' },
-            { id: 'btn-fire', key: ' ' }
-        ];
+    // --- Touch Gesture Controls ---
+    // One finger: press-and-drag anywhere on the canvas "pulls" the ship in
+    // that direction (a dynamic, anchor-at-first-touch virtual stick). A
+    // second finger tapping down fires a shot. This replaces on-screen
+    // buttons entirely, so there's nothing for mobile browser chrome (e.g.
+    // Safari's bottom bar) to cover up.
+    const TOUCH_DEADZONE = 10;   // px of drag before the ship starts moving
+    const TOUCH_MAX_PULL = 90;   // px of drag for full thrust
 
-        const simulateKey = (key, type) => {
-            const event = new KeyboardEvent(type, { key: key });
-            if (type === 'keydown') handleKeyDown(event);
-            else handleKeyUp(event);
-        };
+    let moveTouchId = null;
+    let touchAnchor = null; // { x, y } in canvas CSS-pixel coordinates
 
-        controls.forEach(control => {
-            const button = document.getElementById(control.id);
-            if (!button) return;
+    function canvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
 
-            const press = (e) => {
-                e.preventDefault();
-                button.classList.add('active');
-                // Pointer capture keeps up/leave events targeting this button
-                // even if the finger drifts slightly, avoiding "stuck" controls.
-                if (button.setPointerCapture && e.pointerId !== undefined) {
-                    try { button.setPointerCapture(e.pointerId); } catch (err) {}
-                }
-                simulateKey(control.key, 'keydown');
-            };
-            const release = (e) => {
-                e.preventDefault();
-                button.classList.remove('active');
-                simulateKey(control.key, 'keyup');
-            };
-
-            button.addEventListener('pointerdown', press);
-            button.addEventListener('pointerup', release);
-            button.addEventListener('pointercancel', release);
-            button.addEventListener('pointerleave', (e) => {
-                if (e.buttons === 0) release(e);
-            });
+    function setupTouchGestureControls() {
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!game || !game.isRunning || game.isPaused) return;
+            e.preventDefault();
+            if (moveTouchId === null) {
+                // First finger down: becomes the steering anchor.
+                moveTouchId = e.pointerId;
+                touchAnchor = canvasPos(e);
+                try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+            } else if (e.pointerId !== moveTouchId) {
+                // Any additional finger fires a shot.
+                game.player.shoot(game);
+            }
         });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (e.pointerId !== moveTouchId || !touchAnchor || !game || !game.player) return;
+            e.preventDefault();
+            const pos = canvasPos(e);
+            const dx = pos.x - touchAnchor.x;
+            const dy = pos.y - touchAnchor.y;
+            const dist = Math.hypot(dx, dy);
+            const player = game.player;
+
+            if (dist > TOUCH_DEADZONE) {
+                player.angle = Math.atan2(dy, dx);
+                player.isAccelerating = true;
+                player.thrustScale = Math.min(1, dist / TOUCH_MAX_PULL);
+            } else {
+                player.isAccelerating = false;
+            }
+            game.touchIndicator = { anchorX: touchAnchor.x, anchorY: touchAnchor.y, x: pos.x, y: pos.y };
+        });
+
+        const endMove = (e) => {
+            if (e.pointerId !== moveTouchId) return;
+            moveTouchId = null;
+            touchAnchor = null;
+            if (game && game.player) {
+                game.player.isAccelerating = false;
+                game.player.thrustScale = 1;
+            }
+            if (game) game.touchIndicator = null;
+        };
+        canvas.addEventListener('pointerup', endMove);
+        canvas.addEventListener('pointercancel', endMove);
     }
 
     // --- Game Initialization & Firebase Setup ---
@@ -1139,6 +1101,10 @@
     function startGame() {
         // Hide modal, set up controls, and start game loop
         messageBox.style.display = 'none';
+        // Defensive reset in case a previous session ended without a clean
+        // pointerup/cancel for the steering finger (shouldn't normally happen).
+        moveTouchId = null;
+        touchAnchor = null;
         game = new Game();
         game.init();
         game.lastTime = performance.now();
@@ -1175,7 +1141,7 @@
         // 2. Setup Input Handlers
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
-        setupTouchControls();
+        setupTouchGestureControls();
 
         // 3. Initialize Firebase (asynchronously)
         await initFirebase();
@@ -1186,7 +1152,7 @@
             <p>Destroy the cosmic monkeys and bananas!</p>
             <p style="font-size: 0.9rem; color: #ffaa00;">
                 PC: WASD/Arrows to move/rotate, SPACE to shoot.<br>
-                Mobile: Use on-screen controls.
+                Mobile: Drag anywhere to steer, tap with a 2nd finger to fire.
             </p>
         `;
         messageBox.style.display = 'block';
