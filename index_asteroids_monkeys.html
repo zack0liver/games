@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Arcade Asteroids: Monkey Mania</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap');
-        
+
+        html, body {
+            height: 100%;
+        }
+
         body {
             background-color: #0d1117;
             color: #ffffff;
@@ -15,15 +19,24 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            height: 100dvh;
             min-height: 100vh;
             margin: 0;
             overflow: hidden;
-            padding: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         #game-container {
-            width: 95vw;
-            max-width: 800px;
+            width: 100%;
+            max-width: min(900px, 96vw);
+            height: 100%;
+            max-height: min(900px, 94vh);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -31,7 +44,18 @@
             border-radius: 12px;
             box-shadow: 0 0 20px #23a0ff, inset 0 0 20px #23a0ff;
             background: #000000;
-            padding: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #gameCanvas {
@@ -40,16 +64,29 @@
             border: 1px solid #113355;
             box-shadow: 0 0 10px rgba(35, 160, 255, 0.5);
             border-radius: 6px;
+            touch-action: none;
         }
 
         #ui-panel {
             width: 100%;
+            flex-shrink: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 5px 10px;
             font-size: 1.2rem;
             color: #00ffaa; /* Neon green */
+        }
+
+        #highscore-display {
+            color: #ffaa00;
+        }
+
+        @media (max-width: 480px) {
+            #ui-panel {
+                font-size: 0.8rem;
+                padding: 3px 6px;
+            }
         }
         
         #message-box {
@@ -178,31 +215,36 @@
             font-weight: 700;
         }
         
-        /* Responsive Touch Controls (Unchanged) */
+        /* Touch controls: floating overlay directly on the canvas so the
+           play area doesn't lose vertical space to a separate control bar. */
         #touch-controls {
-            display: none; 
-            width: 100%;
-            max-width: 800px;
-            margin-top: 10px;
-            padding: 10px 0;
+            display: none;
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
         }
 
         .d-pad {
+            position: absolute;
+            inset: 0;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            width: 100%;
+            align-items: flex-end;
+            padding: 0 10px max(10px, env(safe-area-inset-bottom)) 10px;
+            box-sizing: border-box;
         }
 
         .d-pad > div {
             display: flex;
-            gap: 10px;
+            gap: 12px;
+            pointer-events: auto;
         }
 
         .touch-button {
-            width: 60px;
-            height: 60px;
-            background-color: rgba(35, 160, 255, 0.2);
+            width: 64px;
+            height: 64px;
+            background-color: rgba(35, 160, 255, 0.18);
             border: 2px solid #23a0ff;
             color: #23a0ff;
             font-size: 1.5rem;
@@ -211,37 +253,40 @@
             justify-content: center;
             border-radius: 50%;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
             cursor: pointer;
             transition: background-color 0.1s;
         }
 
         .touch-button.fire {
-            background-color: rgba(255, 85, 170, 0.2);
+            background-color: rgba(255, 85, 170, 0.18);
             border-color: #ff55aa;
             color: #ff55aa;
         }
-        
-        .touch-button:active {
-            background-color: rgba(35, 160, 255, 0.5);
+
+        .touch-button.active {
+            background-color: rgba(35, 160, 255, 0.55);
         }
 
-        .touch-button.fire:active {
-            background-color: rgba(255, 85, 170, 0.5);
+        .touch-button.fire.active {
+            background-color: rgba(255, 85, 170, 0.55);
         }
-        
-        @media (max-width: 768px) {
+
+        /* Show on-screen controls for touch/coarse-pointer devices regardless
+           of viewport width (covers touch laptops and tablets too). */
+        @media (pointer: coarse), (max-width: 768px) {
             #touch-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
+                display: block;
             }
-            #game-container {
-                width: 98vw;
-                max-width: 98vw;
-            }
+        }
+
+        @media (max-height: 420px) {
             .touch-button {
-                width: 50px;
-                height: 50px;
+                width: 48px;
+                height: 48px;
+                font-size: 1.2rem;
             }
         }
     </style>
@@ -251,24 +296,26 @@
 <div id="game-container">
     <div id="ui-panel">
         <div id="score-display">SCORE: 0</div>
+        <div id="highscore-display">BEST: 0</div>
         <div id="lives-display">LIVES: 3</div>
     </div>
-    <canvas id="gameCanvas"></canvas>
-</div>
-
-<div id="touch-controls">
-    <div class="d-pad">
-        <div>
-            <!-- Rotate Left -->
-            <div class="touch-button" id="btn-left">&#x21BA;</div> 
-            <!-- Thrust -->
-            <div class="touch-button" id="btn-thrust">&#x25B2;</div> 
-            <!-- Rotate Right -->
-            <div class="touch-button" id="btn-right">&#x21BB;</div>
-        </div>
-        <div>
-            <!-- Fire -->
-            <div class="touch-button fire" id="btn-fire">&#x25C6;</div> 
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="touch-controls">
+            <div class="d-pad">
+                <div>
+                    <!-- Rotate Left -->
+                    <div class="touch-button" id="btn-left">&#x21BA;</div>
+                    <!-- Thrust -->
+                    <div class="touch-button" id="btn-thrust">&#x25B2;</div>
+                    <!-- Rotate Right -->
+                    <div class="touch-button" id="btn-right">&#x21BB;</div>
+                </div>
+                <div>
+                    <!-- Fire -->
+                    <div class="touch-button fire" id="btn-fire">&#x25C6;</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -282,13 +329,15 @@
 
 
 <script type="module">
-    // --- Firebase Imports and Setup ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    setLogLevel('Debug');
+    // --- Firebase Setup ---
+    // Loaded lazily via dynamic import() (see initFirebase) rather than static
+    // top-level imports. A static import of an unreachable CDN (ad blockers,
+    // corporate firewalls, flaky mobile networks) is a fatal module error that
+    // would take the ENTIRE game down with it. Dynamic import keeps the core
+    // 2D arcade game playable offline/without Firebase; only the online
+    // leaderboard degrades gracefully.
+    let initializeApp, getAuth, signInAnonymously, signInWithCustomToken,
+        getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp;
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
@@ -302,17 +351,39 @@
     // --- Configuration and Utilities ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvas-wrap');
     const scoreDisplay = document.getElementById('score-display');
+    const highscoreDisplay = document.getElementById('highscore-display');
     const livesDisplay = document.getElementById('lives-display');
     const messageBox = document.getElementById('message-box');
     const modalContentContainer = document.getElementById('modal-content-container');
     const PI = Math.PI;
 
-    let game; 
+    // Logical (CSS-pixel) game resolution. Kept separate from canvas.width/height,
+    // which are scaled by devicePixelRatio for crisp rendering on mobile/retina screens.
+    let VIEW_W = 800;
+    let VIEW_H = 450;
+
+    let game;
+    let highScore = parseInt(localStorage.getItem('asteroidsHighScore') || '0', 10);
 
     // A small function for utility
     const rand = (min, max) => Math.random() * (max - min) + min;
     const formatUserId = (uid) => uid.substring(0, 4) + '...' + uid.substring(uid.length - 4);
+
+    // Fixed starfield (generated once) instead of re-randomizing every frame,
+    // so the background reads as actual stars rather than flickering noise.
+    let stars = [];
+    function generateStars(count = 90) {
+        stars = Array.from({ length: count }, () => ({
+            xf: Math.random(),
+            yf: Math.random(),
+            size: rand(0.5, 1.8),
+            baseAlpha: rand(0.25, 0.85),
+            twinkleSpeed: rand(0.4, 1.8),
+            phase: rand(0, PI * 2)
+        }));
+    }
 
     // --- Canvas Drawing Helpers (for Retro Vector Look) ---
 
@@ -480,10 +551,10 @@
             this.x += this.vx * dt; this.y += this.vy * dt; this.wrapAround();
         }
         wrapAround() {
-            if (this.x < -this.radius) this.x = canvas.width + this.radius;
-            if (this.x > canvas.width + this.radius) this.x = -this.radius;
-            if (this.y < -this.radius) this.y = canvas.height + this.radius;
-            if (this.y > canvas.height + this.radius) this.y = -this.radius;
+            if (this.x < -this.radius) this.x = VIEW_W + this.radius;
+            if (this.x > VIEW_W + this.radius) this.x = -this.radius;
+            if (this.y < -this.radius) this.y = VIEW_H + this.radius;
+            if (this.y > VIEW_H + this.radius) this.y = -this.radius;
         }
         isColliding(other) {
             const dx = this.x - other.x;
@@ -495,7 +566,7 @@
 
     class Player extends GameObject {
         constructor() {
-            super(canvas.width / 2, canvas.height / 2, 12, '#00ffaa');
+            super(VIEW_W / 2, VIEW_H / 2, 12, '#00ffaa');
             this.angle = -PI / 2; this.rotationSpeed = 3; this.thrustPower = 300;
             this.maxSpeed = 400; this.lives = 3; this.isAccelerating = false;
             this.isTurningLeft = false; this.isTurningRight = false;
@@ -551,7 +622,7 @@
             ctx.restore();
         }
         resetPosition() {
-            this.x = canvas.width / 2; this.y = canvas.height / 2;
+            this.x = VIEW_W / 2; this.y = VIEW_H / 2;
             this.vx = 0; this.vy = 0; this.angle = -PI / 2;
             this.invulnerabilityTimer = this.invulnerabilityDuration;
         }
@@ -682,10 +753,13 @@
             this.score = 0; 
             this.lastTime = 0; 
             this.isRunning = false;
-            this.spawnTimer = 0; 
-            this.spawnInterval = 1.0; 
+            this.spawnTimer = 0;
+            this.spawnInterval = 1.0;
             this.minAsteroidCount = 6;
             this.finalScore = 0;
+            this.wave = 1;
+            this.waveBanner = { text: '', timer: 0 };
+            this.isPaused = false;
         }
 
         init() {
@@ -695,7 +769,10 @@
             this.bullets = [];
             this.particles = [];
             this.isRunning = true;
+            this.isPaused = false;
             this.spawnTimer = 0;
+            this.wave = 1;
+            this.waveBanner = { text: '', timer: 0 };
             this.setupAsteroids(8);
             this.updateUI();
             messageBox.style.display = 'none';
@@ -705,9 +782,9 @@
             for (let i = 0; i < count; i++) {
                 let x, y;
                 do {
-                    x = rand(0, canvas.width);
-                    y = rand(0, canvas.height);
-                } while (Math.abs(x - canvas.width / 2) < 150 && Math.abs(y - canvas.height / 2) < 150);
+                    x = rand(0, VIEW_W);
+                    y = rand(0, VIEW_H);
+                } while (Math.abs(x - VIEW_W / 2) < 150 && Math.abs(y - VIEW_H / 2) < 150);
                 this.asteroids.push(new Asteroid(x, y, 3));
             }
         }
@@ -732,13 +809,17 @@
             this.particles = this.particles.filter(p => p.isAlive);
             
             if (this.asteroids.filter(a => a.size === 3).length === 0 && this.isRunning) {
-                this.setupAsteroids(this.asteroids.length > 10 ? 4 : 8); 
+                this.wave++;
+                this.waveBanner = { text: 'WAVE ' + this.wave, timer: 2 };
+                this.setupAsteroids(this.asteroids.length > 10 ? 4 : 8);
             }
-            
+
+            if (this.waveBanner.timer > 0) this.waveBanner.timer -= dt;
+
             if (this.player.lives <= 0) {
                 this.gameOver();
             }
-            
+
             this.updateUI();
         }
 
@@ -801,10 +882,10 @@
         spawnRandomSmallAsteroid() {
             const edge = Math.floor(rand(0, 4));
             let x, y, angle;
-            if (edge === 0) { x = rand(0, canvas.width); y = -100; angle = rand(PI * 0.25, PI * 0.75);
-            } else if (edge === 1) { x = canvas.width + 100; y = rand(0, canvas.height); angle = rand(PI * 0.75, PI * 1.25);
-            } else if (edge === 2) { x = rand(0, canvas.width); y = canvas.height + 100; angle = rand(PI * 1.25, PI * 1.75);
-            } else { x = -100; y = rand(0, canvas.height); angle = rand(-PI * 0.25, PI * 0.25); }
+            if (edge === 0) { x = rand(0, VIEW_W); y = -100; angle = rand(PI * 0.25, PI * 0.75);
+            } else if (edge === 1) { x = VIEW_W + 100; y = rand(0, VIEW_H); angle = rand(PI * 0.75, PI * 1.25);
+            } else if (edge === 2) { x = rand(0, VIEW_W); y = VIEW_H + 100; angle = rand(PI * 1.25, PI * 1.75);
+            } else { x = -100; y = rand(0, VIEW_H); angle = rand(-PI * 0.25, PI * 0.25); }
             
             const newAsteroid = new Asteroid(x, y, 1);
             newAsteroid.vx = Math.cos(angle) * newAsteroid.speed;
@@ -820,18 +901,30 @@
         
         draw() {
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw retro starfield (faint white dots)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            for (let i = 0; i < 50; i++) {
-                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
-            }
+            ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+            // Twinkling starfield (fixed positions, animated alpha)
+            const t = performance.now() / 1000;
+            stars.forEach(s => {
+                const alpha = s.baseAlpha * (0.6 + 0.4 * Math.sin(t * s.twinkleSpeed + s.phase));
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+                ctx.fillRect(s.xf * VIEW_W, s.yf * VIEW_H, s.size, s.size);
+            });
 
             this.particles.forEach(p => p.draw());
             this.asteroids.forEach(a => a.draw());
             this.bullets.forEach(b => b.draw());
             this.player.draw();
+
+            if (this.waveBanner.timer > 0) {
+                const alpha = Math.min(1, this.waveBanner.timer);
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 28px "Space Mono", monospace';
+                ctx.fillStyle = `rgba(255, 170, 0, ${alpha.toFixed(2)})`;
+                ctx.fillText(this.waveBanner.text, VIEW_W / 2, VIEW_H * 0.3);
+                ctx.restore();
+            }
         }
         
         // Function to handle the score submission sequence (Unchanged)
@@ -886,13 +979,25 @@
 
         gameOver() {
             this.isRunning = false;
+            if (this.score > highScore) {
+                highScore = this.score;
+                localStorage.setItem('asteroidsHighScore', String(highScore));
+            }
             this.showSubmissionForm(this.score);
         }
 
         gameLoop(currentTime) {
             if (!this.isRunning) return;
 
-            const dt = (currentTime - this.lastTime) / 1000;
+            if (this.isPaused) {
+                this.lastTime = currentTime;
+                requestAnimationFrame(this.gameLoop.bind(this));
+                return;
+            }
+
+            // Clamp dt so a backgrounded tab / phone lock screen doesn't cause
+            // a huge simulation jump (teleporting objects, instant collisions).
+            const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
             this.lastTime = currentTime;
 
             this.update(dt);
@@ -900,9 +1005,10 @@
 
             requestAnimationFrame(this.gameLoop.bind(this));
         }
-        
+
         updateUI() {
             scoreDisplay.textContent = 'SCORE: ' + this.score;
+            highscoreDisplay.textContent = 'BEST: ' + Math.max(highScore, this.score);
             livesDisplay.textContent = 'LIVES: ' + Math.max(0, this.player.lives);
         }
     }
@@ -938,50 +1044,49 @@
         }
     }
 
-    // --- Touch Controls (Adaptive Design - COMPLETION) ---
+    // --- Touch Controls ---
     function setupTouchControls() {
         const controls = [
-            { id: 'btn-left', key: 'ArrowLeft', isToggle: true },
-            { id: 'btn-right', key: 'ArrowRight', isToggle: true },
-            { id: 'btn-thrust', key: 'ArrowUp', isToggle: true },
-            { id: 'btn-fire', key: ' ', isToggle: false }
+            { id: 'btn-left', key: 'ArrowLeft' },
+            { id: 'btn-right', key: 'ArrowRight' },
+            { id: 'btn-thrust', key: 'ArrowUp' },
+            { id: 'btn-fire', key: ' ' }
         ];
+
+        const simulateKey = (key, type) => {
+            const event = new KeyboardEvent(type, { key: key });
+            if (type === 'keydown') handleKeyDown(event);
+            else handleKeyUp(event);
+        };
 
         controls.forEach(control => {
             const button = document.getElementById(control.id);
             if (!button) return;
 
-            const simulateKey = (key, type) => {
-                const event = new KeyboardEvent(type, { key: key });
-                if (type === 'keydown') {
-                    handleKeyDown(event);
-                } else {
-                    handleKeyUp(event); // The missing piece from the previous file
+            const press = (e) => {
+                e.preventDefault();
+                button.classList.add('active');
+                // Pointer capture keeps up/leave events targeting this button
+                // even if the finger drifts slightly, avoiding "stuck" controls.
+                if (button.setPointerCapture && e.pointerId !== undefined) {
+                    try { button.setPointerCapture(e.pointerId); } catch (err) {}
                 }
+                simulateKey(control.key, 'keydown');
+            };
+            const release = (e) => {
+                e.preventDefault();
+                button.classList.remove('active');
+                simulateKey(control.key, 'keyup');
             };
 
-            const handleInteraction = (type) => (event) => {
-                event.preventDefault();
-                const eventType = (type === 'start' || event.type === 'pointerdown' || event.type === 'touchstart') ? 'keydown' : 'keyup';
-                simulateKey(control.key, eventType);
-            };
-
-            // Use pointer events for cross-device compatibility
-            button.addEventListener('pointerdown', handleInteraction('start'));
-            button.addEventListener('pointerup', handleInteraction('end'));
-            
-            // Handle pointer moving off the button while pressed
+            button.addEventListener('pointerdown', press);
+            button.addEventListener('pointerup', release);
+            button.addEventListener('pointercancel', release);
             button.addEventListener('pointerleave', (e) => {
-                if (e.buttons === 0) { // Check if no buttons are pressed
-                    handleInteraction('end')(e);
-                }
+                if (e.buttons === 0) release(e);
             });
-            
-            // Ensure keyup is called on touch end/cancel
-            button.addEventListener('touchend', handleInteraction('end'));
-            button.addEventListener('touchcancel', handleInteraction('end'));
         });
-    } 
+    }
 
     // --- Game Initialization & Firebase Setup ---
 
@@ -989,6 +1094,15 @@
         try {
             // Check if config seems valid before attempting init
             if (Object.keys(firebaseConfig).length > 0 && typeof firebaseConfig.apiKey === 'string') {
+                const [appMod, authMod, firestoreMod] = await Promise.all([
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+                ]);
+                ({ initializeApp } = appMod);
+                ({ getAuth, signInAnonymously, signInWithCustomToken } = authMod);
+                ({ getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp } = firestoreMod);
+
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -1007,11 +1121,19 @@
     }
 
     function resizeCanvas() {
-        const container = document.getElementById('game-container');
-        // Subtract container padding (20px) to determine max size, then cap at 780
-        const size = Math.min(container.clientWidth - 20, 780); 
-        canvas.width = size;
-        canvas.height = size * (9/16); // 16:9 aspect ratio
+        // Fill whatever space the flex layout gives canvas-wrap (fills the
+        // screen on mobile in either orientation; capped on desktop by
+        // #game-container's max-width/max-height).
+        const rect = canvasWrap.getBoundingClientRect();
+        VIEW_W = Math.max(280, Math.floor(rect.width));
+        VIEW_H = Math.max(200, Math.floor(rect.height));
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(VIEW_W * dpr);
+        canvas.height = Math.floor(VIEW_H * dpr);
+        canvas.style.width = VIEW_W + 'px';
+        canvas.style.height = VIEW_H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     function startGame() {
@@ -1026,19 +1148,38 @@
 
     document.getElementById('restart-button').addEventListener('click', startGame);
 
+    // Auto-pause when the tab/app is backgrounded so mobile users don't come
+    // back to an instant death from a huge accumulated dt or pile of asteroids.
+    document.addEventListener('visibilitychange', () => {
+        if (!game) return;
+        if (document.hidden) {
+            game.isPaused = true;
+        } else {
+            game.isPaused = false;
+            game.lastTime = performance.now();
+        }
+    });
+
     window.onload = async function() {
-        // 1. Initial size setup and event listener
+        // 1. Initial size setup and event listeners (debounced resize + orientation change)
+        highscoreDisplay.textContent = 'BEST: ' + highScore;
+        generateStars();
         resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        let resizeRAF;
+        window.addEventListener('resize', () => {
+            cancelAnimationFrame(resizeRAF);
+            resizeRAF = requestAnimationFrame(resizeCanvas);
+        });
+        window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
 
         // 2. Setup Input Handlers
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
         setupTouchControls();
-        
+
         // 3. Initialize Firebase (asynchronously)
-        await initFirebase(); 
-        
+        await initFirebase();
+
         // 4. Set up the initial instruction screen
         modalContentContainer.innerHTML = `
             <h1>ARCADE ASTEROIDS</h1>
