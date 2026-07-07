@@ -201,6 +201,12 @@
             outline-offset: 3px;
         }
 
+        /* Fully interactive like any other cartridge, just visually marked
+           as "not fully installed yet" via a dashed border. */
+        .cartridge.coming-soon {
+            border-style: dashed;
+        }
+
         .cart-connector {
             position: absolute;
             top: 4px;
@@ -256,6 +262,26 @@
             text-shadow: 0 0 10px #0f0;
             text-align: center;
             padding: 0 20px;
+            max-width: 420px;
+        }
+
+        /* The joke punchline reads better in a plain monospace font than the
+           pixel font, which is better suited to the short "LOADING..." line. */
+        .joke-line {
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: normal;
+            font-size: 0.8em;
+            line-height: 1.5;
+            display: inline-block;
+        }
+
+        .soon-tag {
+            display: inline-block;
+            margin-top: 10px;
+            color: #ffaa00;
+            text-shadow: 0 0 8px #ffaa00;
+            font-size: 0.65em;
+            letter-spacing: 0.1em;
         }
 
         @keyframes crtFlicker {
@@ -312,6 +338,33 @@
                 file: 'index_galaga_v1.html',
                 color: '#0F0',
                 accent: '#FF0'
+            },
+            {
+                id: 'asteroids-maze',
+                title: 'ASTEROIDS: MAZE EDITION',
+                subtitle: 'COMING SOON',
+                comingSoon: true,
+                color: '#b26bff',
+                accent: '#7dd3fc',
+                joke: 'The asteroids wandered into the maze and got hopelessly lost.'
+            },
+            {
+                id: 'candy-checkers',
+                title: 'CANDY CHECKERS',
+                subtitle: 'COMING SOON',
+                comingSoon: true,
+                color: '#ff4d6d',
+                accent: '#ffd166',
+                joke: 'You just ate your own king piece. Rookie mistake.'
+            },
+            {
+                id: 'tank-wars',
+                title: 'TANK WARS',
+                subtitle: 'COMING SOON',
+                comingSoon: true,
+                color: '#8a9a5b',
+                accent: '#ffa500',
+                joke: 'Tank got stuck backing out of the garage.'
             }
         ];
 
@@ -325,6 +378,7 @@
             GAMES.forEach(game => {
                 const cart = document.createElement('div');
                 cart.className = 'cartridge';
+                cart.classList.toggle('coming-soon', !!game.comingSoon);
                 cart.dataset.gameId = game.id;
                 cart.tabIndex = 0;
                 cart.setAttribute('role', 'button');
@@ -474,9 +528,29 @@
             setTimeout(() => {
                 overlayText.textContent = `LOADING ${game.title}…`;
                 overlay.classList.add('active');
-                setTimeout(() => {
-                    window.location.href = game.file;
-                }, 650);
+
+                if (game.comingSoon) {
+                    // Punch line instead of a real load: swap the text after
+                    // a beat, hold it, then reset the tray so the cartridge
+                    // can be tried again.
+                    setTimeout(() => {
+                        overlayText.innerHTML =
+                            `<span class="joke-line">${game.joke}</span><br>` +
+                            `<span class="soon-tag">COMING SOON</span>`;
+                    }, 700);
+                    setTimeout(() => {
+                        overlay.classList.remove('active');
+                        // el was reparented to <body> for the slide-in
+                        // animation, so it's outside #tray and wouldn't be
+                        // cleared by renderCartridges()'s tray.innerHTML reset.
+                        el.remove();
+                        renderCartridges();
+                    }, 3000);
+                } else {
+                    setTimeout(() => {
+                        window.location.href = game.file;
+                    }, 650);
+                }
             }, 240);
         }
 
