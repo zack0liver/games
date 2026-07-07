@@ -82,6 +82,27 @@
             color: #ffaa00;
         }
 
+        #back-to-arcade {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #23a0ff;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid #23a0ff;
+            border-radius: 6px;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #back-to-arcade:active {
+            background: rgba(35, 160, 255, 0.3);
+        }
+
         @media (max-width: 480px) {
             #ui-panel {
                 font-size: 0.8rem;
@@ -223,6 +244,8 @@
     </style>
 </head>
 <body>
+
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
 
 <div id="game-container">
     <div id="ui-panel">
@@ -1142,6 +1165,14 @@
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
         setupTouchGestureControls();
+
+        // Escape always returns to the arcade landing page, regardless of
+        // whether a game is actively running, paused, or on a modal screen.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                window.location.href = 'index.html';
+            }
+        });
 
         // 3. Initialize Firebase (asynchronously)
         await initFirebase();
