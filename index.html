@@ -240,8 +240,10 @@
             inset: 0;
             background: #000;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 18px;
             opacity: 0;
             pointer-events: none;
             z-index: 1000;
@@ -284,6 +286,31 @@
             letter-spacing: 0.1em;
         }
 
+        /* Loading bar: only shown while a real game is loading (6s), not
+           during the coming-soon joke flow. */
+        #loading-bar-track {
+            width: min(260px, 70vw);
+            height: 16px;
+            border: 2px solid #0f0;
+            border-radius: 3px;
+            background: #001a00;
+            overflow: hidden;
+        }
+
+        #loading-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #0f0;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        #loading-bar-pct {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.7rem;
+            color: #0f0;
+            text-shadow: 0 0 6px #0f0;
+        }
+
         @keyframes crtFlicker {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -318,6 +345,8 @@
 
     <div id="poweron-overlay">
         <div id="poweron-text"></div>
+        <div id="loading-bar-track"><div id="loading-bar-fill"></div></div>
+        <div id="loading-bar-pct"></div>
     </div>
 
     <script>
@@ -372,6 +401,46 @@
         const slot = document.getElementById('slot');
         const overlay = document.getElementById('poweron-overlay');
         const overlayText = document.getElementById('poweron-text');
+        const loadingBarTrack = document.getElementById('loading-bar-track');
+        const loadingBarFill = document.getElementById('loading-bar-fill');
+        const loadingBarPct = document.getElementById('loading-bar-pct');
+
+        // Animates the loading bar from 0-100% over `durationMs`, themed to
+        // the game's own color, then calls onComplete. Only used for real
+        // games (see launchGame) — the coming-soon joke flow stays quick.
+        function startLoadingBar(color, durationMs, onComplete) {
+            loadingBarTrack.style.display = '';
+            loadingBarPct.style.display = '';
+            loadingBarTrack.style.borderColor = color;
+            loadingBarFill.style.background = color;
+            loadingBarFill.style.color = color; // for box-shadow: 0 0 10px currentColor
+            loadingBarFill.style.width = '0%';
+            loadingBarPct.textContent = '0%';
+
+            const start = performance.now();
+            let rafId;
+            function tick(now) {
+                const frac = Math.min(1, (now - start) / durationMs);
+                loadingBarFill.style.width = (frac * 100) + '%';
+                loadingBarPct.textContent = Math.floor(frac * 100) + '%';
+                if (frac < 1) {
+                    rafId = requestAnimationFrame(tick);
+                }
+            }
+            rafId = requestAnimationFrame(tick);
+
+            // Completion is driven by a real timer, not the rAF loop above:
+            // rAF can be throttled when a tab is backgrounded/inactive, which
+            // would otherwise delay the load past durationMs. The timer
+            // guarantees it always finishes on schedule; the bar is snapped
+            // to 100% here in case rAF fell behind while backgrounded.
+            setTimeout(() => {
+                cancelAnimationFrame(rafId);
+                loadingBarFill.style.width = '100%';
+                loadingBarPct.textContent = '100%';
+                onComplete();
+            }, durationMs);
+        }
 
         function renderCartridges() {
             tray.innerHTML = '';
@@ -530,9 +599,11 @@
                 overlay.classList.add('active');
 
                 if (game.comingSoon) {
-                    // Punch line instead of a real load: swap the text after
-                    // a beat, hold it, then reset the tray so the cartridge
-                    // can be tried again.
+                    // Punch line instead of a real load: no loading bar here,
+                    // just swap the text after a beat, hold it, then reset
+                    // the tray so the cartridge can be tried again.
+                    loadingBarTrack.style.display = 'none';
+                    loadingBarPct.style.display = 'none';
                     setTimeout(() => {
                         overlayText.innerHTML =
                             `<span class="joke-line">${game.joke}</span><br>` +
@@ -547,9 +618,10 @@
                         renderCartridges();
                     }, 3000);
                 } else {
-                    setTimeout(() => {
+                    // Real game: a proper 6-second loading bar before it opens.
+                    startLoadingBar(game.color, 6000, () => {
                         window.location.href = game.file;
-                    }, 650);
+                    });
                 }
             }, 240);
         }
