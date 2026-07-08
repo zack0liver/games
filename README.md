@@ -38,3 +38,12 @@ Drag a cartridge into the console (or tap one) to play.
      recolor, so the player immediately recognizes "this one hits harder."
      Fewer enemies total but a real difficulty spike; good as an occasional
      "every Nth stage" gauntlet rather than part of the regular cycle.
+
+- **Galaga — extra life score bonuses**: award a bonus life the first time
+  score crosses each doubling threshold — 10,000, 20,000, 40,000, 80,000,
+  160,000, and so on indefinitely. Needs a "next threshold" tracker (e.g. an
+  index or the last-awarded value) so each doubling only fires once, even if
+  a big single-kill score jump skips past a threshold. Should show a classic
+  "EXTRA SHIP!" style banner/message and update the reserve-ships display
+  when it triggers. Worth deciding whether reserve lives are capped (classic
+  arcades often cap around 5-6 to keep the display from overflowing).
