@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Simple Galaga Vector Game</title>
     <style>
-        /* Retro Vector Aesthetic */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        /* Retro Pixel-Arcade Aesthetic */
         html, body {
             height: 100%;
         }
@@ -43,6 +45,7 @@
             height: 100%;
             border-radius: 8px;
             touch-action: none;
+            image-rendering: pixelated;
         }
 
         #back-to-arcade {
@@ -126,11 +129,15 @@
         // them (portrait or landscape) instead of a fixed 600x800 box.
         let GAME_WIDTH = 600;
         let GAME_HEIGHT = 800;
+        // Pixel scale for sprite art: each sprite pixel is PIX screen pixels,
+        // so the art stays chunky/arcade-crisp at any screen size.
+        let PIX = 3;
 
         function resizeCanvas() {
             const rect = gameContainer.getBoundingClientRect();
             GAME_WIDTH = Math.max(240, Math.floor(rect.width));
             GAME_HEIGHT = Math.max(320, Math.floor(rect.height));
+            PIX = Math.max(2, Math.round(GAME_WIDTH / 240));
 
             const dpr = window.devicePixelRatio || 1;
             canvas.width = Math.floor(GAME_WIDTH * dpr);
@@ -138,6 +145,10 @@
             canvas.style.width = GAME_WIDTH + 'px';
             canvas.style.height = GAME_HEIGHT + 'px';
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // Nearest-neighbor scaling keeps the sprite pixels sharp. This is
+            // context state, so it must be re-set after every canvas resize.
+            ctx.imageSmoothingEnabled = false;
+            initStars();
 
             // Keep an in-progress player within the new bounds immediately
             // rather than waiting for the next input to clamp it.
@@ -195,6 +206,153 @@
                    objA.y + objA.height > objB.y;
         }
 
+        // --- Pixel Sprite Art ---
+        // Each sprite is rows of characters; '.' is transparent, letters map
+        // to palette colors. Two frames per enemy = classic wing-flap at ~4Hz.
+        const SPRITE_DEFS = {
+            bee: [[
+                '..w.....w..',
+                '...w...w...',
+                '..bbbbbbb..',
+                '.wbbebebbw.',
+                'wwbbbbbbbww',
+                '.w.bbbbb.w.',
+                '....b.b....',
+                '...b...b...'
+            ], [
+                '..w.....w..',
+                '...w...w...',
+                '..bbbbbbb..',
+                '..wbebebw..',
+                '.wwbbbbbww.',
+                '..w.bbb.w..',
+                '....b.b....',
+                '....b.b....'
+            ]],
+            butterfly: [[
+                '..w.......w..',
+                '.ww..bbb..ww.',
+                '.www.bbb.www.',
+                'wwwwbbebbwwww',
+                '.wwwbbbbbwww.',
+                '..wwbb.bbww..',
+                '...w.b.b.w...',
+                '....w...w....'
+            ], [
+                '..w.......w..',
+                '..w..bbb..w..',
+                '..ww.bbb.ww..',
+                '.wwwbbebbwww.',
+                '..wwbbbbbww..',
+                '...wbb.bbw...',
+                '....w.b.w....',
+                '....w...w....'
+            ]],
+            boss: [[
+                '....w.....w....',
+                '....ww...ww....',
+                '..wwbbbbbbbww..',
+                '.wwbbebbbebbww.',
+                'wwbbbbbbbbbbbww',
+                'wwbbb.bbb.bbbww',
+                '.wbb..bbb..bbw.',
+                '..w...b.b...w..',
+                '......b.b......',
+                '.....b...b.....'
+            ], [
+                '....w.....w....',
+                '....ww...ww....',
+                '...wbbbbbbbw...',
+                '..wbbebbbebbw..',
+                '.wwbbbbbbbbbww.',
+                '.wbbb.bbb.bbbw.',
+                '..wb..bbb..bw..',
+                '...w..b.b..w...',
+                '......b.b......',
+                '.....b...b.....'
+            ]],
+            player: [[
+                '......h......',
+                '.....hhh.....',
+                '.....hch.....',
+                '..h..hch..h..',
+                '..h.hhhhh.h..',
+                '..hhhhchhhh..',
+                '.hhhhhchhhhh.',
+                'hhh.hhhhh.hhh',
+                'hh..hhhhh..hh',
+                'h....h.h....h'
+            ]]
+        };
+
+        // Classic-inspired palette (yellow/red bees, red/white butterflies,
+        // green/blue bosses that turn purple when damaged).
+        const PALETTES = {
+            bee: { w: '#ff3333', b: '#ffdd33', e: '#4488ff' },
+            butterfly: { w: '#ff4444', b: '#eeeeff', e: '#ffdd22' },
+            boss: { w: '#33cc66', b: '#4455ff', e: '#ffdd22' },
+            bossHit: { w: '#cc44ff', b: '#8833cc', e: '#ffdd22' },
+            player: { h: '#e8f0ff', c: '#ff3344' }
+        };
+        const ENEMY_ACCENT = { bee: '#ffdd33', butterfly: '#ff4444', boss: '#33cc66' };
+
+        function makeSprite(rows, colors) {
+            const c = document.createElement('canvas');
+            c.width = rows[0].length;
+            c.height = rows.length;
+            const g = c.getContext('2d');
+            for (let y = 0; y < rows.length; y++) {
+                for (let x = 0; x < rows[y].length; x++) {
+                    const ch = rows[y][x];
+                    if (ch === '.') continue;
+                    g.fillStyle = colors[ch] || '#fff';
+                    g.fillRect(x, y, 1, 1);
+                }
+            }
+            return c;
+        }
+
+        let spriteCache = {};
+        function buildSpriteCache(palettes) {
+            spriteCache = {
+                bee: SPRITE_DEFS.bee.map(f => makeSprite(f, palettes.bee)),
+                butterfly: SPRITE_DEFS.butterfly.map(f => makeSprite(f, palettes.butterfly)),
+                boss: SPRITE_DEFS.boss.map(f => makeSprite(f, palettes.boss)),
+                bossHit: SPRITE_DEFS.boss.map(f => makeSprite(f, palettes.bossHit)),
+                player: SPRITE_DEFS.player.map(f => makeSprite(f, palettes.player))
+            };
+        }
+
+        // --- Scrolling Starfield ---
+        const STAR_COLORS = ['#ffffff', '#66ccff', '#ff6688', '#ffee66', '#66ff99', '#cc88ff'];
+        let stars = [];
+        function initStars() {
+            stars = Array.from({ length: 70 }, () => ({
+                x: Math.random() * GAME_WIDTH,
+                y: Math.random() * GAME_HEIGHT,
+                speed: 20 + Math.random() * 60,
+                size: Math.random() < 0.3 ? 2 : 1,
+                color: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+                tw: Math.random() * Math.PI * 2
+            }));
+        }
+
+        // --- Explosion Particles ---
+        let particles = [];
+        function spawnExplosion(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const sp = 40 + Math.random() * 160;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                    life: 0.35 + Math.random() * 0.3, age: 0,
+                    color: Math.random() < 0.3 ? '#ffffff' : color,
+                    size: PIX * (Math.random() < 0.5 ? 1 : 2)
+                });
+            }
+        }
+
         // --- Player Class ---
         class Player {
             constructor() {
@@ -206,30 +364,27 @@
                 this.speed = 7;
                 this.dx = 0; // horizontal movement
                 this.dy = 0; // vertical movement
-                this.fireCooldown = 200;
+                this.fireCooldown = 260;
                 this.lastFireTime = 0;
 
                 // Define vertical movement bounds (100px range)
                 this.MIN_Y = GAME_HEIGHT - 100;
                 this.MAX_Y = GAME_HEIGHT - 50;
+
+                // Brief spawn protection so a diver can't instantly re-kill
+                // the fresh ship. Rendered as a classic blink.
+                this.invuln = 0;
             }
 
             draw() {
-                ctx.strokeStyle = COLOR;
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'; // Faint fill to make it visible
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                
-                // Ship shape: triangle
-                ctx.moveTo(this.x + this.width / 2, this.y);
-                ctx.lineTo(this.x, this.y + this.height);
-                ctx.lineTo(this.x + this.width, this.y + this.height);
-                ctx.closePath();
-                ctx.stroke();
-                ctx.fill();
+                if (this.invuln > 0 && Math.floor(performance.now() / 100) % 2) return;
+                const spr = spriteCache.player[0];
+                const w = spr.width * PIX, h = spr.height * PIX;
+                ctx.drawImage(spr, this.x + this.width / 2 - w / 2, this.y + this.height / 2 - h / 2, w, h);
             }
 
             update(dt) {
+                if (this.invuln > 0) this.invuln -= dt;
                 const f = dt * 60; // normalizes original 60fps-tuned speeds to real time
                 // Apply horizontal movement
                 this.x += this.dx * f;
@@ -258,8 +413,11 @@
             }
 
             draw() {
-                ctx.fillStyle = COLOR;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
+                // White missile with a red tip, drawn on the pixel grid
+                ctx.fillStyle = '#ff4444';
+                ctx.fillRect(this.x, this.y, PIX, PIX);
+                ctx.fillStyle = '#f8f8ff';
+                ctx.fillRect(this.x, this.y + PIX, PIX, PIX * 3);
             }
 
             update(dt) {
@@ -283,12 +441,11 @@
             }
 
             draw() {
-                ctx.strokeStyle = '#F00'; // Red bullet
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x + this.width, this.y + this.height);
-                ctx.stroke();
+                // Two stacked pixels, magenta-red like the arcade zigzag bolt
+                ctx.fillStyle = '#ff5599';
+                ctx.fillRect(this.x, this.y, PIX, PIX * 2);
+                ctx.fillStyle = '#ff2222';
+                ctx.fillRect(this.x, this.y + PIX * 2, PIX, PIX);
             }
 
             update(dt) {
@@ -301,113 +458,175 @@
 
         // --- Enemy Class ---
         class Enemy {
-            constructor(x, y, initialCol, initialRow, levelSpeed) {
-                this.x = x;
-                this.y = y;
-                this.initialX = x;
-                this.initialY = y;
-                this.col = initialCol;
-                this.row = initialRow;
+            constructor(colOffset, row, type, level) {
+                // colOffset is the signed distance (in columns) from the
+                // formation's center line, so rows with different counts stay
+                // centered and "breathe" around the same axis.
+                this.colOffset = colOffset;
+                this.row = row;
                 this.size = 25;
                 this.alive = true;
-                this.moveDirection = 1;
-                this.formationSpeed = 0.5 + levelSpeed * 0.15;
-                this.scoreValue = 100;
-                
+
+                // Classic type ladder: bosses take 2 hits and are worth the
+                // most, butterflies mid-tier, bees the swarm fodder.
+                this.type = type || 'bee';
+                this.hp = this.type === 'boss' ? 2 : 1;
+                this.damaged = false;
+                this.scoreValue = { bee: 50, butterfly: 80, boss: 150 }[this.type];
+
                 // CRITICAL FIX: Add width and height for generic collision checking
                 this.width = this.size;
-                this.height = this.size; 
+                this.height = this.size;
 
-                // Dive variables
+                // Flight state machine: waiting (offscreen, pre-entry) ->
+                // entering (swoop-in along a bezier) -> formation <-> diving
+                // (attack run) -> returning (glide back to slot).
+                this.state = 'waiting';
+                this.delay = 0;
+                this.entryKind = 0;
+                this.x = -100;
+                this.y = -100;
+                this.angle = 0;
+                this.path = null;
+                this.pathT = 0;
+                this.pathDur = 1;
+                this.diveDelay = 0;
+                this.shootMarks = [];
                 this.isDiving = false;
-                this.diveSpeed = 4;
-                this.diveTargetX = 0;
-                this.diveTargetY = GAME_HEIGHT + 50;
-                this.diveCooldown = 5000 + Math.random() * 5000; // 5 to 10 seconds
-                this.lastDiveTime = Date.now() + this.col * 500; // Stagger initial dives
-                
-                this.canFire = true;
-                this.fireRate = 1500; // Fire every 1.5 seconds when diving
-                this.lastFireTime = Date.now() + Math.random() * 1000;
+            }
+
+            beginEntry() {
+                this.path = entryPath(this.entryKind, slotPos(this));
+                this.pathT = 0;
+                this.pathDur = 1.4 + Math.random() * 0.3;
+                this.state = 'entering';
+            }
+
+            startDive(delay) {
+                this.state = 'diving';
+                this.isDiving = true;
+                this.diveDelay = delay || 0;
+                this.path = null; // built when the stagger delay elapses, from live positions
+            }
+
+            beginDivePath() {
+                // Pull up and to the side first, then swoop through where the
+                // player is, exiting below — with jitter so no two dives match.
+                const px = playerInstance.x + playerInstance.width / 2;
+                const side = Math.random() < 0.5 ? -1 : 1;
+                this.path = {
+                    p0: { x: this.x, y: this.y },
+                    p1: { x: this.x + side * (40 + Math.random() * 60), y: this.y - (40 + Math.random() * 50) },
+                    p2: { x: px + (Math.random() - 0.5) * 160, y: GAME_HEIGHT * (0.5 + Math.random() * 0.2) },
+                    p3: { x: px + (Math.random() - 0.5) * 240, y: GAME_HEIGHT + 60 }
+                };
+                this.pathT = 0;
+                this.pathDur = (1.7 + Math.random() * 0.5) / (1 + (gameLevel - 1) * 0.06);
+                this.shootMarks = [];
+                if (Math.random() < 0.85) this.shootMarks.push(0.3 + Math.random() * 0.2);
+                if (Math.random() < 0.5) this.shootMarks.push(0.6 + Math.random() * 0.25);
             }
 
             draw() {
-                if (!this.alive) return;
-                ctx.strokeStyle = this.isDiving ? '#FF0' : COLOR; // Yellow border when diving
-                ctx.lineWidth = 2;
-                
-                // Enemy shape: simple square with internal X and a central dot
-                ctx.strokeRect(this.x, this.y, this.size, this.size);
-                
-                // Internal cross
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x + this.size, this.y + this.size);
-                ctx.moveTo(this.x + this.size, this.y);
-                ctx.lineTo(this.x, this.y + this.size);
-                ctx.stroke();
-
-                // Central Core
-                ctx.fillStyle = this.isDiving ? '#FF0' : COLOR;
-                ctx.beginPath();
-                ctx.arc(this.x + this.size / 2, this.y + this.size / 2, 3, 0, Math.PI * 2);
-                ctx.fill();
+                if (!this.alive || this.state === 'waiting') return;
+                const key = (this.type === 'boss' && this.damaged) ? 'bossHit' : this.type;
+                const frames = spriteCache[key];
+                // Wing-flap animation; divers flap twice as fast for urgency
+                const rate = this.isDiving ? 120 : 250;
+                const spr = frames[Math.floor(performance.now() / rate) % frames.length];
+                const w = spr.width * PIX, h = spr.height * PIX;
+                // Bank/rotate the sprite along its flight path
+                ctx.save();
+                ctx.translate(this.x + this.size / 2, this.y + this.size / 2);
+                ctx.rotate(this.angle);
+                ctx.drawImage(spr, -w / 2, -h / 2, w, h);
+                ctx.restore();
             }
 
-            update(dt, maxX, minX) {
+            update(dt) {
                 if (!this.alive) return;
-                const f = dt * 60;
+                switch (this.state) {
+                    case 'waiting':
+                        this.delay -= dt;
+                        if (this.delay <= 0) this.beginEntry();
+                        break;
 
-                if (!this.isDiving) {
-                    // --- FORMATION MOVEMENT ---
-                    this.x += this.formationSpeed * this.moveDirection * f;
+                    case 'entering':
+                    case 'diving': {
+                        // Group divers hold formation until their stagger
+                        // delay elapses, then plot a path from live positions.
+                        if (this.state === 'diving' && !this.path) {
+                            this.diveDelay -= dt;
+                            const slot = slotPos(this);
+                            this.x = slot.x;
+                            this.y = slot.y;
+                            if (this.diveDelay <= 0) this.beginDivePath();
+                            break;
+                        }
+                        const prevT = this.pathT;
+                        this.pathT = Math.min(1, this.pathT + dt / this.pathDur);
+                        const p = bezier(this.path, this.pathT);
+                        const q = bezier(this.path, Math.min(1, this.pathT + 0.02));
+                        this.x = p.x;
+                        this.y = p.y;
+                        // Bank the ship along the flight path (sprite faces up)
+                        let ang = Math.atan2(q.y - p.y, q.x - p.x) + Math.PI / 2;
+                        if (this.state === 'entering' && this.pathT > 0.8) {
+                            ang *= 1 - (this.pathT - 0.8) / 0.2; // level out into the slot
+                        }
+                        this.angle = ang;
 
-                    // Wall bouncing and downward shift for formation
-                    if (this.x + this.size >= maxX || this.x <= minX) {
-                        this.moveDirection *= -1; // Reverse direction
-                        this.y += 15; // Drop down slightly
+                        if (this.state === 'diving') {
+                            this.shootMarks = this.shootMarks.filter(m => {
+                                if (this.pathT >= m && prevT < m) { enemyFire(this); return false; }
+                                return true;
+                            });
+                        }
+
+                        if (this.pathT >= 1) {
+                            if (this.state === 'entering') {
+                                this.state = 'formation';
+                                this.angle = 0;
+                            } else {
+                                // Exited the bottom: wrap to the top and glide home
+                                this.state = 'returning';
+                                this.isDiving = false;
+                                const slot = slotPos(this);
+                                this.x = slot.x + (Math.random() - 0.5) * 60;
+                                this.y = -40;
+                            }
+                        }
+                        break;
                     }
 
-                    // Check if it's time to dive. Expressed as a chance per
-                    // second (not per frame) so higher refresh-rate mobile
-                    // screens don't trigger dives more often than 60Hz ones.
-                    if (Date.now() - this.lastDiveTime > this.diveCooldown && Math.random() < 0.3 * dt) {
-                        this.startDive();
+                    case 'returning': {
+                        // Home toward the live slot so the breathing formation
+                        // never leaves a returner chasing a stale position.
+                        const slot = slotPos(this);
+                        const dx = slot.x - this.x, dy = slot.y - this.y;
+                        const dist = Math.hypot(dx, dy);
+                        const speed = 180 + gameLevel * 8;
+                        if (dist < Math.max(speed * dt, 3)) {
+                            this.x = slot.x;
+                            this.y = slot.y;
+                            this.state = 'formation';
+                            this.angle = 0;
+                        } else {
+                            this.x += dx / dist * speed * dt;
+                            this.y += dy / dist * speed * dt;
+                            this.angle = Math.atan2(dy, dx) + Math.PI / 2;
+                        }
+                        break;
                     }
 
-                } else {
-                    // --- DIVING MOVEMENT ---
-                    // Simple straight line dive towards the bottom edge
-                    this.y += this.diveSpeed * f;
-
-                    // Fire when diving
-                    if (Date.now() - this.lastFireTime > this.fireRate) {
-                        enemyFire(this);
-                        this.lastFireTime = Date.now();
-                    }
-
-                    // Reset dive if it goes off screen
-                    if (this.y > GAME_HEIGHT + 20) {
-                        this.resetToFormation();
+                    case 'formation': {
+                        const slot = slotPos(this);
+                        this.x = slot.x;
+                        this.y = slot.y;
+                        this.angle = 0;
+                        break;
                     }
                 }
-            }
-            
-            startDive() {
-                this.isDiving = true;
-                // Target the center X of the player at the moment of dive start
-                this.diveTargetX = playerInstance.x + playerInstance.width / 2;
-                this.diveTargetY = GAME_HEIGHT + 50; 
-                this.diveSpeed = 4 + gameLevel * 0.5; // Dive speed increases with level
-            }
-
-            resetToFormation() {
-                this.isDiving = false;
-                // Reset to initial formation position
-                this.x = this.initialX;
-                this.y = this.initialY;
-                this.lastDiveTime = Date.now();
-                this.diveCooldown = 5000 + Math.random() * 5000;
             }
         }
 
@@ -419,28 +638,98 @@
         let score = 0;
         let lives = INITIAL_LIVES;
         let gameLevel = 1;
+        let highScore = parseInt(localStorage.getItem('galagaHighScore') || '0', 10);
+
+        // --- Formation & Flight Paths ---
+        let formationT = 0;   // drives the formation's sway/breathe motion
+        let diveTimer = 1.5;  // countdown to the next attack launch
+
+        // Live slot position for an enemy: the whole formation sways side to
+        // side and "breathes" (expands/contracts) like the arcade original.
+        function slotPos(e) {
+            const spacingX = PIX * 16;
+            const spacingY = PIX * 14;
+            const sway = Math.sin(formationT * 0.5) * GAME_WIDTH * 0.03;
+            const breathe = 1 + Math.sin(formationT * 0.8) * 0.06;
+            return {
+                x: GAME_WIDTH / 2 + sway + e.colOffset * spacingX * breathe - e.size / 2,
+                y: 70 + e.row * spacingY - e.size / 2
+            };
+        }
+
+        function bezier(path, t) {
+            const u = 1 - t;
+            const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+            return {
+                x: a * path.p0.x + b * path.p1.x + c * path.p2.x + d * path.p3.x,
+                y: a * path.p0.y + b * path.p1.y + c * path.p2.y + d * path.p3.y
+            };
+        }
+
+        // Four entry choreographies: S-swoops from the top corners and
+        // loop-unders from the sides, jittered so every wave looks different.
+        function entryPath(kind, slot) {
+            const W = GAME_WIDTH, H = GAME_HEIGHT;
+            const j = () => (Math.random() - 0.5) * 60;
+            switch (kind % 4) {
+                case 0: return { p0: { x: W * 0.2 + j(), y: -40 }, p1: { x: W * 0.95, y: H * 0.3 + j() }, p2: { x: W * 0.1, y: H * 0.55 + j() }, p3: slot };
+                case 1: return { p0: { x: W * 0.8 + j(), y: -40 }, p1: { x: W * 0.05, y: H * 0.3 + j() }, p2: { x: W * 0.9, y: H * 0.55 + j() }, p3: slot };
+                case 2: return { p0: { x: -40, y: H * 0.5 + j() }, p1: { x: W * 0.6 + j(), y: H * 0.75 }, p2: { x: W * 0.95, y: H * 0.25 + j() }, p3: slot };
+                default: return { p0: { x: W + 40, y: H * 0.5 + j() }, p1: { x: W * 0.4 + j(), y: H * 0.75 }, p2: { x: W * 0.05, y: H * 0.25 + j() }, p3: slot };
+            }
+        }
+
+        // Attack launcher: usually a lone diver, but sometimes a leader takes
+        // a small squadron of formation neighbors down with it (staggered so
+        // they trail like the arcade escort attacks). Bosses bring escorts.
+        function launchAttack() {
+            const ready = enemies.filter(e => e.state === 'formation');
+            if (!ready.length) return;
+            const active = enemies.filter(e => e.state === 'diving' || e.state === 'returning').length;
+            const maxDivers = Math.min(5, 1 + Math.ceil(gameLevel / 2));
+            if (active >= maxDivers) return;
+
+            const leader = ready[Math.floor(Math.random() * ready.length)];
+            leader.startDive(0);
+
+            const groupChance = Math.min(0.65, 0.35 + gameLevel * 0.03);
+            if (Math.random() < groupChance) {
+                const wingmen = ready.filter(e =>
+                    e !== leader &&
+                    Math.abs(e.row - leader.row) <= 1 &&
+                    Math.abs(e.colOffset - leader.colOffset) <= 1.5
+                ).slice(0, leader.type === 'boss' ? 2 : 1 + Math.floor(Math.random() * 2));
+                wingmen.forEach((w, i) => w.startDive(0.18 * (i + 1)));
+            }
+        }
 
         // --- Setup Enemies (Initial Formation) ---
         function setupEnemies() {
-            const rows = 4;
-            const spacing = 55;
-            const enemySize = 25;
             // Fit the formation to whatever width the screen actually has
             // (narrow phones get fewer columns) instead of a fixed 8 that can
             // overflow a narrow portrait viewport.
-            const cols = Math.max(4, Math.min(8, Math.floor((GAME_WIDTH - 40) / spacing)));
+            const spacingX = PIX * 16;
+            const cols = Math.max(4, Math.min(8, Math.floor((GAME_WIDTH - 40) / spacingX)));
 
-            const formationWidth = cols * spacing;
-            const startX = (GAME_WIDTH - formationWidth + spacing - enemySize) / 2;
-            const startY = 80;
-
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const x = startX + c * spacing;
-                    const y = startY + r * spacing;
-                    enemies.push(new Enemy(x, y, c, r, gameLevel));
+            // Classic rank structure: a few bosses up top, butterflies as the
+            // middle guard, bee swarm below. Each row flies in as its own
+            // wave with a different entry choreography, enemies within a wave
+            // trailing each other like a train.
+            const rowDefs = [
+                { type: 'boss', count: Math.max(2, cols - 4) },
+                { type: 'butterfly', count: Math.max(4, cols - 1) },
+                { type: 'butterfly', count: Math.max(4, cols - 1) },
+                { type: 'bee', count: cols },
+                { type: 'bee', count: cols }
+            ];
+            rowDefs.forEach((def, r) => {
+                for (let c = 0; c < def.count; c++) {
+                    const e = new Enemy(c - (def.count - 1) / 2, r, def.type, gameLevel);
+                    e.entryKind = r;
+                    e.delay = r * 1.2 + c * 0.12;
+                    enemies.push(e);
                 }
-            }
+            });
         }
 
         // --- Game Initialization and Reset ---
@@ -452,6 +741,9 @@
             score = 0;
             lives = INITIAL_LIVES;
             gameLevel = 1;
+            formationT = 0;
+            diveTimer = 1.5;
+            particles = [];
             setupEnemies();
             // Defensive reset in case a previous session ended without a
             // clean pointerup/cancel for the steering finger.
@@ -461,30 +753,37 @@
 
         function advanceLevel() {
             gameLevel++;
-            showMessage(`LEVEL ${gameLevel} START!`, 1500);
+            showMessage(`STAGE ${gameLevel}!`, 1500);
             playerBullets = [];
             enemyBullets = [];
             enemies = [];
+            formationT = 0;
+            diveTimer = 1.5;
             setupEnemies();
         }
         
         function playerHit() {
+            spawnExplosion(playerInstance.x + playerInstance.width / 2,
+                           playerInstance.y + playerInstance.height / 2, '#ff4444', 24);
             lives--;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('galagaHighScore', String(highScore));
+            }
             if (lives <= 0) {
-                showModal(`GAME OVER! Final Score: ${score}. Press any key or tap to restart.`, resetGame);
+                showModal(`GAME OVER! Score: ${score} — Best: ${highScore}. Press any key or tap to restart.`, resetGame);
             } else {
                 showMessage(`HIT! ${lives} lives remaining.`, 1500);
-                // Reset player position and clear enemy bullets upon hit
+                // Fresh ship with brief blink protection; clear enemy fire
                 playerInstance = new Player();
+                playerInstance.invuln = 2.5;
                 enemyBullets = [];
             }
         }
 
 
         // --- Input Handling ---
-        // The ship auto-fires continuously (see update()), so every direction
-        // key is free for movement instead of splitting Up/W between "fire"
-        // and "move up" as before.
+        // SPACE is the fire trigger; direction keys are movement only.
         const keys = {};
 
         function handleKeyDown(e) {
@@ -559,6 +858,10 @@
         }
 
         function firePlayerBullet() {
+            // Cap shots in flight (like the arcade's two-shot limit, but a
+            // little more generous) so parking under the fly-in path doesn't
+            // shred entire waves before they can form up.
+            if (playerBullets.length >= 6) return;
             const now = Date.now();
             if (now - playerInstance.lastFireTime > playerInstance.fireCooldown) {
                 // Fire two bullets from the corners of the player ship
@@ -596,10 +899,12 @@
             // affected by keyboard state here.
             playerInstance.update(dt);
 
-            // The ship auto-fires continuously; players only worry about
-            // dodging and positioning, which reads better on a touchscreen
-            // than juggling a separate fire input.
-            firePlayerBullet();
+            // Firing is player-controlled: hold SPACE on keyboard, or on
+            // touch simply keep a finger on the screen — you steer and fire
+            // with the same hold, and lifting your finger ceases fire.
+            if (keys[' '] || moveTouchId !== null) {
+                firePlayerBullet();
+            }
 
             // 2. Update Bullets
             playerBullets.forEach(bullet => bullet.update(dt));
@@ -609,11 +914,18 @@
             playerBullets = playerBullets.filter(bullet => bullet.y > -bullet.height);
             enemyBullets = enemyBullets.filter(bullet => bullet.y < GAME_HEIGHT);
 
-            // 3. Update Enemies
-            const padding = 10;
-            const minX = padding;
-            const maxX = GAME_WIDTH - padding;
-            enemies.forEach(enemy => enemy.update(dt, maxX, minX));
+            // 3. Update Enemies: formation sway/breathe plus the attack
+            // scheduler. Dives only begin once the fly-in entries finish.
+            formationT += dt;
+            const entriesDone = enemies.every(e => e.state !== 'waiting' && e.state !== 'entering');
+            if (entriesDone) {
+                diveTimer -= dt;
+                if (diveTimer <= 0) {
+                    launchAttack();
+                    diveTimer = (1.2 + Math.random() * 1.6) * Math.max(0.45, 1 - gameLevel * 0.05);
+                }
+            }
+            enemies.forEach(enemy => enemy.update(dt));
 
             // 4. Handle Collisions
 
@@ -623,47 +935,65 @@
             playerBullets.forEach(bullet => {
                 if (!bullet.alive) return;
                 enemies.forEach(enemy => {
-                    if (!enemy.alive || !bullet.alive) return;
+                    if (!enemy.alive || !bullet.alive || enemy.state === 'waiting') return;
                     if (checkCollision(bullet, enemy)) {
-                        enemy.alive = false;
                         bullet.alive = false;
-                        score += enemy.scoreValue;
+                        enemy.hp--;
+                        const cx = enemy.x + enemy.size / 2, cy = enemy.y + enemy.size / 2;
+                        if (enemy.hp > 0) {
+                            // Boss first hit: wounded palette + spark, no score yet
+                            enemy.damaged = true;
+                            spawnExplosion(cx, cy, '#ffffff', 5);
+                        } else {
+                            enemy.alive = false;
+                            // Diving kills are worth double, like the arcade
+                            score += enemy.scoreValue * (enemy.isDiving ? 2 : 1);
+                            spawnExplosion(cx, cy, ENEMY_ACCENT[enemy.type], 14);
+                        }
                     }
                 });
             });
             playerBullets = playerBullets.filter(bullet => bullet.alive);
 
-            // 4b. Enemy Bullet -> Player Collision
-            enemyBullets.forEach(bullet => {
-                if (!bullet.alive) return;
-                if (checkCollision(bullet, playerInstance)) {
-                    bullet.alive = false;
-                    playerHit();
-                }
-            });
+            // 4b/4c. Player collisions, skipped during post-respawn blink
+            if (playerInstance.invuln <= 0) {
+                enemyBullets.forEach(bullet => {
+                    if (!bullet.alive) return;
+                    if (checkCollision(bullet, playerInstance)) {
+                        bullet.alive = false;
+                        playerHit();
+                    }
+                });
+
+                enemies.forEach(enemy => {
+                    if (!enemy.alive || enemy.state === 'waiting') return;
+                    if (checkCollision(enemy, playerInstance)) {
+                        enemy.alive = false;
+                        spawnExplosion(enemy.x + enemy.size / 2, enemy.y + enemy.size / 2, ENEMY_ACCENT[enemy.type], 14);
+                        playerHit();
+                    }
+                });
+            }
             enemyBullets = enemyBullets.filter(bullet => bullet.alive);
 
-            // 4c. Enemy (Diving or Formation) -> Player Collision (New Loss Condition)
-            enemies.forEach(enemy => {
-                if (checkCollision(enemy, playerInstance)) {
-                    // Direct collision with the player means immediate hit
-                    playerHit();
-                    enemy.alive = false;
-                }
+            // Update explosion particles
+            particles.forEach(p => {
+                p.age += dt;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+            });
+            particles = particles.filter(p => p.age < p.life);
+
+            // Scroll the starfield
+            stars.forEach(s => {
+                s.y += s.speed * dt;
+                if (s.y > GAME_HEIGHT) { s.y = -2; s.x = Math.random() * GAME_WIDTH; }
             });
 
 
             // 5. Remove dead enemies
             const initialEnemyCount = enemies.length;
             enemies = enemies.filter(enemy => enemy.alive);
-
-            // Reset diving enemies that went off screen
-            enemies.forEach(enemy => {
-                if (enemy.isDiving && enemy.y > GAME_HEIGHT) {
-                    enemy.resetToFormation();
-                }
-            });
-
 
             // 6. Check Win Condition
             if (enemies.length === 0 && initialEnemyCount > 0) {
@@ -675,28 +1005,59 @@
         }
 
         // --- Draw Game Objects ---
-        function draw() {
-            // Clear canvas with a slight trail effect
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        function drawHUD() {
+            const f = Math.max(8, Math.min(12, Math.round(GAME_WIDTH / 50)));
+            ctx.font = `${f}px 'Press Start 2P', monospace`;
 
-            // Draw Score and Info (font scales down a little on narrow screens)
-            const fontSize = Math.max(16, Math.min(24, Math.round(GAME_WIDTH / 22)));
-            ctx.fillStyle = COLOR;
-            ctx.font = `${fontSize}px Courier New`;
             ctx.textAlign = 'left';
-            ctx.fillText(`SCORE: ${score}`, 10, fontSize + 6);
-            ctx.fillText(`LIVES: ${lives}`, 10, (fontSize + 6) * 2);
+            ctx.fillStyle = '#ff2222';
+            ctx.fillText('1UP', 10, f + 8);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(String(score), 10, (f + 8) * 2);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff2222';
+            ctx.fillText('HI-SCORE', GAME_WIDTH / 2, f + 8);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(String(Math.max(highScore, score)), GAME_WIDTH / 2, (f + 8) * 2);
 
             ctx.textAlign = 'right';
-            ctx.fillText(`LEVEL: ${gameLevel}`, GAME_WIDTH - 10, fontSize + 6);
+            ctx.fillStyle = '#66ccff';
+            ctx.fillText('STAGE ' + gameLevel, GAME_WIDTH - 10, f + 8);
             ctx.textAlign = 'left';
 
-            // Draw Bullets, Enemies, and Player
+            // Reserve ships bottom-left, like the arcade cabinet
+            const spr = spriteCache.player[0];
+            const w = spr.width * PIX * 0.6, h = spr.height * PIX * 0.6;
+            for (let i = 0; i < lives - 1; i++) {
+                ctx.drawImage(spr, 8 + i * (w + 5), GAME_HEIGHT - h - 6, w, h);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Twinkling, scrolling starfield
+            const now = performance.now() / 400;
+            stars.forEach(s => {
+                ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(now + s.tw));
+                ctx.fillStyle = s.color;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            });
+            ctx.globalAlpha = 1;
+
             enemyBullets.forEach(bullet => bullet.draw());
             playerBullets.forEach(bullet => bullet.draw());
             enemies.forEach(enemy => enemy.draw());
+            particles.forEach(p => {
+                ctx.globalAlpha = 1 - p.age / p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
             playerInstance.draw();
+            drawHUD();
         }
 
         // --- Main Game Loop ---
@@ -733,9 +1094,10 @@
             });
             window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
 
+            buildSpriteCache(PALETTES);
             resetGame();
             setupTouchDragControls();
-            showMessage("Drag to move, auto-fire is on. (Keyboard: Arrows/WASD to move)", 3500);
+            showMessage("Touch: hold & drag to move and fire. Keyboard: Arrows/WASD move, SPACE fires.", 3500);
             lastFrameTime = performance.now();
             gameLoop(lastFrameTime);
         }
