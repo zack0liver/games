@@ -47,3 +47,44 @@ Drag a cartridge into the console (or tap one) to play.
   "EXTRA SHIP!" style banner/message and update the reserve-ships display
   when it triggers. Worth deciding whether reserve lives are capped (classic
   arcades often cap around 5-6 to keep the display from overflowing).
+
+- **Galaga — slower enemy dive speed**: current dive speed (scaling up with
+  stage) feels too fast; ease it back to a more readable/fair pace, likely
+  by lowering the base dive speed and/or its per-stage scaling factor, then
+  re-tuning against the group-attack frequency so squadrons don't feel
+  overwhelming at the new, slower speed.
+
+## Easter Eggs & Delightful Surprises
+
+Ideas to sprinkle in once the core enhancements above are done:
+
+- **Konami Code** (↑↑↓↓←→←→BA) on the landing page or in-game unlocks
+  something — a temporary rainbow ship, infinite lives for one run, or a
+  secret 7th "???" cartridge.
+- **Named high score ranks** — score tiers pop a rank title ("SPACE CADET"
+  → "ACE PILOT" → "GALAGA LEGEND") instead of just a number.
+- **Rare golden enemy** — a very low-chance (~1-in-500) glitched/golden bee
+  worth 10x points that zooms erratically instead of diving normally — a
+  "shiny" to hunt for.
+- **Perfect-wave bonus** — clear a stage without losing a life or missing a
+  shot: "FLAWLESS!" banner and bonus points.
+- **Idle attract-mode** — if the intro screen sits untouched for ~20s, an
+  AI-controlled demo plays itself dodging/shooting, like real arcade
+  cabinets did to lure players.
+- **Boss taunt lines** — Boss Rush enemies occasionally flash a short taunt
+  ("IS THAT ALL?") when they survive a hit.
+- **Cartridge blow-into-it gag** — tap-and-hold a cartridge (or shake on
+  mobile) triggers the old "blow on the cartridge" animation/sound before
+  it loads.
+- **Secret cartridge** — a hidden slot that appears after some trigger
+  (Konami code, or triggering every "coming soon" joke at least once) and
+  links to a bonus surprise.
+- **Power LED tap gag** — 5 quick taps on the console's power LED triggers
+  a brief fake "power surge" CRT-glitch across the whole page.
+- **Rotating coming-soon jokes** — each "coming soon" cartridge picks
+  randomly from 2-3 jokes per insert instead of always showing the same one,
+  rewarding repeat pokers.
+- **Idle console ambiance** — after a while with no cartridge inserted, the
+  power LED pulses slower, like the console is "waiting."
+- **Date-based seasonal skins** — cheap palette swaps for the console (e.g.
+  pumpkin/spooky in October, snow in December) for repeat visitors.
