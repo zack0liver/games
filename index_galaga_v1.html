@@ -783,9 +783,7 @@
 
 
         // --- Input Handling ---
-        // The ship auto-fires continuously (see update()), so every direction
-        // key is free for movement instead of splitting Up/W between "fire"
-        // and "move up" as before.
+        // SPACE is the fire trigger; direction keys are movement only.
         const keys = {};
 
         function handleKeyDown(e) {
@@ -901,10 +899,12 @@
             // affected by keyboard state here.
             playerInstance.update(dt);
 
-            // The ship auto-fires continuously; players only worry about
-            // dodging and positioning, which reads better on a touchscreen
-            // than juggling a separate fire input.
-            firePlayerBullet();
+            // Firing is player-controlled: hold SPACE on keyboard, or on
+            // touch simply keep a finger on the screen — you steer and fire
+            // with the same hold, and lifting your finger ceases fire.
+            if (keys[' '] || moveTouchId !== null) {
+                firePlayerBullet();
+            }
 
             // 2. Update Bullets
             playerBullets.forEach(bullet => bullet.update(dt));
@@ -1097,7 +1097,7 @@
             buildSpriteCache(PALETTES);
             resetGame();
             setupTouchDragControls();
-            showMessage("Drag to move, auto-fire is on. (Keyboard: Arrows/WASD to move)", 3500);
+            showMessage("Touch: hold & drag to move and fire. Keyboard: Arrows/WASD move, SPACE fires.", 3500);
             lastFrameTime = performance.now();
             gameLoop(lastFrameTime);
         }
