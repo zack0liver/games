@@ -35,14 +35,27 @@ Drag a cartridge into the console (or tap one) to play.
 
 ### Asteroids — Maze Edition
 
-Shipped from the playtest list: 5 progressively longer levels with a per-cycle
+Shipped from the playtest list: 7 progressively longer levels with a per-cycle
 difficulty ramp, per-life hull damage (3 wall hits) with a HUD meter,
 randomized 5–10s shield power-ups weighted to later levels, telegraphed
-any-angle asteroid approaches, and L / T / mini-maze wall shapes that ramp up
-with progress.
+any-angle asteroid approaches, L / T / mini-maze wall shapes, and circular
+obstacles (some shootable) in the later stages.
 
 Still open:
 
+- **Bonus points for shooting**: award bonus points for destroying asteroids
+  and cracked obstacles, and make the reward *obvious* — e.g. a floating "+N"
+  popup at the hit location and/or a score-tick flourish, so it's clear the
+  shot paid off.
+- **Full-clear bonus**: if every cracked/shootable wall in a level is destroyed
+  by the time you cross the finish line, grant a **double bonus** (with clear
+  feedback that the level was fully cleared).
+- **Speed / time bonus**: put a per-level countdown timer up; reach the finish
+  before it hits zero for a bonus that scales with time remaining. Surface it
+  in the HUD with a catchy label (e.g. "TIME LEFT TO BONUS").
+- **Rename "planetoids" → "space obstacles"**: the circular obstacles are
+  currently described as "planetoids" (intro text + code comments); switch the
+  player-facing wording to something clearer like "space obstacles."
 - **More 2D themes**: additional visual themes (color schemes / backdrops /
   wall + enemy styling), e.g. per-level or per-cycle theming so the course
   looks fresh as you advance. (Intentionally deferred — keeping the current
