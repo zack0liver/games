@@ -1164,19 +1164,22 @@
             return true;
         }
 
-        // Randomly scatter shield pickups, biased toward the upper (later) part
-        // of the course, and nudged off wall rows so they read cleanly.
+        // Randomly scatter shield pickups across the course, mildly weighted
+        // toward the front half (nearer the START pad) rather than clustering
+        // near the finish, and nudged off wall rows so they read cleanly.
         spawnShields(count) {
             this.shieldPickups = [];
             const wallYs = this.walls.map(w => w.yFrac * this.worldH);
+            const lo = this.finishY + 80;
+            const hi = this.startY - 120;
             for (let i = 0; i < count; i++) {
                 const x = rand(0.2, 0.8) * VIEW_W;
                 let y = 0;
-                // Bias upward: sample nearer the finish as i grows.
                 for (let tries = 0; tries < 8; tries++) {
-                    const lo = this.finishY + 80;
-                    const hi = this.startY - 120;
-                    y = rand(lo, hi);
+                    // Exponent < 1 skews the sample toward `hi` (the start
+                    // end / front half) while still covering the full course.
+                    const t = Math.pow(Math.random(), 0.6);
+                    y = lo + t * (hi - lo);
                     if (!wallYs.some(wy => Math.abs(wy - y) < 40)) break;
                 }
                 this.shieldPickups.push(new ShieldPickup(x, y));
