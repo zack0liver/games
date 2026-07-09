@@ -21,9 +21,11 @@ Drag a cartridge into the console (or tap one) to play.
    absorbs 3 wall bumps per life; grab a shield power-up for 5–10s of
    invulnerability (and to smash rocks). Seven progressively longer levels
    introduce L-shaped, T-shaped and mini-maze obstacles and, in the later
-   stages, circular planetoids (some shootable) to orbit around — with incoming
-   rocks telegraphed by edge arrows. Every full loop replays all seven faster
-   and harder.
+   stages, circular space obstacles (some shootable) to orbit around — with
+   incoming rocks telegraphed by edge arrows. A couple of levels hide a
+   tunnel-ring obstacle: permanently solid except one shootable orange arc —
+   blast it open and fly in for a permanent ship upgrade (+1 hull, +30% size,
+   fancier hull trim). Every full loop replays all seven faster and harder.
 
 ## Planned Enhancements
 
@@ -39,8 +41,12 @@ Shipped from the playtest list: 7 progressively longer levels with a per-cycle
 difficulty ramp, per-life hull damage (3 wall hits) with a HUD meter,
 randomized 5–10s shield power-ups (placement randomized, mildly weighted
 toward the front half of each level), telegraphed any-angle asteroid
-approaches, L / T / mini-maze wall shapes, and circular obstacles (some
-shootable) in the later stages.
+approaches, L / T / mini-maze wall shapes, circular obstacles (uniformly
+purple/orange, matching the wall color convention) in the later stages, and
+tunnel-ring obstacles — a permanently indestructible ring with one shootable
+arc, hiding a permanent ship upgrade (+1 hull, +30% size, gold hull trim) at
+the hollow center. Player-facing wording also switched from "planetoids" to
+"space obstacles."
 
 Still open:
 
@@ -54,13 +60,6 @@ Still open:
 - **Speed / time bonus**: put a per-level countdown timer up; reach the finish
   before it hits zero for a bonus that scales with time remaining. Surface it
   in the HUD with a catchy label (e.g. "TIME LEFT TO BONUS").
-- **Rename "planetoids" → "space obstacles"**: the circular obstacles are
-  currently described as "planetoids" (intro text + code comments); switch the
-  player-facing wording to something clearer like "space obstacles."
-- **Bonus tunnel obstacle**: a larger circular space obstacle with a tunnel
-  bored through the middle. The tunnel is sealed by cracked walls you have to
-  shoot through; a point bonus sits in the center for players who bust in and
-  grab it.
 - **More 2D themes**: additional visual themes (color schemes / backdrops /
   wall + enemy styling), e.g. per-level or per-cycle theming so the course
   looks fresh as you advance. (Intentionally deferred — keeping the current

@@ -565,9 +565,9 @@
             name: 'ASTEROID BELT',
             screens: 6.5,
             shields: 3,
-            // Introduces circular obstacles: big neon planetoids you orbit
-            // around. `circles`: { xFrac, yFrac (of world), rFrac (of view
-            // width), type?, hp?, osc? }.
+            // Introduces circular obstacles: big neon space obstacles you
+            // orbit around. `circles`: { xFrac, yFrac (of world), rFrac (of
+            // view width), type?, hp?, osc? }.
             walls: [
                 { yFrac: 0.91, osc: { amp: 0.05, speed: 0.8, phase: 0.0 },
                   cells: [ { w: 0.30, type: 'solid' }, { w: 0.40, type: 'gap' }, { w: 0.30, type: 'solid' } ] },
@@ -580,9 +580,13 @@
                 { xFrac: 0.48, yFrac: 0.60, rFrac: 0.13 },
                 { xFrac: 0.24, yFrac: 0.49, rFrac: 0.10, osc: { amp: 0.06, speed: 0.7, phase: 2.0, axis: 'x' } },
                 { xFrac: 0.75, yFrac: 0.42, rFrac: 0.11, osc: { amp: 0.05, speed: 0.6, phase: 0.5, axis: 'x' } },
-                // A cracked planetoid — shoot it open or slip around it.
-                { xFrac: 0.50, yFrac: 0.30, rFrac: 0.11, type: 'crack', hp: 4 },
                 { xFrac: 0.30, yFrac: 0.20, rFrac: 0.09, osc: { amp: 0.04, speed: 0.8, phase: 1.0, axis: 'y' } }
+            ],
+            // Tunnel-ring obstacle: permanently solid except one shootable
+            // orange arc (facing back toward the player's approach). Blast it
+            // open and fly in for a permanent ship upgrade at the center.
+            tunnels: [
+                { xFrac: 0.50, yFrac: 0.30, outerRFrac: 0.11, innerRFrac: 0.05, tunnelAngle: PI / 2, tunnelArc: 0.32, hp: 4 }
             ],
             enemies: [
                 { xFrac: 0.20, yFrac: 0.66, speed: 82, dir: 0.5, radius: 18, band: 0.08 },
@@ -595,7 +599,7 @@
             name: 'EVENT HORIZON',
             screens: 7.0,
             shields: 3,
-            // Everything at once: planetoids, a must-shoot crack wall, a
+            // Everything at once: space obstacles, a must-shoot crack wall, a
             // T-block, and clustered flanking circles.
             walls: [
                 { yFrac: 0.93, osc: { amp: 0.05, speed: 0.9, phase: 0.0 },
@@ -613,8 +617,10 @@
                 { xFrac: 0.50, yFrac: 0.71, rFrac: 0.13 },
                 { xFrac: 0.20, yFrac: 0.62, rFrac: 0.09 },
                 { xFrac: 0.80, yFrac: 0.62, rFrac: 0.09 },
-                { xFrac: 0.50, yFrac: 0.30, rFrac: 0.12, osc: { amp: 0.07, speed: 0.8, phase: 1.0, axis: 'x' } },
-                { xFrac: 0.28, yFrac: 0.20, rFrac: 0.09, type: 'crack', hp: 4 }
+                { xFrac: 0.50, yFrac: 0.30, rFrac: 0.12, osc: { amp: 0.07, speed: 0.8, phase: 1.0, axis: 'x' } }
+            ],
+            tunnels: [
+                { xFrac: 0.28, yFrac: 0.20, outerRFrac: 0.10, innerRFrac: 0.045, tunnelAngle: PI / 2, tunnelArc: 0.32, hp: 4 }
             ],
             blocks: [
                 // A T-bar wedged between the circle fields.
@@ -634,12 +640,26 @@
     // --- Canvas Drawing Helpers ---
 
     // Player ship (reused from Jungle Aces so the feel is identical).
-    function drawShip(color, accelerating, invisible) {
+    function drawShip(color, accelerating, invisible, upgraded) {
         ctx.strokeStyle = invisible ? 'transparent' : color;
         ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10);
         ctx.closePath(); ctx.stroke();
+
+        // Upgraded hull: gold trim + small wingtip fins, layered over the base
+        // outline so the ship reads as a visibly beefed-up variant.
+        if (upgraded && !invisible) {
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10);
+            ctx.closePath(); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-2, 6); ctx.lineTo(-9, 15); ctx.lineTo(-3, 7);
+            ctx.moveTo(-2, -6); ctx.lineTo(-9, -15); ctx.lineTo(-3, -7);
+            ctx.stroke();
+        }
 
         if (accelerating && !invisible) {
             ctx.strokeStyle = '#ff55aa';
@@ -725,7 +745,9 @@
 
     class Player {
         constructor() {
+            this.baseRadius = 11;
             this.radius = 11;
+            this.upgradeLevel = 0; // # of ship upgrades collected this run
             this.color = '#00ffaa';
             this.angle = -PI / 2;
             this.rotationSpeed = 3.2;
@@ -803,8 +825,9 @@
             }
 
             ctx.rotate(this.angle);
+            ctx.scale(this.radius / this.baseRadius, this.radius / this.baseRadius);
             const blink = this.invulnerabilityTimer > 0 && !this.shielded && Math.floor(this.invulnerabilityTimer * 8) % 2 === 0;
-            drawShip(this.color, this.isAccelerating, blink);
+            drawShip(this.color, this.isAccelerating, blink, this.upgradeLevel > 0);
             ctx.restore();
         }
         placeAtStart(worldH) {
@@ -975,6 +998,7 @@
             this.walls = [];
             this.blocks = [];
             this.circles = [];
+            this.tunnels = [];
             this.shieldPickups = [];
             this.damageFlash = 0;
             this.score = 0;
@@ -1038,7 +1062,7 @@
                 osc: b.osc ? { ...b.osc } : null
             }));
 
-            // Deep-copy circular obstacles (planetoids you orbit around).
+            // Deep-copy circular obstacles (space obstacles you orbit around).
             this.circles = (level.circles || []).map(c => ({
                 xFrac: c.xFrac, yFrac: c.yFrac, rFrac: c.rFrac,
                 type: c.type || 'solid',
@@ -1046,6 +1070,21 @@
                 destroyed: false,
                 spin: rand(0, PI * 2),
                 osc: c.osc ? { ...c.osc } : null
+            }));
+
+            // Deep-copy tunnel-ring obstacles: a permanently solid ring with
+            // one shootable arc (the tunnel). The ring itself is never fully
+            // destroyed — only that one arc opens — and a ship upgrade sits
+            // at the hollow center once you fly in.
+            this.tunnels = (level.tunnels || []).map(t => ({
+                xFrac: t.xFrac, yFrac: t.yFrac,
+                outerRFrac: t.outerRFrac, innerRFrac: t.innerRFrac,
+                tunnelAngle: t.tunnelAngle, tunnelArc: t.tunnelArc,
+                hp: t.hp || 4,
+                destroyed: false,
+                collected: false,
+                spin: rand(0, PI * 2),
+                osc: t.osc ? { ...t.osc } : null
             }));
 
             this.enemies = level.enemies.map(e => {
@@ -1164,6 +1203,56 @@
             return true;
         }
 
+        // Current pixel geometry of a tunnel-ring obstacle, accounting for drift.
+        tunnelGeom(t) {
+            let x = t.xFrac * VIEW_W;
+            let y = t.yFrac * this.worldH;
+            if (t.osc) {
+                const span = (t.osc.axis === 'y') ? VIEW_H : VIEW_W;
+                const o = t.osc.amp * span * Math.sin(performance.now() / 1000 * t.osc.speed * this.diff + t.osc.phase);
+                if (t.osc.axis === 'y') y += o; else x += o;
+            }
+            return { ref: t, x, y, outerR: t.outerRFrac * VIEW_W, innerR: t.innerRFrac * VIEW_W, angle: t.tunnelAngle, arc: t.tunnelArc };
+        }
+
+        obstacleTunnels() {
+            return this.tunnels.map(t => this.tunnelGeom(t));
+        }
+
+        // Smallest signed angular difference between two angles, in [-PI, PI].
+        angleDiff(a, b) {
+            return Math.atan2(Math.sin(a - b), Math.cos(a - b));
+        }
+
+        // Tunnel-ring vs circle: the ring [innerR, outerR] is permanently solid
+        // EXCEPT for one angular arc (the tunnel), which only lets the object
+        // pass once its plug has been shot open. Unlike resolveCircleCircle,
+        // this snaps to whichever boundary (inner or outer) is nearer, so an
+        // object already inside the hollow center can't get flung outward
+        // through the solid band — it only ever passes through the open arc.
+        resolveTunnelObstacle(obj, tg) {
+            const dx = obj.x - tg.x, dy = obj.y - tg.y;
+            const d = Math.hypot(dx, dy);
+            const outer = tg.outerR + obj.radius;
+            const inner = Math.max(0, tg.innerR - obj.radius);
+            if (d >= outer || d <= inner) return false; // fully outside or fully inside: no collision
+            if (tg.ref.destroyed && Math.abs(this.angleDiff(Math.atan2(dy, dx), tg.angle)) < tg.arc) {
+                return false; // aligned with the open tunnel: pass straight through
+            }
+            const nx = d > 0.0001 ? dx / d : 0, ny = d > 0.0001 ? dy / d : -1;
+            const targetD = (outer - d) < (d - inner) ? outer : inner;
+            obj.x = tg.x + nx * targetD;
+            obj.y = tg.y + ny * targetD;
+            const pushSign = Math.sign(targetD - d) || 1;
+            const restitution = 0.35;
+            const vAlong = (obj.vx * nx + obj.vy * ny) * pushSign;
+            if (vAlong < 0) {
+                obj.vx -= (1 + restitution) * vAlong * nx * pushSign;
+                obj.vy -= (1 + restitution) * vAlong * ny * pushSign;
+            }
+            return true;
+        }
+
         // Randomly scatter shield pickups across the course, mildly weighted
         // toward the front half (nearer the START pad) rather than clustering
         // near the finish, and nudged off wall rows so they read cleanly.
@@ -1208,6 +1297,7 @@
             this.handleWallCollisions();
             this.handleCombat();
             this.handleShieldPickups();
+            this.handleUpgradePickups();
 
             this.bullets = this.bullets.filter(b => b.isAlive);
             this.enemies = this.enemies.filter(e => e.isAlive);
@@ -1236,6 +1326,9 @@
             }
             for (const c of this.obstacleCircles()) {
                 if (this.resolveCircleCircle(p, c.x, c.y, c.r, 0.35)) hit = true;
+            }
+            for (const tg of this.obstacleTunnels()) {
+                if (this.resolveTunnelObstacle(p, tg)) hit = true;
             }
             if (hit) this.registerWallHit();
         }
@@ -1269,6 +1362,27 @@
                     p.shieldTimer = Math.max(p.shieldTimer, dur);
                     this.spark(s.x, s.y, '#7dd3fc', 20);
                     this.banner = { text: 'SHIELD UP!', sub: `${Math.round(dur)}s INVULNERABLE`, timer: 1.6, color: '#7dd3fc' };
+                }
+            }
+        }
+
+        // Ship upgrade pickups live at the hollow center of tunnel-ring
+        // obstacles. Physically unreachable until the tunnel's plug is shot
+        // open, so no extra "locked" gating is needed here beyond distance.
+        handleUpgradePickups() {
+            const p = this.player;
+            for (const t of this.tunnels) {
+                if (t.collected) continue;
+                const tg = this.tunnelGeom(t);
+                if (dist(p.x, p.y, tg.x, tg.y) < p.radius + 14) {
+                    t.collected = true;
+                    p.maxHealth += 1;
+                    p.health = p.maxHealth;
+                    p.radius *= 1.3;
+                    p.upgradeLevel += 1;
+                    this.score += 100;
+                    this.spark(tg.x, tg.y, '#ffd700', 30);
+                    this.banner = { text: 'SHIP UPGRADED!', sub: 'HULL +1  •  SIZE +30%', timer: 2.0, color: '#ffd700' };
                 }
             }
         }
@@ -1307,6 +1421,7 @@
         handleCombat() {
             const rects = this.obstacleRects();
             const circs = this.obstacleCircles();
+            const tuns = this.obstacleTunnels();
             // Bullets vs obstacles (destroy cracks, stop on solids) and enemies.
             for (const b of this.bullets) {
                 if (!b.isAlive) continue;
@@ -1353,6 +1468,32 @@
                         consumed = true;
                         break;
                     }
+                }
+                if (consumed) continue;
+
+                // Tunnel-ring obstacles: only the tunnel arc is destructible.
+                // A bullet landing anywhere else on the ring is stopped but the
+                // ring itself is never damaged (it's permanent).
+                for (const tg of tuns) {
+                    const bd = dist(b.x, b.y, tg.x, tg.y);
+                    if (bd > tg.outerR + b.radius || bd < tg.innerR - b.radius) continue;
+                    const inGap = Math.abs(this.angleDiff(Math.atan2(b.y - tg.y, b.x - tg.x), tg.angle)) < tg.arc;
+                    if (inGap && tg.ref.destroyed) continue; // flies straight through the open tunnel
+                    b.isAlive = false;
+                    if (inGap && !tg.ref.destroyed) {
+                        tg.ref.hp--;
+                        this.spark(b.x, b.y, '#ffbb33', 6);
+                        if (tg.ref.hp <= 0) {
+                            tg.ref.destroyed = true;
+                            this.score += 30;
+                            this.spark(b.x, b.y, '#ffbb33', 24);
+                            this.banner = { text: 'TUNNEL OPEN!', sub: 'FLY IN FOR THE UPGRADE', timer: 1.8, color: '#ffbb33' };
+                        }
+                    } else {
+                        this.spark(b.x, b.y, '#b26bff', 4);
+                    }
+                    consumed = true;
+                    break;
                 }
                 if (consumed) continue;
 
@@ -1448,6 +1589,7 @@
             this.walls.forEach(wall => this.drawWall(wall));
             this.blocks.forEach(b => { if (!b.destroyed) this.drawObstacleRect(this.blockRect(b)); });
             this.circles.forEach(c => { if (!c.destroyed) this.drawCircleObstacle(this.circleGeom(c)); });
+            this.tunnels.forEach(t => this.drawTunnelObstacle(this.tunnelGeom(t)));
             this.shieldPickups.forEach(s => s.draw());
             this.particles.forEach(p => p.draw());
             this.enemies.forEach(e => e.draw());
@@ -1527,7 +1669,7 @@
             }
         }
 
-        // Circular obstacle: a solid neon planetoid (with concentric ring
+        // Circular obstacle: a solid neon space obstacle (with concentric ring
         // detail) or a cracked, shootable one.
         drawCircleObstacle(c) {
             const spin = c.ref.spin + performance.now() / 1000 * 0.4;
@@ -1567,6 +1709,84 @@
                 ctx.moveTo(-c.r * 0.6, 0); ctx.lineTo(c.r * 0.6, 0);
                 ctx.stroke();
             }
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+
+        // Tunnel-ring obstacle: a permanently solid band with one shootable
+        // arc (the tunnel plug, orange/cracked). Once the plug is destroyed
+        // that wedge is simply not drawn, so the background shows through —
+        // the same visual language as an open gap in a wall. The rest of the
+        // ring is drawn but never removable.
+        drawTunnelObstacle(tg) {
+            const t = tg.ref;
+            const gapStart = tg.angle - tg.arc, gapEnd = tg.angle + tg.arc;
+            ctx.save();
+            ctx.translate(tg.x, tg.y);
+
+            // Permanent solid band (the ring minus the tunnel wedge).
+            ctx.beginPath();
+            ctx.arc(0, 0, tg.outerR, gapEnd, gapStart, false);
+            ctx.arc(0, 0, tg.innerR, gapStart, gapEnd, true);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(178, 107, 255, 0.18)';
+            ctx.fill();
+            ctx.strokeStyle = '#b26bff';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#b26bff';
+            ctx.shadowBlur = 10;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Tunnel plug: sealed (shootable, orange) until destroyed.
+            if (!t.destroyed) {
+                ctx.beginPath();
+                ctx.arc(0, 0, tg.outerR, gapStart, gapEnd, false);
+                ctx.arc(0, 0, tg.innerR, gapEnd, gapStart, true);
+                ctx.closePath();
+                ctx.fillStyle = '#2a1710';
+                ctx.fill();
+                ctx.strokeStyle = '#ffbb33';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+                ctx.strokeStyle = '#ffdd88';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let i = -1; i <= 1; i++) {
+                    const a = tg.angle + i * tg.arc * 0.5;
+                    ctx.moveTo(Math.cos(a) * tg.innerR, Math.sin(a) * tg.innerR);
+                    ctx.lineTo(Math.cos(a) * tg.outerR, Math.sin(a) * tg.outerR);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+            ctx.shadowBlur = 0;
+
+            // Upgrade icon at the hollow center, visible through the ring at
+            // all times (you just can't physically reach it until the plug's
+            // open) — same "see it before you can get it" language as the
+            // finish gate being visible from a distance.
+            if (!t.collected) this.drawUpgradeIcon(tg.x, tg.y);
+        }
+
+        // Pulsing gold diamond + up-chevron: the ship-upgrade pickup.
+        drawUpgradeIcon(x, y) {
+            const p = 0.6 + 0.4 * Math.sin(performance.now() / 260);
+            const r = 14;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = `rgba(255, 215, 0, ${(0.55 + 0.35 * p).toFixed(2)})`;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 14;
+            ctx.beginPath();
+            ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.4, r * 0.15); ctx.lineTo(0, -r * 0.35); ctx.lineTo(r * 0.4, r * 0.15);
+            ctx.stroke();
             ctx.restore();
             ctx.shadowBlur = 0;
         }
@@ -1968,12 +2188,16 @@
         modalContentContainer.innerHTML = `
             <h1>ASTEROIDS: MAZE</h1>
             <p>Fly from START up to the FINISH gate through 7 growing levels.
-               Bounce off hard purple walls and planetoids, blast the cracked
-               orange ones, and dodge the drifting rocks (watch the edge arrows
-               for incoming).</p>
+               Bounce off hard purple walls and space obstacles, blast the
+               cracked orange ones, and dodge the drifting rocks (watch the
+               edge arrows for incoming).</p>
             <p style="font-size: 0.85rem; color: #7dd3fc;">
                 Your hull takes 3 wall bumps per life — grab a ◇ shield for
                 5–10s of invulnerability. A crash into a rock costs a whole life.
+            </p>
+            <p style="font-size: 0.85rem; color: #ffd700;">
+                Some rings hide a sealed tunnel — shoot the orange arc open and
+                fly in for a permanent ship upgrade (◆).
             </p>
             <p style="font-size: 0.9rem; color: #ffaa00;">
                 PC: WASD/Arrows to fly, SPACE to shoot.<br>
