@@ -23,6 +23,36 @@ Drag a cartridge into the console (or tap one) to play.
 
 ## Planned Enhancements
 
-- **Galaga — per-stage enemy themes**: each stage gets its own enemy color
-  scheme and behavior personality (e.g. faster divers, bigger squadrons,
-  heavier fire), with a themed stage banner between levels.
+### Galaga
+
+- **Per-stage enemy themes**: each stage gets its own enemy color scheme and
+  behavior personality (e.g. faster divers, bigger squadrons, heavier fire),
+  with a themed stage banner between levels.
+
+### Asteroids — Maze Edition
+
+Ideas captured from playtesting levels 1 & 2. Not yet built.
+
+- **More levels**: build out levels 3–5 so the full 5-level cycle is real
+  before it loops back to level 1 faster/harder. Keep the per-cycle difficulty
+  ramp.
+- **Much longer levels**: extend each course significantly (more `screens`,
+  more walls) so a level is a real journey rather than a quick sprint.
+- **Lives + damage levels**: give each life a small health pool — allow **3
+  wall hits per life** before the life is lost — instead of walls being purely
+  harmless bounces. Show a per-life damage meter in the HUD.
+- **Shield power-ups**: collectible shields that make the ship invulnerable for
+  a **randomized 5–10 seconds**. Randomize both spawn location and duration,
+  and generally weight them toward **later stages** where they're most needed
+  (save-it-for-later feel).
+- **Smarter asteroid approaches**: spawn/route asteroids so they force real
+  navigation decisions — come at the player from **any angle**, and arrive at
+  spots where you must weave around them or spot them early and slow down
+  (telegraphed approaches, not cheap surprise hits).
+- **New wall shapes (progressive complexity)**: beyond straight bars, introduce
+  **L-shaped**, **T-shaped**, **mini-maze** clusters, and other interesting
+  structures. Gate them by progress so navigation gets harder the more levels
+  you win.
+- **More 2D themes**: additional visual themes (color schemes / backdrops /
+  wall + enemy styling), e.g. per-level or per-cycle theming so the course
+  looks fresh as you advance.
