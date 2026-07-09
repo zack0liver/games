@@ -17,9 +17,12 @@ Drag a cartridge into the console (or tap one) to play.
    Direct link: [https://zack0liver.github.io/games/index_asteroids_maze.html](https://zack0liver.github.io/games/index_asteroids_maze.html)  
    Same asteroids flight controls, but each level is a vertical course: fly
    from the START pad up to the FINISH gate, bouncing off hard purple walls,
-   shooting through cracked orange ones, and dodging drifting rocks. Five
-   levels cycle; every full loop replays them faster and harder. Levels 1 & 2
-   are built out — 3–5 are on the way.
+   shooting through cracked orange ones, and dodging drifting rocks. Your hull
+   absorbs 3 wall bumps per life; grab a shield power-up for 5–10s of
+   invulnerability (and to smash rocks). Five progressively longer levels
+   introduce L-shaped, T-shaped and mini-maze obstacles, with incoming rocks
+   telegraphed by edge arrows. Every full loop replays all five faster and
+   harder.
 
 ## Planned Enhancements
 
@@ -31,28 +34,15 @@ Drag a cartridge into the console (or tap one) to play.
 
 ### Asteroids — Maze Edition
 
-Ideas captured from playtesting levels 1 & 2. Not yet built.
+Shipped from the playtest list: 5 progressively longer levels with a per-cycle
+difficulty ramp, per-life hull damage (3 wall hits) with a HUD meter,
+randomized 5–10s shield power-ups weighted to later levels, telegraphed
+any-angle asteroid approaches, and L / T / mini-maze wall shapes that ramp up
+with progress.
 
-- **More levels**: build out levels 3–5 so the full 5-level cycle is real
-  before it loops back to level 1 faster/harder. Keep the per-cycle difficulty
-  ramp.
-- **Much longer levels**: extend each course significantly (more `screens`,
-  more walls) so a level is a real journey rather than a quick sprint.
-- **Lives + damage levels**: give each life a small health pool — allow **3
-  wall hits per life** before the life is lost — instead of walls being purely
-  harmless bounces. Show a per-life damage meter in the HUD.
-- **Shield power-ups**: collectible shields that make the ship invulnerable for
-  a **randomized 5–10 seconds**. Randomize both spawn location and duration,
-  and generally weight them toward **later stages** where they're most needed
-  (save-it-for-later feel).
-- **Smarter asteroid approaches**: spawn/route asteroids so they force real
-  navigation decisions — come at the player from **any angle**, and arrive at
-  spots where you must weave around them or spot them early and slow down
-  (telegraphed approaches, not cheap surprise hits).
-- **New wall shapes (progressive complexity)**: beyond straight bars, introduce
-  **L-shaped**, **T-shaped**, **mini-maze** clusters, and other interesting
-  structures. Gate them by progress so navigation gets harder the more levels
-  you win.
+Still open:
+
 - **More 2D themes**: additional visual themes (color schemes / backdrops /
   wall + enemy styling), e.g. per-level or per-cycle theming so the course
-  looks fresh as you advance.
+  looks fresh as you advance. (Intentionally deferred — keeping the current
+  aesthetic for now.)

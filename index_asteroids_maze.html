@@ -340,72 +340,225 @@
     // ----------------------------------------------------------------
     // Each level is a vertical scrolling course. The ship starts on a pad
     // near the BOTTOM of the world and must reach the glowing FINISH gate at
-    // the TOP. `screens` sets the world height as a multiple of the viewport.
+    // the TOP. `screens` sets the world height as a multiple of the viewport
+    // (bigger = longer course).
     //
-    // Walls are horizontal bands positioned by `yFrac` (fraction of world
-    // height from the top). Each wall is split into `cells` left-to-right,
-    // whose widths (`w`) are fractions of the view width and should sum to ~1:
-    //   type 'solid' -> hard barrier, you bounce off it
-    //   type 'gap'   -> open space you fly through
-    //   type 'crack' -> cracked barrier you can SHOOT through (hp shots)
-    // `osc` makes a wall slide slowly side-to-side: { amp (frac of width),
-    // speed (rad/s), phase }.
+    // Two kinds of obstacle, both hard barriers you bounce off (and both can
+    // be a shootable 'crack'):
     //
-    // Enemies drift and bounce like classic asteroids; dodge or shoot them.
-    // Placed by { xFrac, yFrac, speed, dir (radians), radius }.
+    // 1. `walls` — horizontal bands positioned by `yFrac` (fraction of world
+    //    height). Split into `cells` left-to-right whose widths (`w`) are
+    //    fractions of the view width and should sum to ~1:
+    //      type 'solid' -> hard barrier
+    //      type 'gap'   -> open space you fly through
+    //      type 'crack' -> cracked barrier you SHOOT through (hp shots)
+    //    `osc` slides the whole band side-to-side: { amp (frac of width),
+    //    speed (rad/s), phase }.
     //
-    // NOTE: Levels 1 & 2 are built out for concept feedback. Levels 3-5 are
-    // coming; the cycle logic already scales difficulty each full loop, so
-    // finishing the last defined level restarts at level 1, faster & harder.
+    // 2. `blocks` — free rectangles used to compose L-shapes, T-shapes and
+    //    mini-mazes as the game gets harder. { xFrac, yFrac, wFrac, hFrac,
+    //    type, hp?, osc? }. xFrac/yFrac = top-left (xFrac of view width,
+    //    yFrac of world height); wFrac of view width; hFrac of view height.
+    //    `osc` optionally drifts a block: { amp, speed, phase, axis:'x'|'y' }.
+    //
+    // Enemies drift/bounce like classic asteroids. Each patrols a vertical
+    // `band` (fraction of world above/below its start) so it stays a hazard at
+    // its section of the course while sweeping across the full width — arriving
+    // from any angle and telegraphed by an edge arrow before it enters view.
+    // Placed by { xFrac, yFrac, speed, dir (radians), radius, band? }.
+    //
+    // `shields` = how many shield power-ups spawn (randomized position +
+    // 5-10s duration). Weighted higher in later levels.
+    //
+    // The cycle logic scales difficulty each full loop: finishing level 5
+    // restarts at level 1, faster & harder.
     // ================================================================
     const LEVELS = [
         {
             name: 'ROOKIE RUN',
-            screens: 2.4,
+            screens: 3.2,
+            shields: 1,
             walls: [
-                { yFrac: 0.80, osc: { amp: 0.04, speed: 0.6, phase: 0.0 },
+                { yFrac: 0.84, osc: { amp: 0.04, speed: 0.6, phase: 0.0 },
                   cells: [ { w: 0.35, type: 'solid' }, { w: 0.30, type: 'gap' }, { w: 0.35, type: 'solid' } ] },
-                { yFrac: 0.60, osc: { amp: 0.05, speed: 0.7, phase: 1.0 },
-                  cells: [ { w: 0.25, type: 'gap' }, { w: 0.50, type: 'solid' }, { w: 0.25, type: 'gap' } ] },
+                { yFrac: 0.71, osc: { amp: 0.05, speed: 0.7, phase: 1.0 },
+                  cells: [ { w: 0.28, type: 'gap' }, { w: 0.44, type: 'solid' }, { w: 0.28, type: 'gap' } ] },
                 // Introduces the crack mechanic: there's a normal gap, plus a
                 // cracked shortcut you can blast open.
-                { yFrac: 0.42, osc: { amp: 0.03, speed: 0.5, phase: 2.2 },
+                { yFrac: 0.57, osc: { amp: 0.03, speed: 0.5, phase: 2.2 },
                   cells: [ { w: 0.30, type: 'solid' }, { w: 0.12, type: 'crack', hp: 3 },
-                           { w: 0.18, type: 'solid' }, { w: 0.22, type: 'gap' }, { w: 0.18, type: 'solid' } ] },
-                { yFrac: 0.24, osc: { amp: 0.06, speed: 0.8, phase: 0.5 },
+                           { w: 0.16, type: 'solid' }, { w: 0.24, type: 'gap' }, { w: 0.18, type: 'solid' } ] },
+                { yFrac: 0.44, osc: { amp: 0.05, speed: 0.7, phase: 0.8 },
+                  cells: [ { w: 0.25, type: 'gap' }, { w: 0.50, type: 'solid' }, { w: 0.25, type: 'gap' } ] },
+                { yFrac: 0.30, osc: { amp: 0.06, speed: 0.8, phase: 0.5 },
+                  cells: [ { w: 0.32, type: 'solid' }, { w: 0.34, type: 'gap' }, { w: 0.34, type: 'solid' } ] },
+                { yFrac: 0.16, osc: { amp: 0.05, speed: 0.6, phase: 1.6 },
                   cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
             ],
             enemies: [
-                { xFrac: 0.30, yFrac: 0.52, speed: 65, dir: 0.6, radius: 20 },
-                { xFrac: 0.68, yFrac: 0.32, speed: 70, dir: 2.4, radius: 22 }
+                { xFrac: 0.30, yFrac: 0.63, speed: 60, dir: 0.6, radius: 20, band: 0.10 },
+                { xFrac: 0.68, yFrac: 0.37, speed: 66, dir: 2.4, radius: 22, band: 0.10 }
             ]
         },
         {
             name: 'CRACK & WEAVE',
-            screens: 3.0,
+            screens: 4.0,
+            shields: 1,
             walls: [
-                { yFrac: 0.86, osc: { amp: 0.06, speed: 0.9, phase: 0.0 },
+                { yFrac: 0.88, osc: { amp: 0.06, speed: 0.9, phase: 0.0 },
                   cells: [ { w: 0.40, type: 'solid' }, { w: 0.20, type: 'gap' }, { w: 0.40, type: 'solid' } ] },
-                { yFrac: 0.72, osc: { amp: 0.05, speed: 1.0, phase: 1.5 },
+                { yFrac: 0.78, osc: { amp: 0.05, speed: 1.0, phase: 1.5 },
                   cells: [ { w: 0.20, type: 'gap' }, { w: 0.25, type: 'solid' },
                            { w: 0.15, type: 'gap' }, { w: 0.40, type: 'solid' } ] },
                 // A wall with NO open gap — the only way through is to shoot
                 // the crack open.
-                { yFrac: 0.58, osc: { amp: 0.025, speed: 0.6, phase: 2.0 },
+                { yFrac: 0.67, osc: { amp: 0.025, speed: 0.6, phase: 2.0 },
                   cells: [ { w: 0.42, type: 'solid' }, { w: 0.16, type: 'crack', hp: 4 }, { w: 0.42, type: 'solid' } ] },
-                { yFrac: 0.44, osc: { amp: 0.06, speed: 1.1, phase: 2.6 },
+                { yFrac: 0.56, osc: { amp: 0.06, speed: 1.1, phase: 2.6 },
                   cells: [ { w: 0.18, type: 'gap' }, { w: 0.30, type: 'solid' },
                            { w: 0.12, type: 'crack', hp: 3 }, { w: 0.22, type: 'solid' }, { w: 0.18, type: 'gap' } ] },
-                { yFrac: 0.30, osc: { amp: 0.07, speed: 1.2, phase: 0.4 },
+                { yFrac: 0.45, osc: { amp: 0.07, speed: 1.2, phase: 0.4 },
                   cells: [ { w: 0.30, type: 'solid' }, { w: 0.18, type: 'gap' },
                            { w: 0.34, type: 'solid' }, { w: 0.18, type: 'gap' } ] },
-                { yFrac: 0.16, osc: { amp: 0.05, speed: 1.0, phase: 1.2 },
-                  cells: [ { w: 0.28, type: 'gap' }, { w: 0.44, type: 'solid' }, { w: 0.28, type: 'gap' } ] }
+                { yFrac: 0.34, osc: { amp: 0.05, speed: 1.0, phase: 1.2 },
+                  cells: [ { w: 0.26, type: 'gap' }, { w: 0.48, type: 'solid' }, { w: 0.26, type: 'gap' } ] },
+                { yFrac: 0.23, osc: { amp: 0.06, speed: 1.1, phase: 2.1 },
+                  cells: [ { w: 0.22, type: 'solid' }, { w: 0.20, type: 'gap' }, { w: 0.16, type: 'solid' },
+                           { w: 0.20, type: 'gap' }, { w: 0.22, type: 'solid' } ] },
+                { yFrac: 0.12, osc: { amp: 0.05, speed: 0.9, phase: 0.7 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
             ],
             enemies: [
-                { xFrac: 0.28, yFrac: 0.66, speed: 80, dir: 0.5, radius: 20 },
-                { xFrac: 0.70, yFrac: 0.46, speed: 85, dir: 2.2, radius: 22 },
-                { xFrac: 0.45, yFrac: 0.26, speed: 90, dir: 3.6, radius: 18 }
+                { xFrac: 0.28, yFrac: 0.72, speed: 78, dir: 0.5, radius: 20, band: 0.09 },
+                { xFrac: 0.70, yFrac: 0.50, speed: 84, dir: 2.2, radius: 22, band: 0.09 },
+                { xFrac: 0.45, yFrac: 0.28, speed: 90, dir: 3.6, radius: 18, band: 0.09 }
+            ]
+        },
+        {
+            name: 'ELBOW ROOM',
+            screens: 5.0,
+            shields: 2,
+            walls: [
+                { yFrac: 0.90, osc: { amp: 0.05, speed: 0.8, phase: 0.0 },
+                  cells: [ { w: 0.38, type: 'solid' }, { w: 0.24, type: 'gap' }, { w: 0.38, type: 'solid' } ] },
+                { yFrac: 0.80, osc: { amp: 0.05, speed: 0.9, phase: 1.2 },
+                  cells: [ { w: 0.26, type: 'gap' }, { w: 0.48, type: 'solid' }, { w: 0.26, type: 'gap' } ] },
+                { yFrac: 0.60, osc: { amp: 0.04, speed: 0.7, phase: 2.2 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.22, type: 'gap' }, { w: 0.26, type: 'solid' }, { w: 0.22, type: 'gap' } ] },
+                { yFrac: 0.48, osc: { amp: 0.04, speed: 0.8, phase: 0.6 },
+                  cells: [ { w: 0.34, type: 'solid' }, { w: 0.14, type: 'crack', hp: 3 },
+                           { w: 0.16, type: 'solid' }, { w: 0.18, type: 'gap' }, { w: 0.18, type: 'solid' } ] },
+                { yFrac: 0.34, osc: { amp: 0.05, speed: 0.9, phase: 1.5 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] },
+                { yFrac: 0.14, osc: { amp: 0.05, speed: 0.8, phase: 0.9 },
+                  cells: [ { w: 0.28, type: 'gap' }, { w: 0.44, type: 'solid' }, { w: 0.28, type: 'gap' } ] }
+            ],
+            // L-shaped protrusions that narrow the gaps and force weaving.
+            blocks: [
+                // L hanging down into the row near yFrac 0.80's right gap.
+                { xFrac: 0.62, yFrac: 0.72, wFrac: 0.22, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.62, yFrac: 0.72, wFrac: 0.05, hFrac: 0.10, type: 'solid' },
+                // Mirrored L reaching in from the left, drifting.
+                { xFrac: 0.16, yFrac: 0.54, wFrac: 0.22, hFrac: 0.028, type: 'solid',
+                  osc: { amp: 0.05, speed: 0.6, phase: 1.0, axis: 'x' } },
+                { xFrac: 0.33, yFrac: 0.54, wFrac: 0.05, hFrac: 0.10, type: 'solid',
+                  osc: { amp: 0.05, speed: 0.6, phase: 1.0, axis: 'x' } },
+                // L bracketing the upper stretch.
+                { xFrac: 0.44, yFrac: 0.26, wFrac: 0.20, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.44, yFrac: 0.18, wFrac: 0.05, hFrac: 0.10, type: 'solid' }
+            ],
+            enemies: [
+                { xFrac: 0.30, yFrac: 0.74, speed: 82, dir: 0.4, radius: 20, band: 0.08 },
+                { xFrac: 0.66, yFrac: 0.52, speed: 88, dir: 2.3, radius: 20, band: 0.08 },
+                { xFrac: 0.40, yFrac: 0.30, speed: 92, dir: 3.5, radius: 18, band: 0.08 }
+            ]
+        },
+        {
+            name: 'CROSSROADS',
+            screens: 6.0,
+            shields: 2,
+            walls: [
+                { yFrac: 0.92, osc: { amp: 0.05, speed: 0.9, phase: 0.0 },
+                  cells: [ { w: 0.36, type: 'solid' }, { w: 0.28, type: 'gap' }, { w: 0.36, type: 'solid' } ] },
+                { yFrac: 0.82, osc: { amp: 0.06, speed: 1.0, phase: 1.0 },
+                  cells: [ { w: 0.24, type: 'gap' }, { w: 0.24, type: 'solid' }, { w: 0.14, type: 'crack', hp: 3 },
+                           { w: 0.14, type: 'solid' }, { w: 0.24, type: 'gap' } ] },
+                { yFrac: 0.64, osc: { amp: 0.05, speed: 0.9, phase: 2.0 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.22, type: 'gap' }, { w: 0.26, type: 'solid' }, { w: 0.22, type: 'gap' } ] },
+                { yFrac: 0.46, osc: { amp: 0.05, speed: 1.0, phase: 0.5 },
+                  cells: [ { w: 0.28, type: 'gap' }, { w: 0.44, type: 'solid' }, { w: 0.28, type: 'gap' } ] },
+                { yFrac: 0.28, osc: { amp: 0.06, speed: 1.1, phase: 1.4 },
+                  cells: [ { w: 0.22, type: 'solid' }, { w: 0.20, type: 'gap' }, { w: 0.16, type: 'solid' },
+                           { w: 0.20, type: 'gap' }, { w: 0.22, type: 'solid' } ] },
+                { yFrac: 0.12, osc: { amp: 0.05, speed: 0.9, phase: 0.8 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
+            ],
+            // T-shaped barriers (bar + centered stem) plus an L.
+            blocks: [
+                // T pointing down.
+                { xFrac: 0.30, yFrac: 0.73, wFrac: 0.40, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.475, yFrac: 0.73, wFrac: 0.05, hFrac: 0.11, type: 'solid' },
+                // T pointing up, drifting.
+                { xFrac: 0.28, yFrac: 0.55, wFrac: 0.44, hFrac: 0.028, type: 'solid',
+                  osc: { amp: 0.04, speed: 0.7, phase: 1.3, axis: 'x' } },
+                { xFrac: 0.475, yFrac: 0.46, wFrac: 0.05, hFrac: 0.10, type: 'solid',
+                  osc: { amp: 0.04, speed: 0.7, phase: 1.3, axis: 'x' } },
+                // L in the upper stretch.
+                { xFrac: 0.40, yFrac: 0.37, wFrac: 0.22, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.57, yFrac: 0.37, wFrac: 0.05, hFrac: 0.10, type: 'solid' }
+            ],
+            enemies: [
+                { xFrac: 0.32, yFrac: 0.76, speed: 88, dir: 0.5, radius: 20, band: 0.07 },
+                { xFrac: 0.64, yFrac: 0.58, speed: 94, dir: 2.4, radius: 20, band: 0.07 },
+                { xFrac: 0.40, yFrac: 0.34, speed: 98, dir: 3.5, radius: 18, band: 0.07 },
+                { xFrac: 0.60, yFrac: 0.18, speed: 96, dir: 1.2, radius: 18, band: 0.07 }
+            ]
+        },
+        {
+            name: 'THE GAUNTLET',
+            screens: 7.0,
+            shields: 3,
+            walls: [
+                { yFrac: 0.93, osc: { amp: 0.05, speed: 1.0, phase: 0.0 },
+                  cells: [ { w: 0.34, type: 'solid' }, { w: 0.32, type: 'gap' }, { w: 0.34, type: 'solid' } ] },
+                { yFrac: 0.84, osc: { amp: 0.06, speed: 1.1, phase: 1.0 },
+                  cells: [ { w: 0.26, type: 'gap' }, { w: 0.48, type: 'solid' }, { w: 0.26, type: 'gap' } ] },
+                { yFrac: 0.58, osc: { amp: 0.05, speed: 1.0, phase: 2.0 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.16, type: 'crack', hp: 4 }, { w: 0.08, type: 'solid' },
+                           { w: 0.16, type: 'gap' }, { w: 0.30, type: 'solid' } ] },
+                { yFrac: 0.40, osc: { amp: 0.06, speed: 1.2, phase: 0.6 },
+                  cells: [ { w: 0.24, type: 'gap' }, { w: 0.52, type: 'solid' }, { w: 0.24, type: 'gap' } ] },
+                { yFrac: 0.12, osc: { amp: 0.05, speed: 1.0, phase: 0.9 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
+            ],
+            // Mini-maze chicanes: staggered short blocks you must zig-zag
+            // through. Openings are deliberately offset row to row.
+            blocks: [
+                // Chicane cluster 1 (~0.74): forces left-right-left.
+                { xFrac: 0.00, yFrac: 0.74, wFrac: 0.46, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.54, yFrac: 0.70, wFrac: 0.46, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.00, yFrac: 0.66, wFrac: 0.40, hFrac: 0.028, type: 'solid' },
+                // Vertical dividers making the mini-maze.
+                { xFrac: 0.46, yFrac: 0.66, wFrac: 0.045, hFrac: 0.10, type: 'solid' },
+                // Chicane cluster 2 (~0.50), drifting as a unit.
+                { xFrac: 0.54, yFrac: 0.50, wFrac: 0.46, hFrac: 0.028, type: 'solid',
+                  osc: { amp: 0.04, speed: 0.7, phase: 1.1, axis: 'x' } },
+                { xFrac: 0.00, yFrac: 0.46, wFrac: 0.44, hFrac: 0.028, type: 'solid',
+                  osc: { amp: 0.04, speed: 0.7, phase: 1.1, axis: 'x' } },
+                { xFrac: 0.42, yFrac: 0.46, wFrac: 0.045, hFrac: 0.09, type: 'solid',
+                  osc: { amp: 0.04, speed: 0.7, phase: 1.1, axis: 'x' } },
+                // Chicane cluster 3 (~0.26): T + L mash.
+                { xFrac: 0.28, yFrac: 0.26, wFrac: 0.44, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.475, yFrac: 0.26, wFrac: 0.05, hFrac: 0.11, type: 'solid' },
+                { xFrac: 0.00, yFrac: 0.20, wFrac: 0.24, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.76, yFrac: 0.20, wFrac: 0.24, hFrac: 0.028, type: 'solid' }
+            ],
+            enemies: [
+                { xFrac: 0.30, yFrac: 0.80, speed: 92, dir: 0.5, radius: 20, band: 0.06 },
+                { xFrac: 0.64, yFrac: 0.62, speed: 98, dir: 2.4, radius: 18, band: 0.06 },
+                { xFrac: 0.38, yFrac: 0.44, speed: 104, dir: 3.5, radius: 18, band: 0.06 },
+                { xFrac: 0.60, yFrac: 0.30, speed: 100, dir: 1.2, radius: 18, band: 0.06 },
+                { xFrac: 0.45, yFrac: 0.16, speed: 106, dir: 4.2, radius: 16, band: 0.06 }
             ]
         }
     ];
@@ -511,6 +664,8 @@
             this.thrustPower = 260;
             this.maxSpeed = 300;
             this.lives = 3;
+            this.maxHealth = 3;   // wall hits absorbed per life
+            this.health = 3;
             this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
             this.isAccelerating = false;
             this.isTurningLeft = false;
@@ -520,8 +675,11 @@
             this.maxCooldown = 0.18;
             this.invulnerabilityTimer = 0;
             this.invulnerabilityDuration = 2.2;
+            this.wallHitCooldown = 0;   // debounce so one bump = one hit
+            this.shieldTimer = 0;       // >0 while a shield power-up is active
             this.thrustScale = 1; // 0-1 from touch drag distance; always 1 for keyboard
         }
+        get shielded() { return this.shieldTimer > 0; }
         update(dt, worldH) {
             if (this.isTurningLeft) this.angle -= this.rotationSpeed * dt;
             if (this.isTurningRight) this.angle += this.rotationSpeed * dt;
@@ -552,12 +710,32 @@
 
             if (this.bulletCooldown > 0) this.bulletCooldown -= dt;
             if (this.invulnerabilityTimer > 0) this.invulnerabilityTimer -= dt;
+            if (this.wallHitCooldown > 0) this.wallHitCooldown -= dt;
+            if (this.shieldTimer > 0) this.shieldTimer -= dt;
         }
         draw() {
             ctx.save();
             ctx.translate(this.x, this.y);
+
+            // Shield bubble (drawn un-rotated around the ship).
+            if (this.shielded) {
+                const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 90);
+                // Flash faster in the final 2s to warn it's about to drop.
+                const fading = this.shieldTimer < 2 && Math.floor(this.shieldTimer * 6) % 2 === 0;
+                if (!fading) {
+                    ctx.strokeStyle = `rgba(125, 211, 252, ${(0.5 + 0.4 * pulse).toFixed(2)})`;
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = '#7dd3fc';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 9, 0, PI * 2);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            }
+
             ctx.rotate(this.angle);
-            const blink = this.invulnerabilityTimer > 0 && Math.floor(this.invulnerabilityTimer * 8) % 2 === 0;
+            const blink = this.invulnerabilityTimer > 0 && !this.shielded && Math.floor(this.invulnerabilityTimer * 8) % 2 === 0;
             drawShip(this.color, this.isAccelerating, blink);
             ctx.restore();
         }
@@ -569,6 +747,9 @@
             this.isAccelerating = false;
             this.thrustScale = 1;
             this.invulnerabilityTimer = this.invulnerabilityDuration;
+            this.wallHitCooldown = 0;
+            this.shieldTimer = 0;
+            this.health = this.maxHealth;
         }
         canShoot() { return this.bulletCooldown <= 0; }
         shoot(game) {
@@ -625,7 +806,7 @@
     }
 
     class Enemy {
-        constructor(x, y, radius, speed, dir) {
+        constructor(x, y, radius, speed, dir, yMin, yMax) {
             this.x = x; this.y = y; this.radius = radius;
             this.color = '#ff6b9d';
             this.vx = Math.cos(dir) * speed;
@@ -633,6 +814,11 @@
             this.rotation = rand(0, PI * 2);
             this.rotationRate = rand(-1, 1);
             this.isAlive = true;
+            // Vertical patrol band: the rock sweeps the full width but stays
+            // near its section of the course, so encounters happen where
+            // they're designed and can be telegraphed as you approach.
+            this.yMin = yMin;
+            this.yMax = yMax;
             // Fixed jagged silhouette so it reads as a rock, not a blob.
             this.shape = Array.from({ length: 11 }, () => rand(0.75, 1.15));
         }
@@ -641,11 +827,14 @@
             this.y += this.vy * dt;
             this.rotation += this.rotationRate * dt;
             const r = this.radius;
-            // Free-floating like classic asteroids: bounce off the world box.
+            const yLo = Math.max(r, this.yMin);
+            const yHi = Math.min(worldH - r, this.yMax);
+            // Free-floating like classic asteroids: bounce off the walls of
+            // the course (full width) and off its patrol band (vertically).
             if (this.x < r) { this.x = r; this.vx = Math.abs(this.vx); }
             if (this.x > VIEW_W - r) { this.x = VIEW_W - r; this.vx = -Math.abs(this.vx); }
-            if (this.y < r) { this.y = r; this.vy = Math.abs(this.vy); }
-            if (this.y > worldH - r) { this.y = worldH - r; this.vy = -Math.abs(this.vy); }
+            if (this.y < yLo) { this.y = yLo; this.vy = Math.abs(this.vy); }
+            if (this.y > yHi) { this.y = yHi; this.vy = -Math.abs(this.vy); }
         }
         draw() {
             ctx.save();
@@ -670,6 +859,43 @@
         }
     }
 
+    class ShieldPickup {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.radius = 14; this.isAlive = true;
+            this.pulse = rand(0, PI * 2);
+            this.bob = rand(0, PI * 2);
+        }
+        update(dt) {
+            this.pulse += dt * 3.5;
+            this.bob += dt * 1.5;
+        }
+        draw() {
+            const p = 0.6 + 0.4 * Math.sin(this.pulse);
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.strokeStyle = `rgba(125, 211, 252, ${(0.55 + 0.35 * p).toFixed(2)})`;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#7dd3fc';
+            ctx.shadowBlur = 14;
+            // Hex "shield" ring.
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = (i / 6) * PI * 2 - PI / 2;
+                const px = Math.cos(a) * this.radius, py = Math.sin(a) * this.radius;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            // Inner "S" spark.
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius * 0.42, 0, PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+    }
+
     // --- Game Logic ---
 
     class Game {
@@ -679,6 +905,9 @@
             this.particles = [];
             this.enemies = [];
             this.walls = [];
+            this.blocks = [];
+            this.shieldPickups = [];
+            this.damageFlash = 0;
             this.score = 0;
             this.finalScore = 0;
             this.lastTime = 0;
@@ -731,16 +960,30 @@
                 }))
             }));
 
-            this.enemies = level.enemies.map(e => new Enemy(
-                e.xFrac * VIEW_W,
-                e.yFrac * this.worldH,
-                e.radius,
-                e.speed * this.diff,
-                e.dir
-            ));
+            // Deep-copy free blocks (L / T / mini-maze pieces).
+            this.blocks = (level.blocks || []).map(b => ({
+                xFrac: b.xFrac, yFrac: b.yFrac, wFrac: b.wFrac, hFrac: b.hFrac,
+                type: b.type,
+                hp: b.type === 'crack' ? (b.hp || 3) : 0,
+                destroyed: false,
+                osc: b.osc ? { ...b.osc } : null
+            }));
+
+            this.enemies = level.enemies.map(e => {
+                const cy = e.yFrac * this.worldH;
+                const band = (e.band != null ? e.band : 0.1) * this.worldH;
+                return new Enemy(
+                    e.xFrac * VIEW_W, cy, e.radius,
+                    e.speed * this.diff, e.dir,
+                    cy - band, cy + band
+                );
+            });
+
+            this.spawnShields((level.shields || 0) + (this.cycle - 1));
 
             this.bullets = [];
             this.particles = [];
+            this.damageFlash = 0;
             this.player.placeAtStart(this.worldH);
             this.cameraY = this.clampCamera(this.player.y - VIEW_H / 2);
             this.state = 'playing';
@@ -777,6 +1020,50 @@
             return cells;
         }
 
+        // Current pixel geometry of a free block, accounting for drift.
+        blockRect(b) {
+            let x = b.xFrac * VIEW_W;
+            let y = b.yFrac * this.worldH;
+            if (b.osc) {
+                const span = (b.osc.axis === 'y') ? VIEW_H : VIEW_W;
+                const o = b.osc.amp * span * Math.sin(performance.now() / 1000 * b.osc.speed * this.diff + b.osc.phase);
+                if (b.osc.axis === 'y') y += o; else x += o;
+            }
+            return { ref: b, type: b.type, x, y, w: b.wFrac * VIEW_W, h: b.hFrac * VIEW_H };
+        }
+
+        // Every solid/crack rectangle currently blocking the course, from both
+        // horizontal walls and free blocks. Used for player + bullet collisions.
+        obstacleRects() {
+            const rects = [];
+            for (const wall of this.walls) {
+                for (const cell of this.wallCells(wall)) rects.push(cell);
+            }
+            for (const b of this.blocks) {
+                if (!b.destroyed) rects.push(this.blockRect(b));
+            }
+            return rects;
+        }
+
+        // Randomly scatter shield pickups, biased toward the upper (later) part
+        // of the course, and nudged off wall rows so they read cleanly.
+        spawnShields(count) {
+            this.shieldPickups = [];
+            const wallYs = this.walls.map(w => w.yFrac * this.worldH);
+            for (let i = 0; i < count; i++) {
+                const x = rand(0.2, 0.8) * VIEW_W;
+                let y = 0;
+                // Bias upward: sample nearer the finish as i grows.
+                for (let tries = 0; tries < 8; tries++) {
+                    const lo = this.finishY + 80;
+                    const hi = this.startY - 120;
+                    y = rand(lo, hi);
+                    if (!wallYs.some(wy => Math.abs(wy - y) < 40)) break;
+                }
+                this.shieldPickups.push(new ShieldPickup(x, y));
+            }
+        }
+
         update(dt) {
             if (this.state === 'levelcomplete') {
                 this.particles.forEach(p => p.update(dt));
@@ -788,18 +1075,22 @@
             }
 
             if (this.player.isShooting) this.player.shoot(this);
+            if (this.damageFlash > 0) this.damageFlash -= dt;
 
             this.player.update(dt, this.worldH);
             this.bullets.forEach(b => b.update(dt));
             this.enemies.forEach(e => e.update(dt, this.worldH));
             this.particles.forEach(p => p.update(dt));
+            this.shieldPickups.forEach(s => s.update(dt));
 
             this.handleWallCollisions();
             this.handleCombat();
+            this.handleShieldPickups();
 
             this.bullets = this.bullets.filter(b => b.isAlive);
             this.enemies = this.enemies.filter(e => e.isAlive);
             this.particles = this.particles.filter(p => p.isAlive);
+            this.shieldPickups = this.shieldPickups.filter(s => s.isAlive);
 
             // Smoothly follow the ship up the course.
             const targetCam = this.clampCamera(this.player.y - VIEW_H / 2);
@@ -817,9 +1108,42 @@
 
         handleWallCollisions() {
             const p = this.player;
-            for (const wall of this.walls) {
-                for (const cell of this.wallCells(wall)) {
-                    this.resolveCircleRect(p, cell.x, cell.y, cell.w, cell.h, 0.35);
+            let hit = false;
+            for (const rect of this.obstacleRects()) {
+                if (this.resolveCircleRect(p, rect.x, rect.y, rect.w, rect.h, 0.35)) hit = true;
+            }
+            if (hit) this.registerWallHit();
+        }
+
+        // A wall bump costs one point of hull integrity (3 per life), debounced
+        // so grinding along a wall doesn't drain instantly. Shields and the
+        // post-respawn grace period absorb it entirely.
+        registerWallHit() {
+            const p = this.player;
+            if (p.shielded || p.invulnerabilityTimer > 0 || p.wallHitCooldown > 0) return;
+            p.wallHitCooldown = 0.8;
+            p.health--;
+            this.damageFlash = 0.35;
+            this.spark(p.x, p.y, '#ff6b9d', 8);
+            if (p.health <= 0) {
+                this.loseLife('HULL BREACH!');
+            } else {
+                p.invulnerabilityTimer = 0.6; // brief mercy flicker
+                this.banner = { text: 'HULL HIT', sub: `INTEGRITY ${p.health}/${p.maxHealth}`, timer: 1.0, color: '#ff6b9d' };
+            }
+        }
+
+        handleShieldPickups() {
+            const p = this.player;
+            for (const s of this.shieldPickups) {
+                if (!s.isAlive) continue;
+                if (dist(p.x, p.y, s.x, s.y) < p.radius + s.radius) {
+                    s.isAlive = false;
+                    const dur = rand(5, 10);
+                    // Stack onto any remaining shield time rather than shrinking it.
+                    p.shieldTimer = Math.max(p.shieldTimer, dur);
+                    this.spark(s.x, s.y, '#7dd3fc', 20);
+                    this.banner = { text: 'SHIELD UP!', sub: `${Math.round(dur)}s INVULNERABLE`, timer: 1.6, color: '#7dd3fc' };
                 }
             }
         }
@@ -856,34 +1180,32 @@
         }
 
         handleCombat() {
-            // Bullets vs walls (destroy cracks, stop on solids) and enemies.
+            const rects = this.obstacleRects();
+            // Bullets vs obstacles (destroy cracks, stop on solids) and enemies.
             for (const b of this.bullets) {
                 if (!b.isAlive) continue;
 
-                // Walls
+                // Obstacles (walls + blocks)
                 let consumed = false;
-                for (const wall of this.walls) {
-                    for (const cell of this.wallCells(wall)) {
-                        const cx = Math.max(cell.x, Math.min(b.x, cell.x + cell.w));
-                        const cy = Math.max(cell.y, Math.min(b.y, cell.y + cell.h));
-                        if (dist(b.x, b.y, cx, cy) < b.radius + 1) {
-                            b.isAlive = false;
-                            if (cell.type === 'crack') {
-                                cell.ref.hp--;
-                                this.spark(b.x, b.y, '#ffbb33', 6);
-                                if (cell.ref.hp <= 0) {
-                                    cell.ref.destroyed = true;
-                                    this.score += 15;
-                                    this.spark(b.x, b.y, '#ffbb33', 16);
-                                }
-                            } else {
-                                this.spark(b.x, b.y, '#b26bff', 4);
+                for (const rect of rects) {
+                    const cx = Math.max(rect.x, Math.min(b.x, rect.x + rect.w));
+                    const cy = Math.max(rect.y, Math.min(b.y, rect.y + rect.h));
+                    if (dist(b.x, b.y, cx, cy) < b.radius + 1) {
+                        b.isAlive = false;
+                        if (rect.type === 'crack') {
+                            rect.ref.hp--;
+                            this.spark(b.x, b.y, '#ffbb33', 6);
+                            if (rect.ref.hp <= 0) {
+                                rect.ref.destroyed = true;
+                                this.score += 15;
+                                this.spark(b.x, b.y, '#ffbb33', 16);
                             }
-                            consumed = true;
-                            break;
+                        } else {
+                            this.spark(b.x, b.y, '#b26bff', 4);
                         }
+                        consumed = true;
+                        break;
                     }
-                    if (consumed) break;
                 }
                 if (consumed) continue;
 
@@ -900,12 +1222,18 @@
                 }
             }
 
-            // Player vs enemies (deadly unless invulnerable).
-            if (this.player.invulnerabilityTimer <= 0) {
-                for (const e of this.enemies) {
-                    if (!e.isAlive) continue;
-                    if (dist(this.player.x, this.player.y, e.x, e.y) < this.player.radius + e.radius) {
-                        this.playerHit();
+            // Player vs enemies. A shield smashes them; otherwise a crash costs
+            // a whole life (unless in the post-respawn grace period).
+            const p = this.player;
+            for (const e of this.enemies) {
+                if (!e.isAlive) continue;
+                if (dist(p.x, p.y, e.x, e.y) < p.radius + e.radius) {
+                    if (p.shielded) {
+                        e.isAlive = false;
+                        this.score += 25;
+                        this.spark(e.x, e.y, '#7dd3fc', 22);
+                    } else if (p.invulnerabilityTimer <= 0) {
+                        this.loseLife('CRASHED!');
                         break;
                     }
                 }
@@ -920,14 +1248,15 @@
             }
         }
 
-        playerHit() {
+        loseLife(reason) {
             this.player.lives--;
             this.bullets = [];
+            this.damageFlash = 0.4;
             if (this.player.lives > 0) {
-                // Respawn back at the level's START pad.
+                // Respawn back at the level's START pad (resets hull integrity).
                 this.player.placeAtStart(this.worldH);
                 this.cameraY = this.clampCamera(this.player.y - VIEW_H / 2);
-                this.banner = { text: 'CRASHED!', sub: 'BACK TO START', timer: 1.4, color: '#ff6b9d' };
+                this.banner = { text: reason || 'CRASHED!', sub: 'BACK TO START', timer: 1.4, color: '#ff6b9d' };
             }
         }
 
@@ -970,6 +1299,8 @@
             this.drawFinishGate();
             this.drawStartPad();
             this.walls.forEach(wall => this.drawWall(wall));
+            this.blocks.forEach(b => { if (!b.destroyed) this.drawObstacleRect(this.blockRect(b)); });
+            this.shieldPickups.forEach(s => s.draw());
             this.particles.forEach(p => p.draw());
             this.enemies.forEach(e => e.draw());
             this.bullets.forEach(b => b.draw());
@@ -977,7 +1308,22 @@
 
             ctx.restore();
 
+            this.drawTelegraphs();
             this.drawProgressBar();
+            this.drawHealthHUD();
+
+            // Damage flash vignette.
+            if (this.damageFlash > 0) {
+                ctx.save();
+                ctx.globalAlpha = Math.min(0.5, this.damageFlash);
+                ctx.fillStyle = '#ff2d55';
+                ctx.fillRect(0, 0, VIEW_W, 8);
+                ctx.fillRect(0, VIEW_H - 8, VIEW_W, 8);
+                ctx.fillRect(0, 0, 8, VIEW_H);
+                ctx.fillRect(VIEW_W - 8, 0, 8, VIEW_H);
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            }
 
             if (this.banner.timer > 0) this.drawBanner();
 
@@ -996,38 +1342,109 @@
         }
 
         drawWall(wall) {
-            for (const cell of this.wallCells(wall)) {
-                if (cell.type === 'crack') {
-                    // Cracked, shootable segment: dark fill, warning border,
-                    // and a jagged crack line so it visually invites a shot.
-                    ctx.fillStyle = '#2a1710';
-                    ctx.fillRect(cell.x, cell.y, cell.w, cell.h);
-                    ctx.strokeStyle = '#ffbb33';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2);
-                    ctx.beginPath();
-                    ctx.strokeStyle = '#ffdd88';
-                    ctx.lineWidth = 1.5;
-                    const mx = cell.x + cell.w / 2;
-                    ctx.moveTo(mx - cell.w * 0.2, cell.y);
-                    ctx.lineTo(mx + cell.w * 0.05, cell.y + cell.h * 0.5);
-                    ctx.lineTo(mx - cell.w * 0.1, cell.y + cell.h);
-                    ctx.moveTo(mx + cell.w * 0.15, cell.y);
-                    ctx.lineTo(mx - cell.w * 0.05, cell.y + cell.h * 0.55);
-                    ctx.lineTo(mx + cell.w * 0.2, cell.y + cell.h);
-                    ctx.stroke();
-                } else {
-                    // Hard wall: purple neon slab.
-                    ctx.fillStyle = 'rgba(178, 107, 255, 0.18)';
-                    ctx.fillRect(cell.x, cell.y, cell.w, cell.h);
-                    ctx.strokeStyle = '#b26bff';
-                    ctx.lineWidth = 2;
-                    ctx.shadowColor = '#b26bff';
-                    ctx.shadowBlur = 8;
-                    ctx.strokeRect(cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2);
+            for (const cell of this.wallCells(wall)) this.drawObstacleRect(cell);
+        }
+
+        // Shared renderer for any hard/cracked rectangle (wall cell or block).
+        drawObstacleRect(r) {
+            if (r.type === 'crack') {
+                // Cracked, shootable segment: dark fill, warning border, and
+                // jagged crack lines so it visually invites a shot.
+                ctx.fillStyle = '#2a1710';
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+                ctx.strokeStyle = '#ffbb33';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+                ctx.beginPath();
+                ctx.strokeStyle = '#ffdd88';
+                ctx.lineWidth = 1.5;
+                const mx = r.x + r.w / 2, my = r.y + r.h / 2;
+                ctx.moveTo(r.x + r.w * 0.2, r.y);
+                ctx.lineTo(mx + r.w * 0.05, my);
+                ctx.lineTo(r.x + r.w * 0.3, r.y + r.h);
+                ctx.moveTo(r.x + r.w * 0.7, r.y);
+                ctx.lineTo(mx - r.w * 0.05, my);
+                ctx.lineTo(r.x + r.w * 0.62, r.y + r.h);
+                ctx.stroke();
+            } else {
+                // Hard barrier: purple neon slab.
+                ctx.fillStyle = 'rgba(178, 107, 255, 0.18)';
+                ctx.fillRect(r.x, r.y, r.w, r.h);
+                ctx.strokeStyle = '#b26bff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#b26bff';
+                ctx.shadowBlur = 8;
+                ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Edge arrows for enemies that are off-screen ahead (above) or behind
+        // (below), so you can see rocks coming and slow down / weave.
+        drawTelegraphs() {
+            const range = VIEW_H * 1.4;
+            for (const e of this.enemies) {
+                if (!e.isAlive) continue;
+                const sy = e.y - this.cameraY; // screen-space y
+                if (sy >= -10 && sy <= VIEW_H + 10) continue; // already visible
+                const ahead = sy < 0;
+                const gap = ahead ? -sy : sy - VIEW_H;
+                if (gap > range) continue;
+                const alpha = 0.15 + 0.6 * (1 - gap / range);
+                const x = Math.max(16, Math.min(VIEW_W - 16, e.x));
+                const y = ahead ? 16 : VIEW_H - 16;
+                const dir = ahead ? -1 : 1;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ff6b9d';
+                ctx.shadowColor = '#ff6b9d';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.moveTo(x, y + dir * 8);
+                ctx.lineTo(x - 7, y - dir * 6);
+                ctx.lineTo(x + 7, y - dir * 6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                ctx.globalAlpha = 1;
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Hull-integrity pips (top-left) + active-shield readout.
+        drawHealthHUD() {
+            const p = this.player;
+            const x0 = 12, y0 = 14, seg = 22, h = 7, gap = 4;
+            ctx.save();
+            ctx.font = 'bold 10px "Space Mono", monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText('HULL', x0, y0 - 9);
+            for (let i = 0; i < p.maxHealth; i++) {
+                const lit = i < p.health;
+                const rx = x0 + i * (seg + gap);
+                if (lit) {
+                    const col = p.health === 1 ? '#ff2d55' : (p.health === 2 ? '#ffbb33' : '#00ffaa');
+                    ctx.fillStyle = col;
+                    ctx.shadowColor = col;
+                    ctx.shadowBlur = 6;
+                    ctx.fillRect(rx, y0, seg, h);
                     ctx.shadowBlur = 0;
+                } else {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(rx + 0.5, y0 + 0.5, seg - 1, h - 1);
                 }
             }
+            if (p.shielded) {
+                ctx.fillStyle = '#7dd3fc';
+                ctx.shadowColor = '#7dd3fc';
+                ctx.shadowBlur = 6;
+                ctx.fillText(`◇ SHIELD ${Math.ceil(p.shieldTimer)}s`, x0, y0 + h + 12);
+                ctx.shadowBlur = 0;
+            }
+            ctx.restore();
         }
 
         drawFinishGate() {
@@ -1358,8 +1775,13 @@
 
         modalContentContainer.innerHTML = `
             <h1>ASTEROIDS: MAZE</h1>
-            <p>Fly from START to the FINISH gate. Bounce off hard purple walls,
-               blast the cracked orange ones, and dodge the drifting rocks.</p>
+            <p>Fly from START up to the FINISH gate through 5 growing levels.
+               Bounce off hard purple walls, blast the cracked orange ones, and
+               dodge the drifting rocks (watch the edge arrows for incoming).</p>
+            <p style="font-size: 0.85rem; color: #7dd3fc;">
+                Your hull takes 3 wall bumps per life — grab a ◇ shield for
+                5–10s of invulnerability. A crash into a rock costs a whole life.
+            </p>
             <p style="font-size: 0.9rem; color: #ffaa00;">
                 PC: WASD/Arrows to fly, SPACE to shoot.<br>
                 Mobile: Drag to steer, tap with a 2nd finger to fire.
