@@ -560,6 +560,74 @@
                 { xFrac: 0.60, yFrac: 0.30, speed: 100, dir: 1.2, radius: 18, band: 0.06 },
                 { xFrac: 0.45, yFrac: 0.16, speed: 106, dir: 4.2, radius: 16, band: 0.06 }
             ]
+        },
+        {
+            name: 'ASTEROID BELT',
+            screens: 6.5,
+            shields: 3,
+            // Introduces circular obstacles: big neon planetoids you orbit
+            // around. `circles`: { xFrac, yFrac (of world), rFrac (of view
+            // width), type?, hp?, osc? }.
+            walls: [
+                { yFrac: 0.91, osc: { amp: 0.05, speed: 0.8, phase: 0.0 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.40, type: 'gap' }, { w: 0.30, type: 'solid' } ] },
+                { yFrac: 0.10, osc: { amp: 0.05, speed: 0.9, phase: 1.0 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
+            ],
+            circles: [
+                { xFrac: 0.30, yFrac: 0.80, rFrac: 0.10, osc: { amp: 0.05, speed: 0.5, phase: 0.0, axis: 'x' } },
+                { xFrac: 0.68, yFrac: 0.71, rFrac: 0.12, osc: { amp: 0.05, speed: 0.6, phase: 1.5, axis: 'x' } },
+                { xFrac: 0.48, yFrac: 0.60, rFrac: 0.13 },
+                { xFrac: 0.24, yFrac: 0.49, rFrac: 0.10, osc: { amp: 0.06, speed: 0.7, phase: 2.0, axis: 'x' } },
+                { xFrac: 0.75, yFrac: 0.42, rFrac: 0.11, osc: { amp: 0.05, speed: 0.6, phase: 0.5, axis: 'x' } },
+                // A cracked planetoid — shoot it open or slip around it.
+                { xFrac: 0.50, yFrac: 0.30, rFrac: 0.11, type: 'crack', hp: 4 },
+                { xFrac: 0.30, yFrac: 0.20, rFrac: 0.09, osc: { amp: 0.04, speed: 0.8, phase: 1.0, axis: 'y' } }
+            ],
+            enemies: [
+                { xFrac: 0.20, yFrac: 0.66, speed: 82, dir: 0.5, radius: 18, band: 0.08 },
+                { xFrac: 0.80, yFrac: 0.52, speed: 86, dir: 2.5, radius: 18, band: 0.08 },
+                { xFrac: 0.50, yFrac: 0.40, speed: 90, dir: 3.6, radius: 18, band: 0.08 },
+                { xFrac: 0.35, yFrac: 0.24, speed: 92, dir: 1.0, radius: 16, band: 0.08 }
+            ]
+        },
+        {
+            name: 'EVENT HORIZON',
+            screens: 7.0,
+            shields: 3,
+            // Everything at once: planetoids, a must-shoot crack wall, a
+            // T-block, and clustered flanking circles.
+            walls: [
+                { yFrac: 0.93, osc: { amp: 0.05, speed: 0.9, phase: 0.0 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.40, type: 'gap' }, { w: 0.30, type: 'solid' } ] },
+                { yFrac: 0.50, osc: { amp: 0.03, speed: 0.6, phase: 2.0 },
+                  cells: [ { w: 0.26, type: 'solid' }, { w: 0.18, type: 'crack', hp: 5 },
+                           { w: 0.26, type: 'solid' }, { w: 0.30, type: 'gap' } ] },
+                { yFrac: 0.10, osc: { amp: 0.05, speed: 0.9, phase: 1.2 },
+                  cells: [ { w: 0.32, type: 'gap' }, { w: 0.36, type: 'solid' }, { w: 0.32, type: 'gap' } ] }
+            ],
+            circles: [
+                // Flanking pair near the start, leaving a central lane.
+                { xFrac: 0.28, yFrac: 0.85, rFrac: 0.11, osc: { amp: 0.05, speed: 0.7, phase: 0.0, axis: 'x' } },
+                { xFrac: 0.72, yFrac: 0.85, rFrac: 0.11, osc: { amp: 0.05, speed: 0.7, phase: 3.14, axis: 'x' } },
+                { xFrac: 0.50, yFrac: 0.71, rFrac: 0.13 },
+                { xFrac: 0.20, yFrac: 0.62, rFrac: 0.09 },
+                { xFrac: 0.80, yFrac: 0.62, rFrac: 0.09 },
+                { xFrac: 0.50, yFrac: 0.30, rFrac: 0.12, osc: { amp: 0.07, speed: 0.8, phase: 1.0, axis: 'x' } },
+                { xFrac: 0.28, yFrac: 0.20, rFrac: 0.09, type: 'crack', hp: 4 }
+            ],
+            blocks: [
+                // A T-bar wedged between the circle fields.
+                { xFrac: 0.30, yFrac: 0.40, wFrac: 0.40, hFrac: 0.028, type: 'solid' },
+                { xFrac: 0.475, yFrac: 0.40, wFrac: 0.05, hFrac: 0.11, type: 'solid' }
+            ],
+            enemies: [
+                { xFrac: 0.25, yFrac: 0.78, speed: 88, dir: 0.5, radius: 18, band: 0.06 },
+                { xFrac: 0.75, yFrac: 0.66, speed: 94, dir: 2.4, radius: 18, band: 0.06 },
+                { xFrac: 0.50, yFrac: 0.52, speed: 98, dir: 3.5, radius: 16, band: 0.06 },
+                { xFrac: 0.30, yFrac: 0.36, speed: 100, dir: 1.2, radius: 16, band: 0.06 },
+                { xFrac: 0.70, yFrac: 0.22, speed: 102, dir: 4.2, radius: 16, band: 0.06 }
+            ]
         }
     ];
 
@@ -906,6 +974,7 @@
             this.enemies = [];
             this.walls = [];
             this.blocks = [];
+            this.circles = [];
             this.shieldPickups = [];
             this.damageFlash = 0;
             this.score = 0;
@@ -967,6 +1036,16 @@
                 hp: b.type === 'crack' ? (b.hp || 3) : 0,
                 destroyed: false,
                 osc: b.osc ? { ...b.osc } : null
+            }));
+
+            // Deep-copy circular obstacles (planetoids you orbit around).
+            this.circles = (level.circles || []).map(c => ({
+                xFrac: c.xFrac, yFrac: c.yFrac, rFrac: c.rFrac,
+                type: c.type || 'solid',
+                hp: c.type === 'crack' ? (c.hp || 4) : 0,
+                destroyed: false,
+                spin: rand(0, PI * 2),
+                osc: c.osc ? { ...c.osc } : null
             }));
 
             this.enemies = level.enemies.map(e => {
@@ -1045,6 +1124,46 @@
             return rects;
         }
 
+        // Current pixel geometry of a circular obstacle, accounting for drift.
+        circleGeom(c) {
+            let x = c.xFrac * VIEW_W;
+            let y = c.yFrac * this.worldH;
+            if (c.osc) {
+                const span = (c.osc.axis === 'y') ? VIEW_H : VIEW_W;
+                const o = c.osc.amp * span * Math.sin(performance.now() / 1000 * c.osc.speed * this.diff + c.osc.phase);
+                if (c.osc.axis === 'y') y += o; else x += o;
+            }
+            return { ref: c, type: c.type, x, y, r: c.rFrac * VIEW_W };
+        }
+
+        obstacleCircles() {
+            const out = [];
+            for (const c of this.circles) {
+                if (!c.destroyed) out.push(this.circleGeom(c));
+            }
+            return out;
+        }
+
+        // Circle vs circle: push the object out of a static circular obstacle
+        // and reflect its velocity (bounce), mirroring resolveCircleRect.
+        resolveCircleCircle(obj, cx, cy, cr, restitution) {
+            let dx = obj.x - cx, dy = obj.y - cy;
+            let d = Math.hypot(dx, dy);
+            const min = obj.radius + cr;
+            if (d >= min) return false;
+            let nx, ny;
+            if (d > 0.0001) { nx = dx / d; ny = dy / d; }
+            else { nx = 0; ny = -1; d = 0; }
+            obj.x += nx * (min - d);
+            obj.y += ny * (min - d);
+            const vdot = obj.vx * nx + obj.vy * ny;
+            if (vdot < 0) {
+                obj.vx -= (1 + restitution) * vdot * nx;
+                obj.vy -= (1 + restitution) * vdot * ny;
+            }
+            return true;
+        }
+
         // Randomly scatter shield pickups, biased toward the upper (later) part
         // of the course, and nudged off wall rows so they read cleanly.
         spawnShields(count) {
@@ -1111,6 +1230,9 @@
             let hit = false;
             for (const rect of this.obstacleRects()) {
                 if (this.resolveCircleRect(p, rect.x, rect.y, rect.w, rect.h, 0.35)) hit = true;
+            }
+            for (const c of this.obstacleCircles()) {
+                if (this.resolveCircleCircle(p, c.x, c.y, c.r, 0.35)) hit = true;
             }
             if (hit) this.registerWallHit();
         }
@@ -1181,6 +1303,7 @@
 
         handleCombat() {
             const rects = this.obstacleRects();
+            const circs = this.obstacleCircles();
             // Bullets vs obstacles (destroy cracks, stop on solids) and enemies.
             for (const b of this.bullets) {
                 if (!b.isAlive) continue;
@@ -1199,6 +1322,27 @@
                                 rect.ref.destroyed = true;
                                 this.score += 15;
                                 this.spark(b.x, b.y, '#ffbb33', 16);
+                            }
+                        } else {
+                            this.spark(b.x, b.y, '#b26bff', 4);
+                        }
+                        consumed = true;
+                        break;
+                    }
+                }
+                if (consumed) continue;
+
+                // Circular obstacles
+                for (const c of circs) {
+                    if (dist(b.x, b.y, c.x, c.y) < b.radius + c.r) {
+                        b.isAlive = false;
+                        if (c.type === 'crack') {
+                            c.ref.hp--;
+                            this.spark(b.x, b.y, '#ffbb33', 6);
+                            if (c.ref.hp <= 0) {
+                                c.ref.destroyed = true;
+                                this.score += 20;
+                                this.spark(b.x, b.y, '#ffbb33', 20);
                             }
                         } else {
                             this.spark(b.x, b.y, '#b26bff', 4);
@@ -1300,6 +1444,7 @@
             this.drawStartPad();
             this.walls.forEach(wall => this.drawWall(wall));
             this.blocks.forEach(b => { if (!b.destroyed) this.drawObstacleRect(this.blockRect(b)); });
+            this.circles.forEach(c => { if (!c.destroyed) this.drawCircleObstacle(this.circleGeom(c)); });
             this.shieldPickups.forEach(s => s.draw());
             this.particles.forEach(p => p.draw());
             this.enemies.forEach(e => e.draw());
@@ -1377,6 +1522,50 @@
                 ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
                 ctx.shadowBlur = 0;
             }
+        }
+
+        // Circular obstacle: a solid neon planetoid (with concentric ring
+        // detail) or a cracked, shootable one.
+        drawCircleObstacle(c) {
+            const spin = c.ref.spin + performance.now() / 1000 * 0.4;
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            if (c.type === 'crack') {
+                ctx.fillStyle = '#2a1710';
+                ctx.beginPath(); ctx.arc(0, 0, c.r, 0, PI * 2); ctx.fill();
+                ctx.strokeStyle = '#ffbb33';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(0, 0, c.r - 1, 0, PI * 2); ctx.stroke();
+                // Radial cracks.
+                ctx.strokeStyle = '#ffdd88';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const a = spin + i * (PI * 2 / 5);
+                    ctx.moveTo(Math.cos(a) * c.r * 0.15, Math.sin(a) * c.r * 0.15);
+                    ctx.lineTo(Math.cos(a) * c.r * 0.9, Math.sin(a) * c.r * 0.9);
+                }
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = 'rgba(178, 107, 255, 0.15)';
+                ctx.beginPath(); ctx.arc(0, 0, c.r, 0, PI * 2); ctx.fill();
+                ctx.strokeStyle = '#b26bff';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = '#b26bff';
+                ctx.shadowBlur = 10;
+                ctx.beginPath(); ctx.arc(0, 0, c.r - 1, 0, PI * 2); ctx.stroke();
+                ctx.shadowBlur = 0;
+                // Inner ring detail (rotates slowly to feel like a spinning body).
+                ctx.strokeStyle = 'rgba(178, 107, 255, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, c.r * 0.6, 0, PI * 2); ctx.stroke();
+                ctx.rotate(spin);
+                ctx.beginPath();
+                ctx.moveTo(-c.r * 0.6, 0); ctx.lineTo(c.r * 0.6, 0);
+                ctx.stroke();
+            }
+            ctx.restore();
+            ctx.shadowBlur = 0;
         }
 
         // Edge arrows for enemies that are off-screen ahead (above) or behind
@@ -1775,9 +1964,10 @@
 
         modalContentContainer.innerHTML = `
             <h1>ASTEROIDS: MAZE</h1>
-            <p>Fly from START up to the FINISH gate through 5 growing levels.
-               Bounce off hard purple walls, blast the cracked orange ones, and
-               dodge the drifting rocks (watch the edge arrows for incoming).</p>
+            <p>Fly from START up to the FINISH gate through 7 growing levels.
+               Bounce off hard purple walls and planetoids, blast the cracked
+               orange ones, and dodge the drifting rocks (watch the edge arrows
+               for incoming).</p>
             <p style="font-size: 0.85rem; color: #7dd3fc;">
                 Your hull takes 3 wall bumps per life — grab a ◇ shield for
                 5–10s of invulnerability. A crash into a rock costs a whole life.

@@ -19,10 +19,11 @@ Drag a cartridge into the console (or tap one) to play.
    from the START pad up to the FINISH gate, bouncing off hard purple walls,
    shooting through cracked orange ones, and dodging drifting rocks. Your hull
    absorbs 3 wall bumps per life; grab a shield power-up for 5–10s of
-   invulnerability (and to smash rocks). Five progressively longer levels
-   introduce L-shaped, T-shaped and mini-maze obstacles, with incoming rocks
-   telegraphed by edge arrows. Every full loop replays all five faster and
-   harder.
+   invulnerability (and to smash rocks). Seven progressively longer levels
+   introduce L-shaped, T-shaped and mini-maze obstacles and, in the later
+   stages, circular planetoids (some shootable) to orbit around — with incoming
+   rocks telegraphed by edge arrows. Every full loop replays all seven faster
+   and harder.
 
 ## Planned Enhancements
 
