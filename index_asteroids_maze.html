@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Arcade Asteroids: Maze Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap');
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 8px;
+            box-sizing: border-box;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: min(900px, 96vw);
+            height: 100%;
+            max-height: min(900px, 94vh);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid #b26bff; /* Neon purple border */
+            border-radius: 12px;
+            box-shadow: 0 0 20px #b26bff, inset 0 0 20px #b26bff;
+            background: #000000;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: #000000;
+            border: 1px solid #3a1f5c;
+            box-shadow: 0 0 10px rgba(178, 107, 255, 0.5);
+            border-radius: 6px;
+            touch-action: none;
+        }
+
+        #ui-panel {
+            width: 100%;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            font-size: 1.1rem;
+            color: #00ffaa; /* Neon green */
+        }
+
+        #highscore-display {
+            color: #ffaa00;
+        }
+
+        #level-display {
+            color: #7dd3fc; /* Neon cyan */
+        }
+
+        #back-to-arcade {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #b26bff;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid #b26bff;
+            border-radius: 6px;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #back-to-arcade:active {
+            background: rgba(178, 107, 255, 0.3);
+        }
+
+        @media (max-width: 480px) {
+            #ui-panel {
+                font-size: 0.72rem;
+                padding: 3px 6px;
+            }
+        }
+
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.98);
+            border: 3px solid #7dd3fc;
+            padding: 25px 50px;
+            border-radius: 10px;
+            text-align: center;
+            color: #7dd3fc;
+            box-shadow: 0 0 30px #7dd3fc;
+            z-index: 100;
+            display: none; /* Initially hidden */
+            max-width: 90vw;
+            width: 420px;
+        }
+
+        #modal-content-container h1 {
+            font-size: 1.9rem;
+            margin-bottom: 5px;
+            color: #b26bff;
+        }
+
+        #modal-content-container p {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        /* Form Styling */
+        #name-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        #player-name-input {
+            width: 80%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 2px solid #00ffaa;
+            border-radius: 4px;
+            color: #00ffaa;
+            font-family: 'Space Mono', monospace;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        #submit-score-button {
+            background-color: #00ffaa;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            transition: all 0.2s;
+            box-shadow: 0 4px #00b377;
+        }
+
+        #submit-score-button:hover {
+            background-color: #33ffcc;
+        }
+
+        #submit-score-button:active {
+            box-shadow: 0 0 #00b377;
+            transform: translateY(4px);
+        }
+
+        /* General Button Styling (for Restart) */
+        #restart-button {
+            background-color: #b26bff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+            cursor: pointer;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            transition: all 0.2s;
+            box-shadow: 0 4px #7a3fc0;
+        }
+
+        #restart-button:hover {
+            background-color: #c48fff;
+        }
+
+        #restart-button:active {
+            box-shadow: 0 0 #7a3fc0;
+            transform: translateY(4px);
+        }
+
+        /* Styling for the score list inside the message box */
+        #game-over-scores-container {
+            margin-top: 25px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        #game-over-scores-container h2 {
+            font-size: 1.1rem;
+            color: #ffaa00; /* Neon yellow/orange */
+            margin-bottom: 5px;
+        }
+
+        #game-over-scores-list {
+            list-style: none;
+            padding: 0;
+            font-size: 0.9rem;
+        }
+
+        #game-over-scores-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            color: #00ffaa;
+        }
+
+        #game-over-scores-list li .score-value {
+            font-weight: 700;
+        }
+
+        /* Touch play is gesture-based (drag to steer, second-finger tap to
+           fire) and rendered directly on the canvas — see Game.draw() and
+           setupTouchGestureControls(). No DOM control buttons are needed,
+           which also avoids them ever being obscured by mobile browser
+           chrome (e.g. Safari's bottom bar). */
+    </style>
+</head>
+<body>
+
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
+
+<div id="game-container">
+    <div id="ui-panel">
+        <div id="score-display">SCORE: 0</div>
+        <div id="highscore-display">BEST: 0</div>
+        <div id="level-display">LVL 1</div>
+        <div id="lives-display">LIVES: 3</div>
+    </div>
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+</div>
+
+<div id="message-box">
+    <div id="modal-content-container">
+        <!-- Dynamic content will be injected here -->
+    </div>
+    <button id="restart-button">RESTART</button>
+</div>
+
+
+<script type="module">
+    // --- Firebase Setup ---
+    // Loaded lazily via dynamic import() (see initFirebase) rather than static
+    // top-level imports. A static import of an unreachable CDN (ad blockers,
+    // corporate firewalls, flaky mobile networks) is a fatal module error that
+    // would take the ENTIRE game down with it. Dynamic import keeps the core
+    // 2D arcade game playable offline/without Firebase; only the online
+    // leaderboard degrades gracefully.
+    let initializeApp, getAuth, signInAnonymously, signInWithCustomToken,
+        getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp;
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+    let app;
+    let db;
+    let auth;
+    let userId;
+    let isFirebaseAvailable = false; // Flag to track successful Firebase initialization
+
+    // --- Configuration and Utilities ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    const scoreDisplay = document.getElementById('score-display');
+    const highscoreDisplay = document.getElementById('highscore-display');
+    const levelDisplay = document.getElementById('level-display');
+    const livesDisplay = document.getElementById('lives-display');
+    const messageBox = document.getElementById('message-box');
+    const modalContentContainer = document.getElementById('modal-content-container');
+    const PI = Math.PI;
+
+    // Logical (CSS-pixel) game resolution. Kept separate from canvas.width/height,
+    // which are scaled by devicePixelRatio for crisp rendering on mobile/retina screens.
+    let VIEW_W = 800;
+    let VIEW_H = 450;
+
+    // Wall thickness (world px). Constant so walls read as consistent barriers
+    // regardless of level.
+    const WALL_H = 16;
+
+    let game;
+    let highScore = parseInt(localStorage.getItem('asteroidsMazeHighScore') || '0', 10);
+
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+    const formatUserId = (uid) => uid.substring(0, 4) + '...' + uid.substring(uid.length - 4);
+
+    // Fixed starfield (generated once) instead of re-randomizing every frame,
+    // so the background reads as actual stars rather than flickering noise.
+    let stars = [];
+    function generateStars(count = 90) {
+        stars = Array.from({ length: count }, () => ({
+            xf: Math.random(),
+            yf: Math.random(),
+            size: rand(0.5, 1.8),
+            baseAlpha: rand(0.25, 0.85),
+            twinkleSpeed: rand(0.4, 1.8),
+            phase: rand(0, PI * 2)
+        }));
+    }
+
+    // ================================================================
+    // LEVEL DATA
+    // ----------------------------------------------------------------
+    // Each level is a vertical scrolling course. The ship starts on a pad
+    // near the BOTTOM of the world and must reach the glowing FINISH gate at
+    // the TOP. `screens` sets the world height as a multiple of the viewport.
+    //
+    // Walls are horizontal bands positioned by `yFrac` (fraction of world
+    // height from the top). Each wall is split into `cells` left-to-right,
+    // whose widths (`w`) are fractions of the view width and should sum to ~1:
+    //   type 'solid' -> hard barrier, you bounce off it
+    //   type 'gap'   -> open space you fly through
+    //   type 'crack' -> cracked barrier you can SHOOT through (hp shots)
+    // `osc` makes a wall slide slowly side-to-side: { amp (frac of width),
+    // speed (rad/s), phase }.
+    //
+    // Enemies drift and bounce like classic asteroids; dodge or shoot them.
+    // Placed by { xFrac, yFrac, speed, dir (radians), radius }.
+    //
+    // NOTE: Levels 1 & 2 are built out for concept feedback. Levels 3-5 are
+    // coming; the cycle logic already scales difficulty each full loop, so
+    // finishing the last defined level restarts at level 1, faster & harder.
+    // ================================================================
+    const LEVELS = [
+        {
+            name: 'ROOKIE RUN',
+            screens: 2.4,
+            walls: [
+                { yFrac: 0.80, osc: { amp: 0.04, speed: 0.6, phase: 0.0 },
+                  cells: [ { w: 0.35, type: 'solid' }, { w: 0.30, type: 'gap' }, { w: 0.35, type: 'solid' } ] },
+                { yFrac: 0.60, osc: { amp: 0.05, speed: 0.7, phase: 1.0 },
+                  cells: [ { w: 0.25, type: 'gap' }, { w: 0.50, type: 'solid' }, { w: 0.25, type: 'gap' } ] },
+                // Introduces the crack mechanic: there's a normal gap, plus a
+                // cracked shortcut you can blast open.
+                { yFrac: 0.42, osc: { amp: 0.03, speed: 0.5, phase: 2.2 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.12, type: 'crack', hp: 3 },
+                           { w: 0.18, type: 'solid' }, { w: 0.22, type: 'gap' }, { w: 0.18, type: 'solid' } ] },
+                { yFrac: 0.24, osc: { amp: 0.06, speed: 0.8, phase: 0.5 },
+                  cells: [ { w: 0.30, type: 'gap' }, { w: 0.40, type: 'solid' }, { w: 0.30, type: 'gap' } ] }
+            ],
+            enemies: [
+                { xFrac: 0.30, yFrac: 0.52, speed: 65, dir: 0.6, radius: 20 },
+                { xFrac: 0.68, yFrac: 0.32, speed: 70, dir: 2.4, radius: 22 }
+            ]
+        },
+        {
+            name: 'CRACK & WEAVE',
+            screens: 3.0,
+            walls: [
+                { yFrac: 0.86, osc: { amp: 0.06, speed: 0.9, phase: 0.0 },
+                  cells: [ { w: 0.40, type: 'solid' }, { w: 0.20, type: 'gap' }, { w: 0.40, type: 'solid' } ] },
+                { yFrac: 0.72, osc: { amp: 0.05, speed: 1.0, phase: 1.5 },
+                  cells: [ { w: 0.20, type: 'gap' }, { w: 0.25, type: 'solid' },
+                           { w: 0.15, type: 'gap' }, { w: 0.40, type: 'solid' } ] },
+                // A wall with NO open gap — the only way through is to shoot
+                // the crack open.
+                { yFrac: 0.58, osc: { amp: 0.025, speed: 0.6, phase: 2.0 },
+                  cells: [ { w: 0.42, type: 'solid' }, { w: 0.16, type: 'crack', hp: 4 }, { w: 0.42, type: 'solid' } ] },
+                { yFrac: 0.44, osc: { amp: 0.06, speed: 1.1, phase: 2.6 },
+                  cells: [ { w: 0.18, type: 'gap' }, { w: 0.30, type: 'solid' },
+                           { w: 0.12, type: 'crack', hp: 3 }, { w: 0.22, type: 'solid' }, { w: 0.18, type: 'gap' } ] },
+                { yFrac: 0.30, osc: { amp: 0.07, speed: 1.2, phase: 0.4 },
+                  cells: [ { w: 0.30, type: 'solid' }, { w: 0.18, type: 'gap' },
+                           { w: 0.34, type: 'solid' }, { w: 0.18, type: 'gap' } ] },
+                { yFrac: 0.16, osc: { amp: 0.05, speed: 1.0, phase: 1.2 },
+                  cells: [ { w: 0.28, type: 'gap' }, { w: 0.44, type: 'solid' }, { w: 0.28, type: 'gap' } ] }
+            ],
+            enemies: [
+                { xFrac: 0.28, yFrac: 0.66, speed: 80, dir: 0.5, radius: 20 },
+                { xFrac: 0.70, yFrac: 0.46, speed: 85, dir: 2.2, radius: 22 },
+                { xFrac: 0.45, yFrac: 0.26, speed: 90, dir: 3.6, radius: 18 }
+            ]
+        }
+    ];
+
+    // --- Canvas Drawing Helpers ---
+
+    // Player ship (reused from Jungle Aces so the feel is identical).
+    function drawShip(color, accelerating, invisible) {
+        ctx.strokeStyle = invisible ? 'transparent' : color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10);
+        ctx.closePath(); ctx.stroke();
+
+        if (accelerating && !invisible) {
+            ctx.strokeStyle = '#ff55aa';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-10, 5);
+            ctx.lineTo(-15 - rand(0, 5), 0);
+            ctx.lineTo(-10, -5);
+            ctx.stroke();
+        }
+    }
+
+    // --- Firebase Score Logic ---
+
+    async function ensureAuth() {
+        if (!isFirebaseAvailable) return false;
+        if (auth && auth.currentUser) { userId = auth.currentUser.uid; return true; }
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                userId = userCredential.user.uid;
+            } else {
+                const userCredential = await signInAnonymously(auth);
+                userId = userCredential.user.uid;
+            }
+            console.log("Firebase Auth successful. User ID:", userId);
+            return true;
+        } catch (error) {
+            console.error("Firebase Auth failed:", error);
+            return false;
+        }
+    }
+
+    async function saveScore(score, userName) {
+        if (!isFirebaseAvailable || !userId) {
+            console.error("Cannot save score: Firebase unavailable or user not authenticated.");
+            return;
+        }
+        try {
+            const scoresRef = collection(db, `artifacts/${appId}/public/data/maze_highscores`);
+            await addDoc(scoresRef, {
+                score: score,
+                userId: userId,
+                userName: userName || formatUserId(userId),
+                timestamp: Timestamp.now()
+            });
+            console.log("Score saved successfully.");
+        } catch (e) {
+            console.error("Error adding document: ", e);
+        }
+    }
+
+    async function loadHighScores() {
+        if (!isFirebaseAvailable || !userId) {
+            return '<li style="color: #ffaa00;">High scores unavailable.</li>';
+        }
+        try {
+            const scoresRef = collection(db, `artifacts/${appId}/public/data/maze_highscores`);
+            const q = query(scoresRef, orderBy("score", "desc"), limit(10));
+            const querySnapshot = await getDocs(q);
+            let scoreHtml = '';
+            if (querySnapshot.empty) {
+                return '<li style="color: #ffaa00;">No scores recorded yet.</li>';
+            }
+            querySnapshot.forEach((doc, index) => {
+                const data = doc.data();
+                const isCurrentPlayer = data.userId === userId && data.score === game.finalScore;
+                const displayName = data.userName || formatUserId(data.userId);
+                const nameStyle = isCurrentPlayer ? 'style="color: #ffaa00; font-weight: 700;"' : 'style="font-style: italic;"';
+                const scoreStyle = isCurrentPlayer ? 'style="color: #b26bff;"' : 'style="color: #00ffaa;"';
+                const userText = `<span ${nameStyle}>${displayName}</span>`;
+                const scoreText = `<span class="score-value" ${scoreStyle}>${data.score}</span>`;
+                scoreHtml += `<li><span>#${index + 1}: ${userText}</span> ${scoreText}</li>`;
+            });
+            return scoreHtml;
+        } catch (e) {
+            console.error("Error loading scores: ", e);
+            return '<li style="color: #ffaa00;">Error loading scores. Check console for details.</li>';
+        }
+    }
+
+    // --- Game Classes ---
+
+    class Player {
+        constructor() {
+            this.radius = 11;
+            this.color = '#00ffaa';
+            this.angle = -PI / 2;
+            this.rotationSpeed = 3.2;
+            this.thrustPower = 260;
+            this.maxSpeed = 300;
+            this.lives = 3;
+            this.x = 0; this.y = 0; this.vx = 0; this.vy = 0;
+            this.isAccelerating = false;
+            this.isTurningLeft = false;
+            this.isTurningRight = false;
+            this.isShooting = false;
+            this.bulletCooldown = 0;
+            this.maxCooldown = 0.18;
+            this.invulnerabilityTimer = 0;
+            this.invulnerabilityDuration = 2.2;
+            this.thrustScale = 1; // 0-1 from touch drag distance; always 1 for keyboard
+        }
+        update(dt, worldH) {
+            if (this.isTurningLeft) this.angle -= this.rotationSpeed * dt;
+            if (this.isTurningRight) this.angle += this.rotationSpeed * dt;
+            if (this.isAccelerating) {
+                this.vx += Math.cos(this.angle) * this.thrustPower * this.thrustScale * dt;
+                this.vy += Math.sin(this.angle) * this.thrustPower * this.thrustScale * dt;
+            }
+            // Momentum with a firmer drag than open-space Asteroids, so the
+            // ship is precise enough to thread narrow gaps.
+            const drag = this.isAccelerating ? 0.3 : 1.6;
+            this.vx -= this.vx * drag * dt;
+            this.vy -= this.vy * drag * dt;
+            const speed = Math.hypot(this.vx, this.vy);
+            if (speed > this.maxSpeed) {
+                this.vx = (this.vx / speed) * this.maxSpeed;
+                this.vy = (this.vy / speed) * this.maxSpeed;
+            }
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+
+            // Solid course edges: bounce off the left/right and top/bottom of
+            // the world instead of wrapping.
+            const r = this.radius;
+            if (this.x < r) { this.x = r; this.vx = Math.abs(this.vx) * 0.4; }
+            if (this.x > VIEW_W - r) { this.x = VIEW_W - r; this.vx = -Math.abs(this.vx) * 0.4; }
+            if (this.y > worldH - r) { this.y = worldH - r; this.vy = -Math.abs(this.vy) * 0.4; }
+            if (this.y < r) { this.y = r; this.vy = Math.abs(this.vy) * 0.4; }
+
+            if (this.bulletCooldown > 0) this.bulletCooldown -= dt;
+            if (this.invulnerabilityTimer > 0) this.invulnerabilityTimer -= dt;
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            const blink = this.invulnerabilityTimer > 0 && Math.floor(this.invulnerabilityTimer * 8) % 2 === 0;
+            drawShip(this.color, this.isAccelerating, blink);
+            ctx.restore();
+        }
+        placeAtStart(worldH) {
+            this.x = VIEW_W / 2;
+            this.y = worldH - 60;
+            this.vx = 0; this.vy = 0;
+            this.angle = -PI / 2;
+            this.isAccelerating = false;
+            this.thrustScale = 1;
+            this.invulnerabilityTimer = this.invulnerabilityDuration;
+        }
+        canShoot() { return this.bulletCooldown <= 0; }
+        shoot(game) {
+            if (this.canShoot()) {
+                const bx = this.x + Math.cos(this.angle) * this.radius * 1.5;
+                const by = this.y + Math.sin(this.angle) * this.radius * 1.5;
+                game.bullets.push(new Bullet(bx, by, this.angle));
+                this.bulletCooldown = this.maxCooldown;
+            }
+        }
+    }
+
+    class Bullet {
+        constructor(x, y, angle) {
+            this.x = x; this.y = y; this.radius = 3; this.color = '#ffaa00';
+            this.speed = 720;
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+            this.lifetime = 1.1; this.age = 0; this.isAlive = true;
+        }
+        update(dt) {
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            this.age += dt;
+            if (this.age > this.lifetime) this.isAlive = false;
+        }
+        draw() {
+            ctx.fillStyle = this.color;
+            const size = this.radius * 2;
+            ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size);
+        }
+    }
+
+    class Particle {
+        constructor(x, y, vx, vy, color, size, lifetime) {
+            this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+            this.color = color; this.size = size; this.lifetime = lifetime;
+            this.age = 0; this.isAlive = true;
+        }
+        update(dt) {
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            this.vx *= 0.95; this.vy *= 0.95;
+            this.age += dt;
+            if (this.age >= this.lifetime) this.isAlive = false;
+        }
+        draw() {
+            const alpha = Math.max(0, 1 - this.age / this.lifetime);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    class Enemy {
+        constructor(x, y, radius, speed, dir) {
+            this.x = x; this.y = y; this.radius = radius;
+            this.color = '#ff6b9d';
+            this.vx = Math.cos(dir) * speed;
+            this.vy = Math.sin(dir) * speed;
+            this.rotation = rand(0, PI * 2);
+            this.rotationRate = rand(-1, 1);
+            this.isAlive = true;
+            // Fixed jagged silhouette so it reads as a rock, not a blob.
+            this.shape = Array.from({ length: 11 }, () => rand(0.75, 1.15));
+        }
+        update(dt, worldH) {
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            this.rotation += this.rotationRate * dt;
+            const r = this.radius;
+            // Free-floating like classic asteroids: bounce off the world box.
+            if (this.x < r) { this.x = r; this.vx = Math.abs(this.vx); }
+            if (this.x > VIEW_W - r) { this.x = VIEW_W - r; this.vx = -Math.abs(this.vx); }
+            if (this.y < r) { this.y = r; this.vy = Math.abs(this.vy); }
+            if (this.y > worldH - r) { this.y = worldH - r; this.vy = -Math.abs(this.vy); }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            const n = this.shape.length;
+            for (let i = 0; i < n; i++) {
+                const a = (i / n) * PI * 2;
+                const rr = this.radius * this.shape[i];
+                const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    // --- Game Logic ---
+
+    class Game {
+        constructor() {
+            this.player = new Player();
+            this.bullets = [];
+            this.particles = [];
+            this.enemies = [];
+            this.walls = [];
+            this.score = 0;
+            this.finalScore = 0;
+            this.lastTime = 0;
+            this.isRunning = false;
+            this.isPaused = false;
+            this.state = 'playing'; // 'playing' | 'levelcomplete' | 'gameover'
+            this.levelIndex = 0;
+            this.cycle = 1;
+            this.diff = 1;
+            this.worldH = VIEW_H * 2.4;
+            this.cameraY = 0;
+            this.finishY = 60;
+            this.startY = 0;
+            this.transitionTimer = 0;
+            this.banner = { text: '', sub: '', timer: 0, color: '#7dd3fc' };
+            this.touchIndicator = null;
+        }
+
+        init() {
+            this.score = 0;
+            this.player = new Player();
+            this.bullets = [];
+            this.particles = [];
+            this.isRunning = true;
+            this.isPaused = false;
+            this.levelIndex = 0;
+            this.cycle = 1;
+            this.touchIndicator = null;
+            this.loadLevel();
+            messageBox.style.display = 'none';
+        }
+
+        loadLevel() {
+            const level = LEVELS[this.levelIndex];
+            this.diff = 1 + (this.cycle - 1) * 0.18;
+            this.worldH = VIEW_H * level.screens;
+            this.finishY = Math.max(50, VIEW_H * 0.13);
+            this.startY = this.worldH - 60;
+
+            // Deep-copy walls so per-run mutation (crack hp / destroyed) never
+            // corrupts the shared level template.
+            this.walls = level.walls.map(w => ({
+                yFrac: w.yFrac,
+                osc: w.osc ? { ...w.osc } : null,
+                cells: w.cells.map(c => ({
+                    w: c.w,
+                    type: c.type,
+                    hp: c.type === 'crack' ? (c.hp || 3) : 0,
+                    destroyed: false
+                }))
+            }));
+
+            this.enemies = level.enemies.map(e => new Enemy(
+                e.xFrac * VIEW_W,
+                e.yFrac * this.worldH,
+                e.radius,
+                e.speed * this.diff,
+                e.dir
+            ));
+
+            this.bullets = [];
+            this.particles = [];
+            this.player.placeAtStart(this.worldH);
+            this.cameraY = this.clampCamera(this.player.y - VIEW_H / 2);
+            this.state = 'playing';
+
+            const cycleText = this.cycle > 1 ? `CYCLE ${this.cycle}` : '';
+            this.banner = {
+                text: `LEVEL ${this.levelIndex + 1}`,
+                sub: `${level.name}${cycleText ? '  •  ' + cycleText : ''}`,
+                timer: 2.2,
+                color: '#7dd3fc'
+            };
+            this.updateUI();
+        }
+
+        clampCamera(y) {
+            return Math.max(0, Math.min(y, this.worldH - VIEW_H));
+        }
+
+        // Compute current pixel geometry of a wall's blocking cells (solids and
+        // un-destroyed cracks), accounting for horizontal oscillation.
+        wallCells(wall) {
+            const yc = wall.yFrac * this.worldH;
+            const off = wall.osc
+                ? wall.osc.amp * VIEW_W * Math.sin(performance.now() / 1000 * wall.osc.speed * this.diff + wall.osc.phase)
+                : 0;
+            const cells = [];
+            let xf = 0;
+            for (const c of wall.cells) {
+                if (c.type !== 'gap' && !c.destroyed) {
+                    cells.push({ ref: c, type: c.type, x: xf * VIEW_W + off, y: yc - WALL_H / 2, w: c.w * VIEW_W, h: WALL_H });
+                }
+                xf += c.w;
+            }
+            return cells;
+        }
+
+        update(dt) {
+            if (this.state === 'levelcomplete') {
+                this.particles.forEach(p => p.update(dt));
+                this.particles = this.particles.filter(p => p.isAlive);
+                if (this.banner.timer > 0) this.banner.timer -= dt;
+                this.transitionTimer -= dt;
+                if (this.transitionTimer <= 0) this.nextLevel();
+                return;
+            }
+
+            if (this.player.isShooting) this.player.shoot(this);
+
+            this.player.update(dt, this.worldH);
+            this.bullets.forEach(b => b.update(dt));
+            this.enemies.forEach(e => e.update(dt, this.worldH));
+            this.particles.forEach(p => p.update(dt));
+
+            this.handleWallCollisions();
+            this.handleCombat();
+
+            this.bullets = this.bullets.filter(b => b.isAlive);
+            this.enemies = this.enemies.filter(e => e.isAlive);
+            this.particles = this.particles.filter(p => p.isAlive);
+
+            // Smoothly follow the ship up the course.
+            const targetCam = this.clampCamera(this.player.y - VIEW_H / 2);
+            this.cameraY += (targetCam - this.cameraY) * Math.min(1, dt * 8);
+
+            if (this.player.y <= this.finishY && this.state === 'playing') {
+                this.completeLevel();
+            }
+
+            if (this.banner.timer > 0) this.banner.timer -= dt;
+            if (this.player.lives <= 0 && this.state === 'playing') this.gameOver();
+
+            this.updateUI();
+        }
+
+        handleWallCollisions() {
+            const p = this.player;
+            for (const wall of this.walls) {
+                for (const cell of this.wallCells(wall)) {
+                    this.resolveCircleRect(p, cell.x, cell.y, cell.w, cell.h, 0.35);
+                }
+            }
+        }
+
+        // Circle vs axis-aligned rectangle: push the object out of the rect and
+        // reflect its velocity along the contact normal (bounce).
+        resolveCircleRect(obj, rx, ry, rw, rh, restitution) {
+            const nx = Math.max(rx, Math.min(obj.x, rx + rw));
+            const ny = Math.max(ry, Math.min(obj.y, ry + rh));
+            let dx = obj.x - nx, dy = obj.y - ny;
+            let d2 = dx * dx + dy * dy;
+            const r = obj.radius;
+            if (d2 >= r * r) return false;
+            let normX, normY, pen;
+            const d = Math.sqrt(d2);
+            if (d > 0.0001) {
+                normX = dx / d; normY = dy / d; pen = r - d;
+            } else {
+                // Center is inside the rect: eject along the nearest edge.
+                const left = obj.x - rx, right = rx + rw - obj.x;
+                const top = obj.y - ry, bottom = ry + rh - obj.y;
+                const minH = Math.min(left, right), minV = Math.min(top, bottom);
+                if (minH < minV) { normX = left < right ? -1 : 1; normY = 0; pen = r + minH; }
+                else { normX = 0; normY = top < bottom ? -1 : 1; pen = r + minV; }
+            }
+            obj.x += normX * pen;
+            obj.y += normY * pen;
+            const vdot = obj.vx * normX + obj.vy * normY;
+            if (vdot < 0) {
+                obj.vx -= (1 + restitution) * vdot * normX;
+                obj.vy -= (1 + restitution) * vdot * normY;
+            }
+            return true;
+        }
+
+        handleCombat() {
+            // Bullets vs walls (destroy cracks, stop on solids) and enemies.
+            for (const b of this.bullets) {
+                if (!b.isAlive) continue;
+
+                // Walls
+                let consumed = false;
+                for (const wall of this.walls) {
+                    for (const cell of this.wallCells(wall)) {
+                        const cx = Math.max(cell.x, Math.min(b.x, cell.x + cell.w));
+                        const cy = Math.max(cell.y, Math.min(b.y, cell.y + cell.h));
+                        if (dist(b.x, b.y, cx, cy) < b.radius + 1) {
+                            b.isAlive = false;
+                            if (cell.type === 'crack') {
+                                cell.ref.hp--;
+                                this.spark(b.x, b.y, '#ffbb33', 6);
+                                if (cell.ref.hp <= 0) {
+                                    cell.ref.destroyed = true;
+                                    this.score += 15;
+                                    this.spark(b.x, b.y, '#ffbb33', 16);
+                                }
+                            } else {
+                                this.spark(b.x, b.y, '#b26bff', 4);
+                            }
+                            consumed = true;
+                            break;
+                        }
+                    }
+                    if (consumed) break;
+                }
+                if (consumed) continue;
+
+                // Enemies
+                for (const e of this.enemies) {
+                    if (!e.isAlive) continue;
+                    if (dist(b.x, b.y, e.x, e.y) < b.radius + e.radius) {
+                        b.isAlive = false;
+                        e.isAlive = false;
+                        this.score += 25;
+                        this.spark(e.x, e.y, '#ff6b9d', 22);
+                        break;
+                    }
+                }
+            }
+
+            // Player vs enemies (deadly unless invulnerable).
+            if (this.player.invulnerabilityTimer <= 0) {
+                for (const e of this.enemies) {
+                    if (!e.isAlive) continue;
+                    if (dist(this.player.x, this.player.y, e.x, e.y) < this.player.radius + e.radius) {
+                        this.playerHit();
+                        break;
+                    }
+                }
+            }
+        }
+
+        spark(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const a = rand(0, PI * 2);
+                const s = rand(40, 220);
+                this.particles.push(new Particle(x, y, Math.cos(a) * s, Math.sin(a) * s, color, rand(2, 5), rand(0.3, 0.9)));
+            }
+        }
+
+        playerHit() {
+            this.player.lives--;
+            this.bullets = [];
+            if (this.player.lives > 0) {
+                // Respawn back at the level's START pad.
+                this.player.placeAtStart(this.worldH);
+                this.cameraY = this.clampCamera(this.player.y - VIEW_H / 2);
+                this.banner = { text: 'CRASHED!', sub: 'BACK TO START', timer: 1.4, color: '#ff6b9d' };
+            }
+        }
+
+        completeLevel() {
+            this.state = 'levelcomplete';
+            const bonus = 500 * this.cycle;
+            this.score += bonus;
+            this.transitionTimer = 2.4;
+            this.banner = { text: 'LEVEL CLEAR!', sub: `+${bonus} BONUS`, timer: 2.4, color: '#00ffaa' };
+            // Celebration burst at the finish gate.
+            this.spark(this.player.x, this.player.y, '#00ffaa', 30);
+        }
+
+        nextLevel() {
+            this.levelIndex++;
+            if (this.levelIndex >= LEVELS.length) {
+                this.levelIndex = 0;
+                this.cycle++;
+            }
+            this.loadLevel();
+        }
+
+        draw() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+            // Twinkling starfield (screen space, subtle parallax drift).
+            const t = performance.now() / 1000;
+            const drift = (this.cameraY * 0.15) % VIEW_H;
+            stars.forEach(s => {
+                const alpha = s.baseAlpha * (0.6 + 0.4 * Math.sin(t * s.twinkleSpeed + s.phase));
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+                let sy = (s.yf * VIEW_H + drift) % VIEW_H;
+                ctx.fillRect(s.xf * VIEW_W, sy, s.size, s.size);
+            });
+
+            ctx.save();
+            ctx.translate(0, -this.cameraY);
+
+            this.drawFinishGate();
+            this.drawStartPad();
+            this.walls.forEach(wall => this.drawWall(wall));
+            this.particles.forEach(p => p.draw());
+            this.enemies.forEach(e => e.draw());
+            this.bullets.forEach(b => b.draw());
+            this.player.draw();
+
+            ctx.restore();
+
+            this.drawProgressBar();
+
+            if (this.banner.timer > 0) this.drawBanner();
+
+            // Drag-to-move indicator (screen space).
+            if (this.touchIndicator) {
+                const { anchorX, anchorY, x, y } = this.touchIndicator;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 255, 170, 0.55)';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(anchorX, anchorY, 30, 0, PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(anchorX, anchorY); ctx.lineTo(x, y); ctx.stroke();
+                ctx.fillStyle = 'rgba(0, 255, 170, 0.3)';
+                ctx.beginPath(); ctx.arc(x, y, 16, 0, PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        drawWall(wall) {
+            for (const cell of this.wallCells(wall)) {
+                if (cell.type === 'crack') {
+                    // Cracked, shootable segment: dark fill, warning border,
+                    // and a jagged crack line so it visually invites a shot.
+                    ctx.fillStyle = '#2a1710';
+                    ctx.fillRect(cell.x, cell.y, cell.w, cell.h);
+                    ctx.strokeStyle = '#ffbb33';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2);
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#ffdd88';
+                    ctx.lineWidth = 1.5;
+                    const mx = cell.x + cell.w / 2;
+                    ctx.moveTo(mx - cell.w * 0.2, cell.y);
+                    ctx.lineTo(mx + cell.w * 0.05, cell.y + cell.h * 0.5);
+                    ctx.lineTo(mx - cell.w * 0.1, cell.y + cell.h);
+                    ctx.moveTo(mx + cell.w * 0.15, cell.y);
+                    ctx.lineTo(mx - cell.w * 0.05, cell.y + cell.h * 0.55);
+                    ctx.lineTo(mx + cell.w * 0.2, cell.y + cell.h);
+                    ctx.stroke();
+                } else {
+                    // Hard wall: purple neon slab.
+                    ctx.fillStyle = 'rgba(178, 107, 255, 0.18)';
+                    ctx.fillRect(cell.x, cell.y, cell.w, cell.h);
+                    ctx.strokeStyle = '#b26bff';
+                    ctx.lineWidth = 2;
+                    ctx.shadowColor = '#b26bff';
+                    ctx.shadowBlur = 8;
+                    ctx.strokeRect(cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2);
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        drawFinishGate() {
+            const y = this.finishY;
+            ctx.save();
+            ctx.strokeStyle = '#7dd3fc';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#7dd3fc';
+            ctx.shadowBlur = 16;
+            // Checkered finish line.
+            const seg = 18;
+            for (let x = 0; x < VIEW_W; x += seg) {
+                ctx.globalAlpha = (Math.floor(x / seg) % 2 === 0) ? 0.9 : 0.35;
+                ctx.beginPath();
+                ctx.moveTo(x, y); ctx.lineTo(x + seg, y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#7dd3fc';
+            ctx.font = 'bold 16px "Space Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('▲ FINISH ▲', VIEW_W / 2, y - 12);
+            ctx.restore();
+        }
+
+        drawStartPad() {
+            const y = this.worldH - 40;
+            ctx.save();
+            ctx.strokeStyle = '#00ffaa';
+            ctx.globalAlpha = 0.6;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+            ctx.moveTo(0, y); ctx.lineTo(VIEW_W, y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#00ffaa';
+            ctx.font = 'bold 13px "Space Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('START', VIEW_W / 2, y + 20);
+            ctx.restore();
+        }
+
+        drawProgressBar() {
+            // Vertical track on the right edge: bottom = start, top = finish.
+            const pad = 10, barX = VIEW_W - 10, top = 30, bottom = VIEW_H - 30;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(125, 211, 252, 0.35)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(barX, top); ctx.lineTo(barX, bottom);
+            ctx.stroke();
+            const denom = (this.startY - this.finishY) || 1;
+            let frac = 1 - (this.player.y - this.finishY) / denom;
+            frac = Math.max(0, Math.min(1, frac));
+            const py = bottom - frac * (bottom - top);
+            ctx.fillStyle = '#00ffaa';
+            ctx.shadowColor = '#00ffaa';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(barX, py, 5, 0, PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        drawBanner() {
+            const alpha = Math.min(1, this.banner.timer);
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = this.banner.color;
+            ctx.shadowColor = this.banner.color;
+            ctx.shadowBlur = 12;
+            ctx.font = 'bold 30px "Space Mono", monospace';
+            ctx.fillText(this.banner.text, VIEW_W / 2, VIEW_H * 0.34);
+            if (this.banner.sub) {
+                ctx.font = 'bold 15px "Space Mono", monospace';
+                ctx.fillText(this.banner.sub, VIEW_W / 2, VIEW_H * 0.34 + 26);
+            }
+            ctx.restore();
+            ctx.shadowBlur = 0;
+        }
+
+        showSubmissionForm(score) {
+            this.finalScore = score;
+            modalContentContainer.innerHTML = `
+                <h1>GAME OVER</h1>
+                <p>Score: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
+                <form id="name-form">
+                    <label for="player-name-input" style="color: #00ffaa;">Enter your name/initials (max 8):</label>
+                    <input type="text" id="player-name-input" maxlength="8" placeholder="PLAYER" value="${localStorage.getItem('lastUserName') || ''}">
+                    <button type="submit" id="submit-score-button">SUBMIT SCORE</button>
+                </form>
+            `;
+            messageBox.style.display = 'block';
+            document.getElementById('restart-button').style.display = 'none';
+            document.getElementById('name-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const nameInput = document.getElementById('player-name-input');
+                const userName = nameInput.value.trim().substring(0, 8) || 'PLAYER';
+                localStorage.setItem('lastUserName', userName);
+                this.displayFinalScores(this.finalScore, userName);
+            });
+        }
+
+        async displayFinalScores(score, userName) {
+            modalContentContainer.innerHTML = `<h1>SAVING SCORE...</h1><p>Fetching Top 10...</p>`;
+            if (isFirebaseAvailable) await saveScore(score, userName);
+            const scoreListHtml = await loadHighScores();
+            modalContentContainer.innerHTML = `
+                <h1>GAME OVER</h1>
+                <p>Score Saved: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
+                <div id="game-over-scores-container">
+                    <h2>TOP 10 — MAZE EDITION</h2>
+                    <ul id="game-over-scores-list">
+                        ${scoreListHtml}
+                    </ul>
+                </div>
+            `;
+            document.getElementById('restart-button').style.display = 'block';
+        }
+
+        gameOver() {
+            this.isRunning = false;
+            this.state = 'gameover';
+            if (this.score > highScore) {
+                highScore = this.score;
+                localStorage.setItem('asteroidsMazeHighScore', String(highScore));
+            }
+            this.showSubmissionForm(this.score);
+        }
+
+        gameLoop(currentTime) {
+            if (!this.isRunning) return;
+            if (this.isPaused) {
+                this.lastTime = currentTime;
+                requestAnimationFrame(this.gameLoop.bind(this));
+                return;
+            }
+            const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
+            this.lastTime = currentTime;
+            this.update(dt);
+            this.draw();
+            requestAnimationFrame(this.gameLoop.bind(this));
+        }
+
+        updateUI() {
+            scoreDisplay.textContent = 'SCORE: ' + this.score;
+            highscoreDisplay.textContent = 'BEST: ' + Math.max(highScore, this.score);
+            levelDisplay.textContent = 'LVL ' + (this.levelIndex + 1) + (this.cycle > 1 ? '·C' + this.cycle : '');
+            livesDisplay.textContent = 'LIVES: ' + Math.max(0, this.player.lives);
+        }
+    }
+
+    // --- Input Handling ---
+
+    function handleKeyDown(event) {
+        if (!game || !game.isRunning) return;
+        const player = game.player;
+        switch (event.key) {
+            case 'ArrowLeft': case 'a':
+                player.isTurningLeft = true; event.preventDefault(); break;
+            case 'ArrowRight': case 'd':
+                player.isTurningRight = true; event.preventDefault(); break;
+            case 'ArrowUp': case 'w':
+                player.isAccelerating = true; event.preventDefault(); break;
+            case ' ':
+                if (!player.isShooting) { player.shoot(game); }
+                player.isShooting = true; event.preventDefault(); break;
+        }
+    }
+
+    function handleKeyUp(event) {
+        if (!game || !game.isRunning) return;
+        const player = game.player;
+        switch (event.key) {
+            case 'ArrowLeft': case 'a': player.isTurningLeft = false; break;
+            case 'ArrowRight': case 'd': player.isTurningRight = false; break;
+            case 'ArrowUp': case 'w': player.isAccelerating = false; break;
+            case ' ': player.isShooting = false; break;
+        }
+    }
+
+    // --- Touch Gesture Controls ---
+    // One finger: press-and-drag anywhere "pulls" the ship (a dynamic virtual
+    // stick anchored at first touch). A second finger tapping down fires.
+    const TOUCH_DEADZONE = 10;
+    const TOUCH_MAX_PULL = 90;
+    let moveTouchId = null;
+    let touchAnchor = null;
+
+    function canvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function setupTouchGestureControls() {
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!game || !game.isRunning || game.isPaused) return;
+            e.preventDefault();
+            if (moveTouchId === null) {
+                moveTouchId = e.pointerId;
+                touchAnchor = canvasPos(e);
+                try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+            } else if (e.pointerId !== moveTouchId) {
+                game.player.shoot(game);
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (e.pointerId !== moveTouchId || !touchAnchor || !game || !game.player) return;
+            e.preventDefault();
+            const pos = canvasPos(e);
+            const dx = pos.x - touchAnchor.x;
+            const dy = pos.y - touchAnchor.y;
+            const d = Math.hypot(dx, dy);
+            const player = game.player;
+            if (d > TOUCH_DEADZONE) {
+                player.angle = Math.atan2(dy, dx);
+                player.isAccelerating = true;
+                player.thrustScale = Math.min(1, d / TOUCH_MAX_PULL);
+            } else {
+                player.isAccelerating = false;
+            }
+            game.touchIndicator = { anchorX: touchAnchor.x, anchorY: touchAnchor.y, x: pos.x, y: pos.y };
+        });
+
+        const endMove = (e) => {
+            if (e.pointerId !== moveTouchId) return;
+            moveTouchId = null;
+            touchAnchor = null;
+            if (game && game.player) {
+                game.player.isAccelerating = false;
+                game.player.thrustScale = 1;
+            }
+            if (game) game.touchIndicator = null;
+        };
+        canvas.addEventListener('pointerup', endMove);
+        canvas.addEventListener('pointercancel', endMove);
+    }
+
+    // --- Game Initialization & Firebase Setup ---
+
+    async function initFirebase() {
+        try {
+            if (Object.keys(firebaseConfig).length > 0 && typeof firebaseConfig.apiKey === 'string') {
+                const [appMod, authMod, firestoreMod] = await Promise.all([
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+                ]);
+                ({ initializeApp } = appMod);
+                ({ getAuth, signInAnonymously, signInWithCustomToken } = authMod);
+                ({ getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp } = firestoreMod);
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                isFirebaseAvailable = true;
+                console.log("Firebase initialized successfully. Attempting authentication...");
+                await ensureAuth();
+            } else {
+                console.warn("Firebase configuration incomplete. Running game without high score support.");
+                isFirebaseAvailable = false;
+            }
+        } catch (e) {
+            console.error("Critical error during Firebase setup. Running game without high score support.", e);
+            isFirebaseAvailable = false;
+        }
+    }
+
+    function resizeCanvas() {
+        const rect = canvasWrap.getBoundingClientRect();
+        VIEW_W = Math.max(280, Math.floor(rect.width));
+        VIEW_H = Math.max(200, Math.floor(rect.height));
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(VIEW_W * dpr);
+        canvas.height = Math.floor(VIEW_H * dpr);
+        canvas.style.width = VIEW_W + 'px';
+        canvas.style.height = VIEW_H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function startGame() {
+        messageBox.style.display = 'none';
+        moveTouchId = null;
+        touchAnchor = null;
+        game = new Game();
+        window.game = game; // expose for debugging/automated testing
+        game.init();
+        game.lastTime = performance.now();
+        requestAnimationFrame(game.gameLoop.bind(game));
+    }
+
+    document.getElementById('restart-button').addEventListener('click', startGame);
+
+    document.addEventListener('visibilitychange', () => {
+        if (!game) return;
+        if (document.hidden) {
+            game.isPaused = true;
+        } else {
+            game.isPaused = false;
+            game.lastTime = performance.now();
+        }
+    });
+
+    window.onload = async function() {
+        highscoreDisplay.textContent = 'BEST: ' + highScore;
+        generateStars();
+        resizeCanvas();
+        let resizeRAF;
+        window.addEventListener('resize', () => {
+            cancelAnimationFrame(resizeRAF);
+            resizeRAF = requestAnimationFrame(resizeCanvas);
+        });
+        window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        setupTouchGestureControls();
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') window.location.href = 'index.html';
+        });
+
+        await initFirebase();
+
+        modalContentContainer.innerHTML = `
+            <h1>ASTEROIDS: MAZE</h1>
+            <p>Fly from START to the FINISH gate. Bounce off hard purple walls,
+               blast the cracked orange ones, and dodge the drifting rocks.</p>
+            <p style="font-size: 0.9rem; color: #ffaa00;">
+                PC: WASD/Arrows to fly, SPACE to shoot.<br>
+                Mobile: Drag to steer, tap with a 2nd finger to fire.
+            </p>
+        `;
+        messageBox.style.display = 'block';
+        document.getElementById('restart-button').textContent = 'START GAME';
+        document.getElementById('restart-button').style.display = 'block';
+    }
+</script>
+</body>
+</html>
