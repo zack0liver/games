@@ -680,7 +680,10 @@
     // and pixelated (matching the arcade's Galaga/Asteroids 2D look). Sprites
     // are cached by style+color+king since they never change per frame.
 
-    const SPRITE_RES = 16;
+    // "Glossy toon" style: every candy is a filled silhouette with a thick
+    // dark outline, flat base color, one bottom shadow crescent and a big
+    // bubble gloss — cute and extremely readable at tray size.
+    const SPRITE_RES = 24;
     const spriteCache = {};
 
     function hexToRgb(h) { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
@@ -688,86 +691,125 @@
     function mix(h1, h2, t) { const a = hexToRgb(h1), b = hexToRgb(h2); return rgbToHex(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t); }
 
     function paletteFor(hex) {
-        return { base: hex, hi: mix(hex, '#ffffff', 0.45), lo: mix(hex, '#000000', 0.28), line: mix(hex, '#000000', 0.5), white: '#fff8f0' };
+        return { base: hex, hi: mix(hex, '#ffffff', 0.40), lo: mix(hex, '#000000', 0.28), line: mix(hex, '#000000', 0.55), white: '#fff8f0' };
     }
 
     // Fill one grid pixel.
     function px(o, x, y, color) { o.fillStyle = color; o.fillRect(x, y, 1, 1); }
 
-    // Generic shaded, outlined disc — the base for most candies.
-    function disc(o, cx, cy, R, pal) {
-        for (let gy = 0; gy < SPRITE_RES; gy++) {
-            for (let gx = 0; gx < SPRITE_RES; gx++) {
-                const dx = gx + 0.5 - cx, dy = gy + 0.5 - cy, d = Math.hypot(dx, dy);
-                if (d <= R) {
-                    const sh = dx * 0.55 + dy * 0.75;
-                    let col = sh < -R * 0.3 ? pal.hi : (sh > R * 0.35 ? pal.lo : pal.base);
-                    if (d > R - 1.05) col = pal.line;
-                    px(o, gx, gy, col);
-                }
+    // Sample offsets used to detect the silhouette edge (yields a ~2px outline).
+    const TOON_EDGE = [[2, 0], [-2, 0], [0, 2], [0, -2], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]];
+
+    function isEdge(inside, x, y) {
+        for (const [ex, ey] of TOON_EDGE) if (!inside(x + ex, y + ey)) return true;
+        return false;
+    }
+
+    // Fill a silhouette (`inside(x,y)` predicate) with base color + outline.
+    function toonFill(o, pal, inside) {
+        for (let y = 0; y < SPRITE_RES; y++)
+            for (let x = 0; x < SPRITE_RES; x++) {
+                if (!inside(x + 0.5, y + 0.5)) continue;
+                px(o, x, y, isEdge(inside, x + 0.5, y + 0.5) ? pal.line : pal.base);
             }
-        }
+    }
+
+    // Bottom shadow crescent + big gloss bubble, clipped to the silhouette.
+    function toonShade(o, pal, inside, cx, cy, R) {
+        for (let y = 0; y < SPRITE_RES; y++)
+            for (let x = 0; x < SPRITE_RES; x++) {
+                if (!inside(x + 0.5, y + 0.5) || isEdge(inside, x + 0.5, y + 0.5)) continue;
+                const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+                if (dx * 0.35 + dy * 0.9 > R * 0.45) px(o, x, y, pal.lo);
+            }
+        for (let y = 0; y < SPRITE_RES; y++)
+            for (let x = 0; x < SPRITE_RES; x++) {
+                const gx = (x + 0.5 - (cx - R * 0.34)) / (R * 0.34);
+                const gy = (y + 0.5 - (cy - R * 0.40)) / (R * 0.24);
+                if (gx * gx + gy * gy <= 1 && inside(x + 0.5, y + 0.5)) px(o, x, y, 'rgba(255,255,255,0.92)');
+            }
     }
 
     const STYLES = {
         gumdrop: { name: 'Gumdrop', draw(o, pal) {
-            disc(o, 8, 8.4, 6.6, pal);
-            // sugar speckles + shine
-            [[5, 5], [10, 6], [7, 9], [10, 10], [5, 10]].forEach(([x, y]) => px(o, x, y, 'rgba(255,255,255,0.85)'));
-            px(o, 5, 4, '#ffffff'); px(o, 6, 4, 'rgba(255,255,255,0.7)');
+            // dome with a flat-ish bottom
+            const f = (x, y) => (y <= 13 ? Math.hypot(x - 12, (y - 13) * 1.2) <= 9
+                                         : (y <= 19.5 && Math.abs(x - 12) <= 9 - (y - 13.5) * 0.3));
+            toonFill(o, pal, f);
+            toonShade(o, pal, f, 12, 12, 9);
+            [[9, 10], [14, 9], [11, 15], [15, 14]].forEach(([x, y]) => px(o, x, y, 'rgba(255,255,255,0.8)')); // sugar
         } },
         wrapped: { name: 'Twist', draw(o, pal) {
-            // wrapper twists (behind the body)
-            [[1, 8], [2, 7], [2, 8], [2, 9], [3, 6], [3, 7], [3, 8], [3, 9], [3, 10]].forEach(([x, y]) => px(o, x, y, pal.lo));
-            [[14, 8], [13, 7], [13, 8], [13, 9], [12, 6], [12, 7], [12, 8], [12, 9], [12, 10]].forEach(([x, y]) => px(o, x, y, pal.lo));
-            px(o, 1, 8, pal.line); px(o, 14, 8, pal.line);
-            disc(o, 8, 8, 5.2, pal);
-            px(o, 6, 5, '#ffffff');
-        } },
-        peppermint: { name: 'Peppermint', draw(o, pal) {
-            const cx = 8, cy = 8, R = 6.6;
-            for (let gy = 0; gy < SPRITE_RES; gy++) {
-                for (let gx = 0; gx < SPRITE_RES; gx++) {
-                    const dx = gx + 0.5 - cx, dy = gy + 0.5 - cy, d = Math.hypot(dx, dy);
-                    if (d <= R) {
-                        if (d > R - 1.05) { px(o, gx, gy, pal.line); continue; }
-                        const ang = Math.atan2(dy, dx);
-                        const seg = Math.floor(((ang + PI) / (2 * PI)) * 6) % 2;
-                        px(o, gx, gy, seg ? pal.base : pal.white);
+            const body = (x, y) => { const dx = (x - 12) / 7.6, dy = (y - 12) / 6.2; return dx * dx + dy * dy <= 1; };
+            const twist = (x, y) => {
+                for (const s of [-1, 1]) {
+                    if (Math.abs(y - 12) <= (Math.abs(x - 12) - 6.8) * 0.9 + 0.6 && (x - 12) * s > 6.4 && (x - 12) * s < 12) return true;
+                }
+                return false;
+            };
+            const f = (x, y) => body(x, y) || twist(x, y);
+            toonFill(o, pal, f);
+            toonShade(o, pal, body, 12, 12, 7);
+            // wrapper stripes across the body only
+            for (let y = 0; y < SPRITE_RES; y++)
+                for (let x = 0; x < SPRITE_RES; x++) {
+                    if (body(x + 0.5, y + 0.5) && !twist(x + 0.5, y + 0.5) && ((x * 2 - y) % 9 + 9) % 9 < 2.2) {
+                        const dx = x + 0.5 - 12, dy = y + 0.5 - 12;
+                        if (Math.hypot(dx / 7.6, dy / 6.2) < 0.8) px(o, x, y, pal.white);
                     }
                 }
-            }
-            px(o, 6, 5, '#ffffff');
+        } },
+        peppermint: { name: 'Peppermint', draw(o, pal) {
+            const f = (x, y) => Math.hypot(x - 12, y - 12) <= 9.6;
+            toonFill(o, pal, f);
+            for (let y = 0; y < SPRITE_RES; y++)
+                for (let x = 0; x < SPRITE_RES; x++) {
+                    const dx = x + 0.5 - 12, dy = y + 0.5 - 12, d = Math.hypot(dx, dy);
+                    if (d <= 7.4) {
+                        const ang = Math.atan2(dy, dx) + d * 0.2;   // curvature => swirl
+                        const seg = Math.floor(((ang + 4 * PI) / (2 * PI)) * 6) % 2;
+                        px(o, x, y, seg ? pal.base : pal.white);
+                    }
+                }
+            toonShade(o, pal, f, 12, 12, 9.6);
         } },
         jawbreaker: { name: 'Jawbreaker', draw(o, pal) {
-            const cx = 8, cy = 8, R = 6.6;
-            disc(o, cx, cy, R, pal);
-            // concentric ring
-            for (let gy = 0; gy < SPRITE_RES; gy++)
-                for (let gx = 0; gx < SPRITE_RES; gx++) {
-                    const d = Math.hypot(gx + 0.5 - cx, gy + 0.5 - cy);
-                    if (Math.abs(d - R * 0.55) < 0.65) px(o, gx, gy, pal.hi);
+            const f = (x, y) => Math.hypot(x - 12, y - 12) <= 9.6;
+            toonFill(o, pal, f);
+            for (let y = 0; y < SPRITE_RES; y++)
+                for (let x = 0; x < SPRITE_RES; x++) {
+                    const d = Math.hypot(x + 0.5 - 12, y + 0.5 - 12);
+                    if (d <= 7.4) px(o, x, y, d <= 2.4 ? pal.white : d <= 4.6 ? pal.hi : d <= 6.2 ? pal.base : pal.lo);
                 }
-            px(o, 5, 5, '#ffffff'); px(o, 6, 5, 'rgba(255,255,255,0.8)');
+            toonShade(o, pal, f, 12, 12, 9.6);
         } },
         lollipop: { name: 'Lollipop', draw(o, pal) {
-            disc(o, 8, 6, 5.2, pal);
-            // spiral hint + shine
-            [[8, 6], [9, 5], [7, 7], [6, 6], [10, 7]].forEach(([x, y]) => px(o, x, y, pal.white));
-            px(o, 6, 3, '#ffffff');
-            // stick
-            for (let y = 11; y < 16; y++) { px(o, 8, y, '#efe6d0'); px(o, 9, y, '#cdbfa0'); }
+            const f = (x, y) => Math.hypot(x - 12, y - 9.5) <= 8;
+            for (let y = 17; y < 24; y++) { px(o, 11, y, '#efe6d0'); px(o, 12, y, '#cdbfa0'); }  // stick behind
+            toonFill(o, pal, f);
+            for (let y = 0; y < SPRITE_RES; y++)
+                for (let x = 0; x < SPRITE_RES; x++) {
+                    const dx = x + 0.5 - 12, dy = y + 0.5 - 9.5, d = Math.hypot(dx, dy);
+                    if (d <= 6) {
+                        const ang = Math.atan2(dy, dx) + d * 0.5;
+                        if (Math.floor(((ang + 6 * PI) / (2 * PI)) * 4) % 2) px(o, x, y, pal.white);
+                    }
+                }
+            toonShade(o, pal, f, 12, 9.5, 8);
         } }
     };
 
     function drawCrown(o, pal) {
-        // pixel crown perched on top rows
-        const gold = '#ffd166', edge = '#7a5510';
-        [[4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3]].forEach(([x, y]) => px(o, x, y, gold));
-        [[4, 2], [4, 1], [7, 2], [8, 2], [8, 1], [11, 2], [11, 1]].forEach(([x, y]) => px(o, x, y, gold));
-        [[4, 0], [8, 0], [11, 0]].forEach(([x, y]) => px(o, x, y, '#fff2b0'));
-        [[3, 3], [12, 3]].forEach(([x, y]) => px(o, x, y, edge));
-        px(o, 7, 4, edge); // small dark shadow under crown
+        // pixel crown perched on the top rows (16-grid art scaled to 24)
+        const gold = '#ffd166', edge = '#7a5510', s = SPRITE_RES / 16;
+        const set = (x, y, c) => {
+            for (let dx = 0; dx < s; dx++)
+                for (let dy = 0; dy < s; dy++) px(o, Math.round(x * s + dx), Math.round(y * s + dy), c);
+        };
+        [[4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3]].forEach(([x, y]) => set(x, y, gold));
+        [[4, 2], [4, 1], [7, 2], [8, 2], [8, 1], [11, 2], [11, 1]].forEach(([x, y]) => set(x, y, gold));
+        [[4, 0], [8, 0], [11, 0]].forEach(([x, y]) => set(x, y, '#fff2b0'));
+        [[3, 3], [12, 3]].forEach(([x, y]) => set(x, y, edge));
     }
 
     function getSprite(style, color, king) {
