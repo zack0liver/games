@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Tank Wars</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+          media="print" onload="this.media='all'">
+    <style>
+        html, body { height: 100%; }
+
+        :root {
+            --g-bright: #66ff66;
+            --g-mid: #22cc22;
+            --g-dim: #114411;
+            --g-bg: #020a02;
+            --g-panel: #041604;
+            --orange: #ffa500;
+        }
+
+        body {
+            background: var(--g-bg);
+            color: var(--g-bright);
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 8px;
+            box-sizing: border-box;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: min(900px, 96vw);
+            height: 100%;
+            max-height: min(760px, 96vh);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid var(--g-mid);
+            border-radius: 10px;
+            box-shadow: 0 0 18px var(--g-mid), inset 0 0 18px rgba(34, 204, 34, 0.25);
+            background: #010401;
+            padding: 6px;
+            box-sizing: border-box;
+        }
+
+        #hud-top {
+            width: 100%;
+            flex-shrink: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 8px;
+            box-sizing: border-box;
+            border: 2px solid var(--g-dim);
+            border-radius: 6px;
+            font-size: 0.6rem;
+            margin-bottom: 6px;
+        }
+
+        #hud-top span { white-space: nowrap; }
+        #hud-player { color: var(--g-bright); text-shadow: 0 0 6px var(--g-bright); }
+        #hud-wind, #hud-angle, #hud-score { color: var(--g-mid); }
+
+        .pill-btn {
+            background: transparent;
+            color: var(--g-bright);
+            border: 2px solid var(--g-mid);
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.5rem;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .pill-btn:active { background: var(--g-mid); color: #001500; }
+
+        #canvas-wrap {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameCanvas { display: block; background: var(--g-bg); touch-action: none; }
+
+        #scanlines {
+            position: absolute;
+            pointer-events: none;
+            background: repeating-linear-gradient(to bottom, rgba(0,0,0,0.22) 0px, rgba(0,0,0,0.22) 1px, transparent 1px, transparent 3px);
+            mix-blend-mode: multiply;
+        }
+
+        #power-meter {
+            position: absolute;
+            left: 6px; top: 8%;
+            width: 14px; height: 84%;
+            border: 2px solid var(--g-mid);
+            border-radius: 4px;
+            display: none;
+            overflow: hidden;
+            background: rgba(0,20,0,0.6);
+        }
+        #power-meter.show { display: block; }
+        #power-fill {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            height: 0%; background: var(--g-bright);
+        }
+
+        #inventory-row {
+            position: absolute;
+            bottom: 6px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 4px; z-index: 30;
+        }
+        .inv-chip {
+            background: rgba(0,20,0,0.75);
+            color: var(--g-mid);
+            border: 2px solid var(--g-dim);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.45rem;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .inv-chip.sel { color: var(--g-bright); border-color: var(--g-bright); box-shadow: 0 0 6px var(--g-bright); }
+
+        #banner {
+            position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+            padding: 8px 16px;
+            border: 2px solid var(--g-bright);
+            border-radius: 6px;
+            background: rgba(0,20,0,0.85);
+            color: var(--g-bright);
+            font-size: 0.7rem;
+            text-align: center;
+            box-shadow: 0 0 14px var(--g-bright);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 40;
+            white-space: nowrap;
+        }
+        #banner.show { opacity: 1; }
+
+        #back-to-arcade {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.55rem;
+            color: var(--g-bright);
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--g-bright);
+            border-radius: 6px;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #back-to-arcade:active { background: rgba(102, 255, 102, 0.25); }
+
+        #mobile-controls {
+            display: none;
+            width: 100%;
+            gap: 8px;
+            padding: 6px 4px 0;
+            box-sizing: border-box;
+        }
+        @media (pointer: coarse) {
+            #mobile-controls { display: flex; }
+        }
+        #mobile-controls button {
+            flex: 1;
+            min-height: 52px;
+            background: rgba(0,20,0,0.8);
+            color: var(--g-bright);
+            border: 2px solid var(--g-mid);
+            border-radius: 8px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.6rem;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #mobile-controls button:active { background: rgba(102,255,102,0.25); }
+        #btn-fire { flex: 2; }
+
+        /* --- Match end modal --- */
+        #match-modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 12, 0, 0.97);
+            border: 3px solid var(--g-bright);
+            padding: 20px 26px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 28px var(--g-bright);
+            z-index: 100;
+            display: none;
+            max-width: 88vw; width: 340px;
+            box-sizing: border-box;
+        }
+        #match-content h1 { font-size: 0.95rem; line-height: 1.6; margin: 0 0 12px; color: var(--g-bright); text-shadow: 0 0 8px var(--g-bright); }
+        #match-content p { font-size: 0.55rem; line-height: 1.8; margin: 0 0 10px; color: var(--g-mid); }
+        .tw-btn {
+            background: var(--g-mid); color: #001500; border: none;
+            padding: 10px 18px; border-radius: 6px; margin: 6px 4px 0;
+            cursor: pointer; font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.6rem; box-shadow: 0 4px #0a5a0a; touch-action: manipulation;
+        }
+        .tw-btn.alt { background: transparent; color: var(--g-bright); border: 2px solid var(--g-bright); box-shadow: none; }
+        .tw-btn:active { transform: translateY(3px); box-shadow: none; }
+
+        /* --- Setup overlay --- */
+        #setup {
+            position: fixed; inset: 0; z-index: 800;
+            display: none; flex-direction: column; align-items: center;
+            background: rgba(1, 6, 1, 0.96);
+            overflow-y: auto;
+            padding: 16px 10px 30px;
+            box-sizing: border-box;
+        }
+        #setup.open { display: flex; }
+        #setup-box {
+            width: 100%; max-width: 480px;
+            border: 2px solid var(--g-mid);
+            border-radius: 10px;
+            padding: 14px;
+            box-sizing: border-box;
+            box-shadow: 0 0 16px rgba(34,204,34,0.4);
+        }
+        #setup-box h1 {
+            font-size: 1rem; text-align: center; color: var(--g-bright);
+            text-shadow: 0 0 10px var(--g-bright); margin: 0 0 14px;
+        }
+        .setup-row { margin-bottom: 12px; }
+        .setup-label { display: block; font-size: 0.55rem; color: var(--g-mid); margin-bottom: 6px; }
+        .setup-inline { display: flex; align-items: center; gap: 10px; justify-content: center; }
+        .stepper-btn {
+            background: transparent; color: var(--g-bright); border: 2px solid var(--g-mid);
+            border-radius: 4px; width: 30px; height: 30px; font-size: 0.9rem; cursor: pointer;
+            touch-action: manipulation;
+        }
+        #players-val { font-size: 0.9rem; min-width: 20px; text-align: center; }
+
+        .slot-row {
+            display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--g-dim); border-radius: 6px;
+            padding: 6px 8px; margin-bottom: 6px;
+        }
+        .slot-swatch { width: 18px; height: 18px; border: 1px solid var(--g-mid); flex-shrink: 0; }
+        .slot-label { font-size: 0.5rem; width: 30px; flex-shrink: 0; }
+        .slot-type-btn {
+            flex: 1; background: transparent; color: var(--g-bright); border: 1px solid var(--g-mid);
+            border-radius: 4px; padding: 6px 4px; font-family: inherit; font-size: 0.5rem; cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .opt-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .opt-btn {
+            background: transparent; color: var(--g-mid); border: 2px solid var(--g-dim);
+            border-radius: 4px; padding: 7px 8px; font-family: inherit; font-size: 0.5rem; cursor: pointer;
+            touch-action: manipulation;
+        }
+        .opt-btn.sel { color: var(--g-bright); border-color: var(--g-bright); box-shadow: 0 0 6px var(--g-bright); }
+
+        #start-battle {
+            display: block; width: 100%; margin-top: 14px;
+            background: var(--g-mid); color: #001500; border: none;
+            padding: 14px; border-radius: 8px; font-family: inherit; font-size: 0.75rem;
+            cursor: pointer; box-shadow: 0 5px #0a5a0a; touch-action: manipulation;
+        }
+        #start-battle:active { transform: translateY(4px); box-shadow: none; }
+
+        @media (max-width: 480px) {
+            #hud-top { font-size: 0.5rem; gap: 6px; }
+            .pill-btn { font-size: 0.45rem; padding: 4px 7px; }
+        }
+    </style>
+</head>
+<body>
+
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
+
+<div id="game-container">
+    <div id="hud-top">
+        <span id="hud-player">P1</span>
+        <span id="hud-wind">WIND -</span>
+        <span id="hud-angle">55&deg;</span>
+        <span id="hud-score">0-0</span>
+        <button class="pill-btn" id="mute-btn">&#128266;</button>
+        <button class="pill-btn" id="setup-btn">SETUP</button>
+    </div>
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="scanlines"></div>
+        <div id="power-meter"><div id="power-fill"></div></div>
+        <div id="inventory-row"></div>
+        <div id="banner"></div>
+        <div id="match-modal">
+            <div id="match-content"></div>
+            <button class="tw-btn" id="rematch-btn">REMATCH</button>
+            <button class="tw-btn alt" id="match-setup-btn">SETUP</button>
+        </div>
+    </div>
+    <div id="mobile-controls">
+        <button id="btn-angle-minus">&#9668;</button>
+        <button id="btn-fire">HOLD TO FIRE</button>
+        <button id="btn-angle-plus">&#9658;</button>
+    </div>
+</div>
+
+<div id="setup">
+    <div id="setup-box">
+        <h1>TANK WARS</h1>
+        <div class="setup-row">
+            <span class="setup-label">PLAYERS</span>
+            <div class="setup-inline">
+                <button class="stepper-btn" id="players-minus">-</button>
+                <span id="players-val">2</span>
+                <button class="stepper-btn" id="players-plus">+</button>
+            </div>
+        </div>
+        <div class="setup-row">
+            <span class="setup-label">SLOTS (tap to cycle HUMAN / CPU)</span>
+            <div id="slots"></div>
+        </div>
+        <div class="setup-row">
+            <span class="setup-label">BATTLEFIELD</span>
+            <div class="opt-group" id="terrain-options"></div>
+        </div>
+        <div class="setup-row">
+            <span class="setup-label">MATCH LENGTH</span>
+            <div class="opt-group" id="rounds-options"></div>
+        </div>
+        <button id="start-battle">START BATTLE</button>
+    </div>
+</div>
+
+<script>
+    'use strict';
+
+    // =====================================================================
+    // Tank Wars — turn-based artillery duel, 2-4 players (human/CPU),
+    // green-phosphor CRT retro look. Destructible terrain, wind, hold-to-
+    // charge power, power-ups earned by perfect shots or found in crates,
+    // best-of-N rounds.
+    // =====================================================================
+
+    const W = 800, H = 500;
+    const GRAVITY = 220;
+    const TANK_W = 24, TANK_H = 14;
+    const CHARGE_DURATION = 1.4;
+    const FLIGHT_SUBSTEP_DT = 1 / 240;
+    const BOUNDS_MARGIN = 120;
+    const ANGLE_SPEED = 45, FINE_SPEED = 12;
+    const WEAPON_ORDER = ['standard', 'twin', 'triple', 'big', 'digger'];
+    const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKER', 'DOTS'];
+    const VOID_Y = H + 300;
+
+    const GREEN_BRIGHT = '#66ff66', GREEN_MID = '#22cc22', GREEN_DIM = '#114411', ORANGE = '#ffa500';
+
+    const WEAPONS = {
+        standard: { name: 'SHELL', short: '1 SHL', shots: [0], carveR: 26, dmgR: 26, dmg: 40, infinite: true },
+        twin:     { name: 'TWIN TURRET', short: '2 TWN', shots: [-5, 5], carveR: 22, dmgR: 22, dmg: 30 },
+        triple:   { name: 'TRIPLE SHOT', short: '3 TRI', shots: [-9, 0, 9], carveR: 18, dmgR: 18, dmg: 24 },
+        big:      { name: 'BIG BLAST', short: '4 BIG', shots: [0], carveR: 44, dmgR: 44, dmg: 60 },
+        digger:   { name: 'DIGGER', short: '5 DIG', shots: [0], carveR: 34, dmgR: 12, dmg: 15 }
+    };
+    const TANKBLAST = { carveR: 35, dmgR: 35, dmg: 30 };
+    const POWERUP_KEYS = ['twin', 'triple', 'big', 'digger'];
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    const scanlines = document.getElementById('scanlines');
+    const hudPlayer = document.getElementById('hud-player');
+    const hudWind = document.getElementById('hud-wind');
+    const hudAngle = document.getElementById('hud-angle');
+    const hudScore = document.getElementById('hud-score');
+    const powerMeter = document.getElementById('power-meter');
+    const powerFill = document.getElementById('power-fill');
+    const invRow = document.getElementById('inventory-row');
+    const bannerEl = document.getElementById('banner');
+    const matchModal = document.getElementById('match-modal');
+    const matchContent = document.getElementById('match-content');
+
+    // --- Persisted preferences ---------------------------------------------
+    const LS = { muted: 'tw_muted', config: 'tw_config' };
+    let muted = localStorage.getItem(LS.muted) === '1';
+
+    // --- Game state ---------------------------------------------------------
+    const state = {
+        phase: 'setup',           // setup|aiming|charging|flight|resolving|awarding|turnEnd|roundEnd|matchEnd
+        config: null,
+        players: [],
+        currentIdx: 0,
+        wind: 0,
+        shells: [],
+        particles: [],
+        crates: [],
+        charge: 0, charging: false, chargeDir: 1,
+        pendingAwards: [],
+        round: 1, scores: [],
+        banner: null,
+        cpu: null,
+        matchStarted: false
+    };
+
+    let terrain = new Float32Array(W);
+    const terrainCanvas = document.createElement('canvas');
+    terrainCanvas.width = W; terrainCanvas.height = H;
+
+    function terrainAt(x) { return terrain[clamp(Math.round(x), 0, W - 1)]; }
+
+    function defaultConfig() {
+        return {
+            playerCount: 2,
+            roundsToWin: 3,
+            terrain: 'hills',
+            slots: [
+                { type: 'human', cpuLevel: 1 },
+                { type: 'cpu', cpuLevel: 2 },
+                { type: 'cpu', cpuLevel: 2 },
+                { type: 'cpu', cpuLevel: 2 }
+            ]
+        };
+    }
+
+    function loadConfig() {
+        try {
+            const raw = localStorage.getItem(LS.config);
+            if (!raw) return defaultConfig();
+            const parsed = JSON.parse(raw);
+            const cfg = defaultConfig();
+            if (parsed.playerCount >= 2 && parsed.playerCount <= 4) cfg.playerCount = parsed.playerCount;
+            if (parsed.roundsToWin >= 1 && parsed.roundsToWin <= 5) cfg.roundsToWin = parsed.roundsToWin;
+            if (typeof parsed.terrain === 'string') cfg.terrain = parsed.terrain;
+            if (Array.isArray(parsed.slots)) {
+                for (let i = 0; i < 4; i++) if (parsed.slots[i]) cfg.slots[i] = parsed.slots[i];
+            }
+            return cfg;
+        } catch (e) { return defaultConfig(); }
+    }
+
+    state.config = loadConfig();
+
+    // --- Terrain generation --------------------------------------------------
+
+    function midpointDisplace(arr, roughness, amplitude, baseline) {
+        const n = arr.length;
+        arr[0] = baseline + (Math.random() * 2 - 1) * amplitude * 0.4;
+        arr[n - 1] = baseline + (Math.random() * 2 - 1) * amplitude * 0.4;
+        let step = n - 1, amp = amplitude;
+        while (step > 1) {
+            const half = step / 2;
+            for (let i = half; i < n - 1; i += step) {
+                const avg = (arr[i - half] + arr[i + half]) / 2;
+                arr[i] = avg + (Math.random() * 2 - 1) * amp;
+            }
+            amp *= roughness;
+            step = half;
+        }
+    }
+
+    function smoothHeights(arr) {
+        const copy = arr.slice();
+        for (let i = 1; i < arr.length - 1; i++) arr[i] = (copy[i - 1] + copy[i] + copy[i + 1]) / 3;
+    }
+
+    function applyCanyon() {
+        const a = W * 0.28, b = W * 0.38, c = W * 0.62, d = W * 0.72, floor = H - 50;
+        for (let x = 0; x < W; x++) {
+            if (x >= b && x <= c) terrain[x] = Math.max(terrain[x], floor);
+            else if (x > a && x < b) terrain[x] = Math.max(terrain[x], lerp(terrain[x], floor, (x - a) / (b - a)));
+            else if (x > c && x < d) terrain[x] = Math.max(terrain[x], lerp(floor, terrain[x], (x - c) / (d - c)));
+        }
+    }
+
+    function applySkyIsland() {
+        const bands = [];
+        const count = 2 + Math.floor(Math.random() * 2);
+        let cursor = 50;
+        for (let i = 0; i < count; i++) {
+            const w = 110 + Math.random() * 70;
+            const gap = 40 + Math.random() * 50;
+            if (cursor + w > W - 50) break;
+            bands.push([cursor, cursor + w]);
+            cursor += w + gap;
+        }
+        if (bands.length === 0) bands.push([W * 0.3, W * 0.7]);
+        for (let x = 0; x < W; x++) {
+            if (!bands.some(([s, e]) => x >= s && x <= e)) terrain[x] = VOID_Y;
+        }
+    }
+
+    const THEMES = ['hills', 'mountains', 'canyon', 'skyisland'];
+
+    function generateTerrain(theme) {
+        const size = 1025;
+        const heights = new Float32Array(size);
+        let roughness, amplitude, baseline, smoothPasses;
+        if (theme === 'mountains') { roughness = 0.62; amplitude = 150; baseline = H * 0.5; smoothPasses = 1; }
+        else if (theme === 'canyon') { roughness = 0.5; amplitude = 90; baseline = H * 0.45; smoothPasses = 2; }
+        else if (theme === 'skyisland') { roughness = 0.6; amplitude = 140; baseline = H * 0.45; smoothPasses = 1; }
+        else { roughness = 0.45; amplitude = 70; baseline = H * 0.55; smoothPasses = 3; }
+        midpointDisplace(heights, roughness, amplitude, baseline);
+        for (let s = 0; s < smoothPasses; s++) smoothHeights(heights);
+        for (let x = 0; x < W; x++) {
+            const idx = Math.min(size - 1, Math.floor((x / (W - 1)) * (size - 1)));
+            terrain[x] = clamp(heights[idx], 40, H - 30);
+        }
+        if (theme === 'canyon') applyCanyon();
+        if (theme === 'skyisland') applySkyIsland();
+    }
+
+    function bakeTerrain() {
+        const g = terrainCanvas.getContext('2d');
+        g.clearRect(0, 0, W, H);
+        g.fillStyle = GREEN_MID;
+        for (let x = 0; x < W; x++) {
+            const y = terrain[x];
+            if (y >= H) continue;
+            g.fillRect(x, y, 1, H - y);
+        }
+        g.save();
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = 'rgba(0,0,0,0.28)';
+        for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
+        g.restore();
+        g.strokeStyle = GREEN_BRIGHT;
+        g.lineWidth = 1.5;
+        g.beginPath();
+        let started = false;
+        for (let x = 0; x < W; x++) {
+            if (terrain[x] >= H) { started = false; continue; }
+            if (!started) { g.moveTo(x, terrain[x]); started = true; }
+            else g.lineTo(x, terrain[x]);
+        }
+        g.stroke();
+    }
+
+    function carveTerrain(cx, cy, r) {
+        const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W - 1, Math.ceil(cx + r));
+        for (let x = x0; x <= x1; x++) {
+            const dx = x - cx, disc = r * r - dx * dx;
+            if (disc < 0) continue;
+            const bottom = cy + Math.sqrt(disc);
+            if (terrain[x] < bottom) terrain[x] = bottom;
+            if (terrain[x] < H + 100) terrain[x] = Math.min(terrain[x], H);
+        }
+        bakeTerrain();
+    }
+
+    // --- Tanks -----------------------------------------------------------------
+
+    function buildPlayers(cfg) {
+        state.players = [];
+        for (let i = 0; i < cfg.playerCount; i++) {
+            state.players.push({
+                idx: i, x: 0, y: 0, vy: 0, airborneStartY: null,
+                hp: 100, alive: true, deathProcessed: false,
+                angle: 55, inventory: { twin: 0, triple: 0, big: 0, digger: 0 },
+                selected: 'standard'
+            });
+        }
+        state.scores = new Array(cfg.playerCount).fill(0);
+    }
+
+    function computeSpawnXs(n) {
+        const margin = 70, usable = W - 2 * margin;
+        const xs = [];
+        for (let i = 0; i < n; i++) {
+            const target = Math.round(margin + (n === 1 ? usable / 2 : usable * i / (n - 1)));
+            let x = clamp(target, margin, W - margin);
+            let tries = 0;
+            while (tries < 300 && (terrain[x] >= H - 20 || xs.some(o => Math.abs(o - x) < 110))) {
+                tries++;
+                const dir = tries % 2 === 0 ? 1 : -1;
+                x = clamp(target + dir * Math.ceil(tries / 2) * 3, margin, W - margin);
+            }
+            xs.push(x);
+        }
+        return xs;
+    }
+
+    function isCPU(p) { return state.config.slots[p.idx].type === 'cpu'; }
+    function cpuLevelOf(p) { return state.config.slots[p.idx].cpuLevel || 1; }
+    function currentPlayer() { return state.players[state.currentIdx]; }
+    function countAlive() { return state.players.filter(p => p.alive).length; }
+    function nameOf(p) { return 'P' + (p.idx + 1); }
+
+    function pointInTank(x, y, t) {
+        return x >= t.x - TANK_W / 2 - 2 && x <= t.x + TANK_W / 2 + 2 &&
+               y >= t.y - TANK_H - 8 && y <= t.y + 2;
+    }
+    function pointInCrate(x, y, c) {
+        return x >= c.x - 7 && x <= c.x + 7 && y >= c.y - 7 && y <= c.y + 7;
+    }
+
+    // --- Sound (WebAudio, generated) --------------------------------------------
+
+    let audioCtx = null, noiseBuffer = null;
+    function ensureAudio() {
+        if (!audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            audioCtx = new AC();
+            noiseBuffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.12), audioCtx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function tone(freq, dur, type, vol, slideTo, when) {
+        if (muted || !audioCtx) return;
+        const t0 = audioCtx.currentTime + (when || 0);
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.setValueAtTime(freq, t0);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+        gain.gain.setValueAtTime(vol || 0.12, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+    }
+
+    function crunch() {
+        if (muted || !audioCtx || !noiseBuffer) return;
+        const t0 = audioCtx.currentTime;
+        const src = audioCtx.createBufferSource();
+        src.buffer = noiseBuffer;
+        const bp = audioCtx.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = 900;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.22, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+        src.connect(bp).connect(gain).connect(audioCtx.destination);
+        src.start(t0);
+    }
+
+    const sfx = {
+        select: () => tone(660, 0.05, 'square', 0.04),
+        deny: () => tone(110, 0.08, 'square', 0.05),
+        charge: (c) => tone(150 + c * 500, 0.05, 'sawtooth', 0.04),
+        fire: () => { tone(300, 0.1, 'square', 0.08, 90); crunch(); },
+        boom: (r) => { crunch(); tone(70, 0.25 + r / 120, 'sine', 0.12, 35); },
+        crate: () => { tone(523, 0.06, 'square', 0.05); tone(784, 0.08, 'square', 0.05, undefined, 0.06); },
+        perfect: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.07)),
+        tankDie: () => { crunch(); tone(180, 0.4, 'sawtooth', 0.09, 30); },
+        roundWin: () => [392, 523, 659, 784].forEach((f, i) => tone(f, 0.1, 'square', 0.06, undefined, i * 0.1)),
+        fanfare: () => [523, 523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.09))
+    };
+
+    // --- Particles ---------------------------------------------------------------
+
+    function spawnParticles(x, y, n) {
+        for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 40 + Math.random() * 140;
+            state.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 0.5, maxLife: 0.5, size: 1 + Math.random() * 1.5, type: 'dot' });
+        }
+        state.particles.push({ x, y, vx: 0, vy: 0, life: 0.3, maxLife: 0.3, size: 4, type: 'ring' });
+    }
+
+    function updateParticles(dt) {
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+            const p = state.particles[i];
+            p.life -= dt;
+            if (p.life <= 0) { state.particles.splice(i, 1); continue; }
+            if (p.type === 'dot') { p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+        }
+    }
+
+    function drawParticles() {
+        for (const p of state.particles) {
+            const a = p.life / p.maxLife;
+            ctx.globalAlpha = a;
+            if (p.type === 'ring') {
+                ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 + 3 * (1 - a)), 0, Math.PI * 2); ctx.stroke();
+            } else {
+                ctx.fillStyle = GREEN_BRIGHT;
+                ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+            }
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    // --- Explosions / damage ------------------------------------------------------
+
+    function explode(x, y, weaponKeyOrSpec, ownerIdx) {
+        const spec = typeof weaponKeyOrSpec === 'string' ? WEAPONS[weaponKeyOrSpec] : weaponKeyOrSpec;
+        carveTerrain(x, y, spec.carveR);
+        const falloffR = spec.dmgR + 14;
+        for (const t of state.players) {
+            if (!t.alive) continue;
+            const d = dist(t.x, t.y - TANK_H / 2, x, y);
+            if (d < falloffR) t.hp = Math.max(0, t.hp - spec.dmg * (1 - clamp(d / falloffR, 0, 1)));
+        }
+        // A blast landing near a crate cracks it open, awarding the shooter —
+        // a direct fly-through hit is not required (that hitbox is a thin
+        // 14px box a fast shell can arc over between substeps). Skipped for
+        // tank-death blasts (ownerIdx < 0), which have no shooter to credit.
+        if (ownerIdx != null && ownerIdx >= 0) {
+            const splash = spec.carveR + 10;
+            for (let ci = state.crates.length - 1; ci >= 0; ci--) {
+                const c = state.crates[ci];
+                if (dist(c.x, c.y, x, y) <= splash) {
+                    state.pendingAwards.push({ type: 'crate', playerIdx: ownerIdx, weaponType: c.type });
+                    spawnParticles(c.x, c.y, 6);
+                    state.crates.splice(ci, 1);
+                }
+            }
+        }
+        spawnParticles(x, y, Math.min(20, Math.round(8 + spec.carveR / 5)));
+        sfx.boom(spec.carveR);
+    }
+
+    // --- Shells ------------------------------------------------------------------
+
+    function fire() {
+        const p = currentPlayer();
+        const spec = WEAPONS[p.selected];
+        const speed = 120 + state.charge * 480;
+        for (const off of spec.shots) {
+            const rad = (p.angle + off) * Math.PI / 180;
+            state.shells.push({ x: p.x, y: p.y - TANK_H * 0.7, vx: Math.cos(rad) * speed, vy: -Math.sin(rad) * speed, weapon: p.selected, ownerIdx: p.idx, age: 0, trail: [] });
+        }
+        if (p.selected !== 'standard') p.inventory[p.selected] = Math.max(0, p.inventory[p.selected] - 1);
+        p.selected = 'standard';
+        state.charging = false; state.charge = 0;
+        state.cpu = null;
+        sfx.fire();
+        setPhase('flight');
+    }
+
+    function handleShellImpact(shell, x, y, hitTank) {
+        state._lastImpact = { x, y, weapon: shell.weapon, ownerIdx: shell.ownerIdx, hitTankIdx: hitTank ? hitTank.idx : null };
+        explode(x, y, shell.weapon, shell.ownerIdx);
+        if (hitTank && shell.weapon === 'standard' && hitTank.idx !== shell.ownerIdx) {
+            state.pendingAwards.push({ type: 'perfect', playerIdx: shell.ownerIdx });
+        }
+    }
+
+    function updateFlight(dt) {
+        const sdt = FLIGHT_SUBSTEP_DT;
+        const steps = Math.max(1, Math.round(dt / sdt));
+        for (let i = state.shells.length - 1; i >= 0; i--) {
+            const s = state.shells[i];
+            let removed = false;
+            for (let k = 0; k < steps && !removed; k++) {
+                s.vx += state.wind * sdt;
+                s.vy += GRAVITY * sdt;
+                s.x += s.vx * sdt;
+                s.y += s.vy * sdt;
+                s.age += sdt;
+                s.trail.push({ x: s.x, y: s.y });
+                if (s.trail.length > 12) s.trail.shift();
+
+                for (const t of state.players) {
+                    if (!t.alive) continue;
+                    if (t.idx === s.ownerIdx && s.age < 0.15) continue;
+                    if (pointInTank(s.x, s.y, t)) { handleShellImpact(s, s.x, s.y, t); removed = true; break; }
+                }
+                if (removed) break;
+
+                for (let ci = state.crates.length - 1; ci >= 0; ci--) {
+                    const c = state.crates[ci];
+                    if (pointInCrate(s.x, s.y, c)) {
+                        state.pendingAwards.push({ type: 'crate', playerIdx: s.ownerIdx, weaponType: c.type });
+                        spawnParticles(s.x, s.y, 6);
+                        state.crates.splice(ci, 1);
+                        removed = true; break;
+                    }
+                }
+                if (removed) break;
+
+                if (s.y >= terrainAt(s.x)) { handleShellImpact(s, s.x, s.y, null); removed = true; break; }
+                if (s.x < -BOUNDS_MARGIN || s.x > W + BOUNDS_MARGIN || s.y > H + 50) { removed = true; break; }
+            }
+            if (removed) state.shells.splice(i, 1);
+        }
+        if (state.shells.length === 0) setPhase('resolving');
+    }
+
+    function simulateShell(x0, y0, angleDeg, charge, wind, ownerIdx) {
+        // Uses the same step size as the real flight substep (updateFlight)
+        // so a "solved" shot actually reproduces its predicted landing when
+        // fired for real — a coarser dry-run step would drift from the real
+        // trajectory over a couple seconds of flight and miss by more than
+        // a tank's width. Must also skip the owner's own tank for the same
+        // ~0.15s grace period as the real flight: without it, every dry-run
+        // shot "hits" the shooter's own hitbox at the muzzle on step one,
+        // making every candidate angle/charge score identically (garbage).
+        const speed = 120 + charge * 480, rad = angleDeg * Math.PI / 180;
+        let vx = Math.cos(rad) * speed, vy = -Math.sin(rad) * speed, x = x0, y = y0, t = 0;
+        const sdt = FLIGHT_SUBSTEP_DT;
+        while (t < 8) {
+            vx += wind * sdt; vy += GRAVITY * sdt; x += vx * sdt; y += vy * sdt; t += sdt;
+            for (const tk of state.players) {
+                if (!tk.alive) continue;
+                if (tk.idx === ownerIdx && t < 0.15) continue;
+                if (pointInTank(x, y, tk)) return { x, y, hitIdx: tk.idx };
+            }
+            if (y >= terrainAt(x)) return { x, y, hitIdx: null };
+            if (x < -BOUNDS_MARGIN || x > W + BOUNDS_MARGIN || y > H + 50) return { x, y, hitIdx: null };
+        }
+        return { x, y, hitIdx: null };
+    }
+
+    // --- CPU AI --------------------------------------------------------------------
+
+    function pickTarget(p, level) {
+        const enemies = state.players.filter(t => t.alive && t.idx !== p.idx);
+        if (state.crates.length && Math.random() < 0.2) {
+            return state.crates[Math.floor(Math.random() * state.crates.length)];
+        }
+        if (level >= 3) return enemies.reduce((a, b) => (b.hp < a.hp ? b : a), enemies[0]);
+        return enemies.reduce((a, b) => (Math.abs(b.x - p.x) < Math.abs(a.x - p.x) ? b : a), enemies[0]);
+    }
+
+    function pickWeapon(p, level, target, missDist) {
+        if (level <= 1) return 'standard';
+        const has = k => p.inventory[k] > 0;
+        const targetHp = target.hp != null ? target.hp : 999;
+        if (has('big') && targetHp <= 50) return 'big';
+        if (has('digger') && (state.config.terrain === 'skyisland' || state.config.terrain === 'canyon') && Math.random() < 0.5) return 'digger';
+        if ((has('twin') || has('triple')) && missDist > 40) return has('triple') ? 'triple' : 'twin';
+        return 'standard';
+    }
+
+    function solveShot(p, level) {
+        const target = pickTarget(p, level);
+        const dir = target.x >= p.x ? 1 : -1;
+        const angleRange = dir > 0 ? [15, 85] : [95, 165];
+        let best = null;
+        for (let a = angleRange[0]; a <= angleRange[1]; a += 5) {
+            for (let c = 0.25; c <= 1; c += 0.1) {
+                const res = simulateShell(p.x, p.y - TANK_H * 0.7, a, c, state.wind, p.idx);
+                const d = dist(res.x, res.y, target.x, target.y);
+                if (!best || d < best.d) best = { a, c, d };
+            }
+        }
+        const refinements = level === 1 ? 0 : level === 2 ? 2 : 5;
+        for (let r = 0; r < refinements; r++) {
+            const span = 6 / (r + 1);
+            for (let da = -span; da <= span; da += span / 2 || 1) {
+                for (let dc = -0.05; dc <= 0.05; dc += 0.025) {
+                    // Clamped to angleRange (not the full [5,175]) so refinement
+                    // can't wander into the opposite-direction hemisphere and
+                    // "solve" a degenerate near-flat shot that only looks good
+                    // by raw landing-distance, not by being a sane trajectory.
+                    const a = clamp(best.a + da, angleRange[0], angleRange[1]), c = clamp(best.c + dc, 0.05, 1);
+                    const res = simulateShell(p.x, p.y - TANK_H * 0.7, a, c, state.wind, p.idx);
+                    const d = dist(res.x, res.y, target.x, target.y);
+                    if (d < best.d) best = { a, c, d };
+                }
+            }
+        }
+        const noiseAngle = level === 1 ? 12 : level === 2 ? 4 : 1.5;
+        const noiseCharge = level === 1 ? 0.16 : level === 2 ? 0.06 : 0.02;
+        const angle = clamp(best.a + (Math.random() * 2 - 1) * noiseAngle, angleRange[0], angleRange[1]);
+        const charge = clamp(best.c + (Math.random() * 2 - 1) * noiseCharge, 0.05, 1);
+        const weapon = pickWeapon(p, level, target, best.d);
+        return { angle, power: charge, weapon };
+    }
+
+    function updateCPUAiming(dt) {
+        let c = state.cpu;
+        const p = currentPlayer();
+        if (!c) { c = state.cpu = { stage: 'pause', t: 0, sol: null, startAngle: p.angle }; }
+        c.t += dt;
+        if (c.stage === 'pause') {
+            if (c.t >= 0.5) {
+                c.sol = solveShot(p, cpuLevelOf(p));
+                c.startAngle = p.angle; c.stage = 'sweep'; c.t = 0;
+                p.selected = c.sol.weapon;
+            }
+        } else if (c.stage === 'sweep') {
+            const f = Math.min(1, c.t / 0.6);
+            p.angle = lerp(c.startAngle, c.sol.angle, f);
+            if (f >= 1) {
+                p.angle = c.sol.angle;
+                c.stage = 'charge'; c.t = 0;
+                state.charging = true; state.charge = 0; state.chargeDir = 1;
+                setPhase('charging');
+            }
+        }
+    }
+
+    function checkCPURelease() {
+        const c = state.cpu;
+        if (!c || c.stage !== 'charge') return;
+        if ((state.chargeDir === 1 && state.charge >= c.sol.power) || (state.chargeDir === -1 && state.charge <= c.sol.power)) {
+            fire();
+        }
+    }
+
+    // --- Turn state machine -------------------------------------------------------
+
+    function setPhase(p) {
+        state.phase = p;
+        if (p === 'resolving') { /* per-frame handling */ }
+        else if (p === 'awarding') { processAwards(); }
+        else if (p === 'turnEnd') { processTurnEnd(); }
+        else if (p === 'roundEnd') { processRoundEnd(); }
+    }
+
+    function processAwards() {
+        for (const a of state.pendingAwards) {
+            const player = state.players[a.playerIdx];
+            if (!player) continue;
+            if (a.type === 'perfect') {
+                const key = POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)];
+                player.inventory[key]++;
+                showBanner('PERFECT SHOT! ' + nameOf(player) + ' +' + WEAPONS[key].name, 1.6);
+                sfx.perfect();
+            } else if (a.type === 'crate') {
+                player.inventory[a.weaponType]++;
+                showBanner(nameOf(player) + ' FOUND ' + WEAPONS[a.weaponType].name, 1.4);
+                sfx.crate();
+            }
+        }
+        state.pendingAwards = [];
+        setPhase('turnEnd');
+    }
+
+    function processTurnEnd() {
+        if (countAlive() <= 1) { setPhase('roundEnd'); return; }
+        advanceTurn();
+        rollWind();
+        maybeSpawnCrate();
+        state.cpu = null;
+        renderInventory();
+        const p = currentPlayer();
+        showBanner((isCPU(p) ? nameOf(p) + ' (CPU)' : nameOf(p)) + ' — YOUR TURN', 1.0);
+        state.phase = 'aiming';
+    }
+
+    function advanceTurn() {
+        let i = state.currentIdx;
+        for (let k = 0; k < state.players.length; k++) {
+            i = (i + 1) % state.players.length;
+            if (state.players[i].alive) { state.currentIdx = i; return; }
+        }
+    }
+
+    const WIND_MAX = 25;
+    function rollWind() { state.wind = (Math.random() * 2 - 1) * WIND_MAX; }
+
+    function randomPowerupKey() { return POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)]; }
+
+    function maybeSpawnCrate() {
+        if (state.crates.length >= 2 || Math.random() >= 0.35) return;
+        for (let tries = 0; tries < 40; tries++) {
+            const x = 40 + Math.random() * (W - 80);
+            if (terrainAt(x) >= H - 10) continue;
+            const tooCloseToTank = state.players.some(t => t.alive && Math.abs(t.x - x) < 90);
+            const tooCloseToCrate = state.crates.some(c => Math.abs(c.x - x) < 40);
+            if (tooCloseToTank || tooCloseToCrate) continue;
+            state.crates.push({ x, y: terrainAt(x) - 7, type: randomPowerupKey() });
+            return;
+        }
+    }
+
+    function grantRoundStart() {
+        for (const p of state.players) p.inventory[randomPowerupKey()]++;
+    }
+
+    function processRoundEnd() {
+        const winner = state.players.find(p => p.alive);
+        const winnerIdx = winner ? winner.idx : state.currentIdx;
+        state.scores[winnerIdx]++;
+        showBanner(nameOf({ idx: winnerIdx }) + ' WINS ROUND ' + state.round + '!', 2.0);
+        sfx.roundWin();
+        if (state.scores[winnerIdx] >= state.config.roundsToWin) {
+            state._matchTimer = 1.6;
+        } else {
+            state.round++;
+            state._roundEndTimer = 2.2;
+        }
+    }
+
+    function pickTerrainTheme() {
+        return state.config.terrain === 'random' ? THEMES[Math.floor(Math.random() * THEMES.length)] : state.config.terrain;
+    }
+
+    function startRound() {
+        generateTerrain(pickTerrainTheme());
+        bakeTerrain();
+        const xs = computeSpawnXs(state.players.length);
+        state.players.forEach((p, i) => {
+            p.hp = 100; p.alive = true; p.deathProcessed = false;
+            p.x = xs[i]; p.y = terrainAt(xs[i]); p.vy = 0; p.airborneStartY = null;
+            p.inventory = { twin: 0, triple: 0, big: 0, digger: 0 };
+            p.selected = 'standard';
+            p.angle = xs[i] < W / 2 ? 55 : 125;
+        });
+        grantRoundStart();
+        state.shells = []; state.particles = []; state.crates = [];
+        rollWind();
+        state.currentIdx = state.players.findIndex(p => p.alive);
+        state.cpu = null;
+        state.matchStarted = true;
+        renderInventory();
+        showBanner('ROUND ' + state.round, 1.2);
+        setPhase('aiming');
+    }
+
+    function updateResolving(dt) {
+        let anyAirborne = false, anyPendingDeath = false;
+        for (const t of state.players) {
+            if (!t.alive) continue;
+            const groundY = terrainAt(t.x);
+            if (t.y < groundY - 0.5) {
+                if (t.airborneStartY == null) t.airborneStartY = t.y;
+                t.vy = (t.vy || 0) + GRAVITY * dt;
+                t.y += t.vy * dt;
+                if (t.y >= groundY) {
+                    const fallDist = groundY - t.airborneStartY;
+                    t.y = groundY; t.vy = 0;
+                    const dmg = Math.max(0, (fallDist - 40) * 0.5);
+                    if (dmg > 0) t.hp = Math.max(0, t.hp - dmg);
+                    t.airborneStartY = null;
+                } else anyAirborne = true;
+            } else if (t.y > groundY + 0.5) {
+                t.y = groundY; t.vy = 0; t.airborneStartY = null;
+            } else { t.vy = 0; t.airborneStartY = null; }
+            if (t.y > H + 20) t.hp = 0;
+        }
+        for (const t of state.players) {
+            if (t.alive && t.hp <= 0 && !t.deathProcessed) {
+                t.deathProcessed = true; t.alive = false;
+                explode(t.x, Math.min(t.y, H + 20) - TANK_H * 0.5, TANKBLAST, -1);
+                sfx.tankDie();
+                anyPendingDeath = true;
+            }
+        }
+        if (!anyAirborne && !anyPendingDeath) setPhase('awarding');
+    }
+
+    // --- Input -----------------------------------------------------------------
+
+    const input = { left: false, right: false, fineUp: false, fineDown: false };
+
+    function updateHumanAiming(dt) {
+        const p = currentPlayer();
+        if (input.left) p.angle += ANGLE_SPEED * dt;
+        if (input.right) p.angle -= ANGLE_SPEED * dt;
+        if (input.fineUp) p.angle += FINE_SPEED * dt;
+        if (input.fineDown) p.angle -= FINE_SPEED * dt;
+        p.angle = clamp(p.angle, 5, 175);
+    }
+
+    function startCharge() {
+        if (state.phase !== 'aiming' || isCPU(currentPlayer())) return;
+        state.charging = true; state.charge = 0; state.chargeDir = 1;
+        setPhase('charging');
+    }
+    function releaseCharge() {
+        if (state.phase !== 'charging' || isCPU(currentPlayer())) return;
+        fire();
+    }
+
+    function selectWeaponByKey(k) {
+        const map = { '1': 'standard', '2': 'twin', '3': 'triple', '4': 'big', '5': 'digger' };
+        const key = map[k];
+        if (!key || state.phase !== 'aiming') return;
+        const p = currentPlayer();
+        if (isCPU(p)) return;
+        if (key !== 'standard' && !(p.inventory[key] > 0)) return;
+        p.selected = key;
+        sfx.select();
+        renderInventory();
+    }
+
+    function handleEscape() {
+        if (document.getElementById('setup').classList.contains('open') && state.matchStarted) { closeSetup(); return; }
+        window.location.href = 'index.html';
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { input.left = true; ensureAudio(); }
+        else if (e.key === 'ArrowRight') { input.right = true; ensureAudio(); }
+        else if (e.key === 'ArrowUp') { input.fineUp = true; ensureAudio(); e.preventDefault(); }
+        else if (e.key === 'ArrowDown') { input.fineDown = true; ensureAudio(); e.preventDefault(); }
+        else if (e.key === ' ') { e.preventDefault(); ensureAudio(); if (!state.charging) startCharge(); }
+        else if (e.key >= '1' && e.key <= '5') { ensureAudio(); selectWeaponByKey(e.key); }
+        else if (e.key === 'Escape') { handleEscape(); }
+    });
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft') input.left = false;
+        else if (e.key === 'ArrowRight') input.right = false;
+        else if (e.key === 'ArrowUp') input.fineUp = false;
+        else if (e.key === 'ArrowDown') input.fineDown = false;
+        else if (e.key === ' ') releaseCharge();
+    });
+
+    function bindHold(el, onDown, onUp) {
+        el.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); onDown(); });
+        el.addEventListener('pointerup', onUp);
+        el.addEventListener('pointercancel', onUp);
+        el.addEventListener('pointerleave', onUp);
+    }
+    bindHold(document.getElementById('btn-angle-minus'), () => { input.right = true; }, () => { input.right = false; });
+    bindHold(document.getElementById('btn-angle-plus'), () => { input.left = true; }, () => { input.left = false; });
+    bindHold(document.getElementById('btn-fire'), () => { if (!state.charging) startCharge(); }, () => releaseCharge());
+
+    // --- Layout / resize (fixed logical 800x500 world, letterboxed) -------------
+
+    function resizeCanvas() {
+        const rect = canvasWrap.getBoundingClientRect();
+        const scale = Math.max(0.1, Math.min(rect.width / W, rect.height / H));
+        const dpr = window.devicePixelRatio || 1;
+        canvas.style.width = (W * scale) + 'px';
+        canvas.style.height = (H * scale) + 'px';
+        canvas.width = Math.floor(W * scale * dpr);
+        canvas.height = Math.floor(H * scale * dpr);
+        ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+        scanlines.style.width = (W * scale) + 'px';
+        scanlines.style.height = (H * scale) + 'px';
+    }
+
+    // --- Rendering ----------------------------------------------------------------
+
+    function fillPatternRect(g, x, y, w, h, idx) {
+        g.save();
+        g.beginPath(); g.rect(x, y, w, h); g.clip();
+        g.fillStyle = GREEN_MID; g.fillRect(x, y, w, h);
+        g.fillStyle = GREEN_BRIGHT;
+        if (idx === 0) { g.fillRect(x, y, w, h); }
+        else if (idx === 1) { for (let yy = y; yy < y + h; yy += 3) g.fillRect(x, yy, w, 1.5); }
+        else if (idx === 2) {
+            const cell = 3;
+            for (let yy = y; yy < y + h; yy += cell)
+                for (let xx = x; xx < x + w; xx += cell)
+                    if ((Math.round((xx - x) / cell) + Math.round((yy - y) / cell)) % 2 === 0) g.fillRect(xx, yy, cell, cell);
+        } else {
+            for (let yy = y + 1; yy < y + h; yy += 3)
+                for (let xx = x + 1; xx < x + w; xx += 3) g.fillRect(xx, yy, 1, 1);
+        }
+        g.restore();
+    }
+
+    function drawTank(t) {
+        if (!t.alive) return;
+        const x = t.x, yBase = t.y, bodyTop = yBase - TANK_H;
+        fillPatternRect(ctx, x - TANK_W / 2, bodyTop, TANK_W, TANK_H, t.idx);
+        ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 1;
+        ctx.strokeRect(x - TANK_W / 2, bodyTop, TANK_W, TANK_H);
+        ctx.fillStyle = GREEN_DIM;
+        ctx.fillRect(x - TANK_W / 2 - 2, yBase - 3, TANK_W + 4, 3);
+        ctx.strokeRect(x - TANK_W / 2 - 2, yBase - 3, TANK_W + 4, 3);
+        ctx.beginPath(); ctx.arc(x, bodyTop, 5, Math.PI, 0);
+        ctx.fillStyle = GREEN_MID; ctx.fill(); ctx.stroke();
+        const rad = t.angle * Math.PI / 180;
+        ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, bodyTop); ctx.lineTo(x + Math.cos(rad) * 16, bodyTop - Math.sin(rad) * 16); ctx.stroke();
+
+        const barW = 22, barX = x - barW / 2, barY = bodyTop - 12;
+        ctx.fillStyle = GREEN_DIM; ctx.fillRect(barX, barY, barW, 3);
+        ctx.fillStyle = t.hp <= 25 ? (Math.floor(performance.now() / 200) % 2 ? GREEN_DIM : GREEN_BRIGHT) : GREEN_BRIGHT;
+        ctx.fillRect(barX, barY, barW * clamp(t.hp / 100, 0, 1), 3);
+        ctx.strokeStyle = GREEN_MID; ctx.lineWidth = 1; ctx.strokeRect(barX, barY, barW, 3);
+
+        ctx.fillStyle = state.currentIdx === t.idx && state.phase !== 'flight' ? GREEN_BRIGHT : GREEN_MID;
+        ctx.font = '8px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('P' + (t.idx + 1), x, barY - 4);
+    }
+
+    function drawCrate(c) {
+        ctx.fillStyle = GREEN_DIM;
+        ctx.fillRect(c.x - 7, c.y - 7, 14, 14);
+        ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 1.5;
+        ctx.strokeRect(c.x - 7, c.y - 7, 14, 14);
+        ctx.beginPath(); ctx.moveTo(c.x - 7, c.y - 7); ctx.lineTo(c.x + 7, c.y + 7);
+        ctx.moveTo(c.x + 7, c.y - 7); ctx.lineTo(c.x - 7, c.y + 7); ctx.stroke();
+    }
+
+    function drawShells() {
+        for (const s of state.shells) {
+            for (let i = 0; i < s.trail.length; i++) {
+                const p = s.trail[i];
+                ctx.globalAlpha = (i / s.trail.length) * 0.5;
+                ctx.fillStyle = GREEN_MID;
+                ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+            }
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = GREEN_BRIGHT;
+            ctx.beginPath(); ctx.arc(s.x, s.y, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    function render(t) {
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(terrainCanvas, 0, 0);
+        for (const c of state.crates) drawCrate(c);
+        for (const p of state.players) drawTank(p);
+        drawShells();
+        drawParticles();
+    }
+
+    function updateHUD() {
+        const p = state.players[state.currentIdx];
+        if (p) {
+            hudPlayer.textContent = nameOf(p) + (isCPU(p) ? ' (CPU)' : '');
+            hudAngle.textContent = Math.round(p.angle) + '°';
+        }
+        hudWind.textContent = 'WIND ' + (state.wind >= 0 ? '▶' : '◀') + ' ' + Math.round(Math.abs(state.wind));
+        hudScore.textContent = state.scores.join('-');
+        if (state.charging) {
+            powerMeter.classList.add('show');
+            powerFill.style.height = (state.charge * 100) + '%';
+            powerFill.style.background = state.charge > 0.85 ? ORANGE : GREEN_BRIGHT;
+        } else {
+            powerMeter.classList.remove('show');
+        }
+    }
+
+    function showBanner(text, duration) {
+        state.banner = { timer: duration };
+        bannerEl.textContent = text;
+        bannerEl.classList.add('show');
+    }
+    function updateBanner(dt) {
+        if (!state.banner) return;
+        state.banner.timer -= dt;
+        if (state.banner.timer <= 0) { bannerEl.classList.remove('show'); state.banner = null; }
+    }
+
+    // --- Inventory UI --------------------------------------------------------------
+
+    function renderInventory() {
+        const p = currentPlayer();
+        invRow.innerHTML = '';
+        if (!p || isCPU(p) || state.phase === 'setup') { invRow.style.display = 'none'; return; }
+        invRow.style.display = 'flex';
+        for (const key of WEAPON_ORDER) {
+            const spec = WEAPONS[key];
+            const count = key === 'standard' ? null : p.inventory[key];
+            if (key !== 'standard' && !(count > 0)) continue;
+            const btn = document.createElement('button');
+            btn.className = 'inv-chip' + (p.selected === key ? ' sel' : '');
+            btn.textContent = spec.short + (count ? (' x' + count) : '');
+            btn.addEventListener('click', () => {
+                ensureAudio();
+                if (state.phase !== 'aiming') return;
+                p.selected = key; sfx.select(); renderInventory();
+            });
+            invRow.appendChild(btn);
+        }
+    }
+
+    // --- Main update loop ------------------------------------------------------------
+
+    function update(dt) {
+        updateParticles(dt);
+        updateBanner(dt);
+        switch (state.phase) {
+            case 'aiming':
+                if (isCPU(currentPlayer())) updateCPUAiming(dt); else updateHumanAiming(dt);
+                break;
+            case 'charging':
+                updateCharging(dt);
+                if (isCPU(currentPlayer())) checkCPURelease();
+                break;
+            case 'flight': updateFlight(dt); break;
+            case 'resolving': updateResolving(dt); break;
+            case 'roundEnd':
+                if (state._matchTimer != null) {
+                    state._matchTimer -= dt;
+                    if (state._matchTimer <= 0) { state._matchTimer = null; showMatchEnd(); }
+                } else if (state._roundEndTimer != null) {
+                    state._roundEndTimer -= dt;
+                    if (state._roundEndTimer <= 0) { state._roundEndTimer = null; startRound(); }
+                }
+                break;
+            default: break;
+        }
+        updateHUD();
+    }
+
+    function updateCharging(dt) {
+        state.charge += state.chargeDir * (1 / CHARGE_DURATION) * dt;
+        if (state.charge >= 1) { state.charge = 1; state.chargeDir = -1; }
+        if (state.charge <= 0) { state.charge = 0; state.chargeDir = 1; }
+        state._chargeSoundAcc = (state._chargeSoundAcc || 0) + dt;
+        if (state._chargeSoundAcc > 0.08) { state._chargeSoundAcc = 0; sfx.charge(state.charge); }
+    }
+
+    let lastT = 0;
+    function loop(ts) {
+        const t = ts / 1000;
+        const dt = Math.min(0.05, t - lastT || 0.016);
+        lastT = t;
+        update(dt);
+        render(t);
+        requestAnimationFrame(loop);
+    }
+
+    // --- Match end / rematch -------------------------------------------------------
+
+    function showMatchEnd() {
+        const winIdx = state.scores.indexOf(Math.max(...state.scores));
+        matchContent.innerHTML = '<h1>P' + (winIdx + 1) + ' WINS THE MATCH!</h1><p>' + state.scores.join(' - ') + '</p>';
+        matchModal.style.display = 'block';
+        sfx.fanfare();
+    }
+
+    document.getElementById('rematch-btn').addEventListener('click', () => {
+        ensureAudio(); sfx.select();
+        matchModal.style.display = 'none';
+        state.round = 1; state.scores = new Array(state.players.length).fill(0);
+        startRound();
+    });
+    document.getElementById('match-setup-btn').addEventListener('click', () => {
+        ensureAudio(); sfx.select();
+        matchModal.style.display = 'none';
+        openSetup();
+    });
+
+    // --- Setup screen ----------------------------------------------------------------
+
+    const setupEl = document.getElementById('setup');
+    const slotsEl = document.getElementById('slots');
+    const playersVal = document.getElementById('players-val');
+    const terrainOptsEl = document.getElementById('terrain-options');
+    const roundsOptsEl = document.getElementById('rounds-options');
+
+    const TERRAIN_LABELS = [['hills', 'HILLS · EASY'], ['mountains', 'MOUNTAINS · MED'], ['canyon', 'CANYON · HARD'], ['skyisland', 'SKY ISLAND · EXPERT'], ['random', 'RANDOM']];
+    const ROUNDS_LABELS = [1, 2, 3, 5];
+    const CPU_CYCLE = [{ type: 'human', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 2 }, { type: 'cpu', cpuLevel: 3 }];
+    const CPU_LABELS = ['HUMAN', 'CPU · EASY', 'CPU · MED', 'CPU · HARD'];
+
+    function slotLabel(slot) {
+        const i = CPU_CYCLE.findIndex(c => c.type === slot.type && c.cpuLevel === slot.cpuLevel);
+        return CPU_LABELS[i >= 0 ? i : 0];
+    }
+
+    function renderSetup() {
+        playersVal.textContent = state.config.playerCount;
+        slotsEl.innerHTML = '';
+        for (let i = 0; i < state.config.playerCount; i++) {
+            const row = document.createElement('div');
+            row.className = 'slot-row';
+            const swatch = document.createElement('canvas');
+            swatch.width = 18; swatch.height = 18; swatch.className = 'slot-swatch';
+            fillPatternRect(swatch.getContext('2d'), 0, 0, 18, 18, i);
+            const label = document.createElement('span');
+            label.className = 'slot-label'; label.textContent = 'P' + (i + 1);
+            const btn = document.createElement('button');
+            btn.className = 'slot-type-btn';
+            btn.textContent = slotLabel(state.config.slots[i]);
+            btn.addEventListener('click', () => {
+                ensureAudio(); sfx.select();
+                const cur = CPU_CYCLE.findIndex(c => c.type === state.config.slots[i].type && c.cpuLevel === state.config.slots[i].cpuLevel);
+                const next = CPU_CYCLE[(Math.max(0, cur) + 1) % CPU_CYCLE.length];
+                state.config.slots[i] = { type: next.type, cpuLevel: next.cpuLevel };
+                renderSetup();
+            });
+            row.appendChild(swatch); row.appendChild(label); row.appendChild(btn);
+            slotsEl.appendChild(row);
+        }
+
+        terrainOptsEl.innerHTML = '';
+        for (const [key, label] of TERRAIN_LABELS) {
+            const b = document.createElement('button');
+            b.className = 'opt-btn' + (state.config.terrain === key ? ' sel' : '');
+            b.textContent = label;
+            b.addEventListener('click', () => { ensureAudio(); sfx.select(); state.config.terrain = key; renderSetup(); });
+            terrainOptsEl.appendChild(b);
+        }
+
+        roundsOptsEl.innerHTML = '';
+        for (const n of ROUNDS_LABELS) {
+            const b = document.createElement('button');
+            b.className = 'opt-btn' + (state.config.roundsToWin === n ? ' sel' : '');
+            b.textContent = 'BEST OF ' + (n * 2 - 1);
+            b.addEventListener('click', () => { ensureAudio(); sfx.select(); state.config.roundsToWin = n; renderSetup(); });
+            roundsOptsEl.appendChild(b);
+        }
+    }
+
+    document.getElementById('players-minus').addEventListener('click', () => {
+        ensureAudio(); sfx.select();
+        state.config.playerCount = clamp(state.config.playerCount - 1, 2, 4);
+        renderSetup();
+    });
+    document.getElementById('players-plus').addEventListener('click', () => {
+        ensureAudio(); sfx.select();
+        state.config.playerCount = clamp(state.config.playerCount + 1, 2, 4);
+        renderSetup();
+    });
+
+    function openSetup() { renderSetup(); setupEl.classList.add('open'); }
+    function closeSetup() { setupEl.classList.remove('open'); }
+
+    document.getElementById('start-battle').addEventListener('click', () => {
+        ensureAudio(); sfx.select();
+        localStorage.setItem(LS.config, JSON.stringify(state.config));
+        buildPlayers(state.config);
+        state.round = 1;
+        closeSetup();
+        startRound();
+    });
+    document.getElementById('setup-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); openSetup(); });
+
+    // --- Mute -------------------------------------------------------------------------
+
+    const muteBtn = document.getElementById('mute-btn');
+    function updateMuteBtn() { muteBtn.textContent = muted ? '\u{1F507}' : '\u{1F50A}'; }
+    muteBtn.addEventListener('click', () => {
+        ensureAudio();
+        muted = !muted;
+        localStorage.setItem(LS.muted, muted ? '1' : '0');
+        sfx.select();
+        updateMuteBtn();
+    });
+    updateMuteBtn();
+
+    // --- Boot ---------------------------------------------------------------------------
+
+    generateTerrain('hills');
+    bakeTerrain();
+
+    resizeCanvas();
+    let resizeRAF;
+    window.addEventListener('resize', () => { cancelAnimationFrame(resizeRAF); resizeRAF = requestAnimationFrame(resizeCanvas); });
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
+    openSetup();
+    requestAnimationFrame(loop);
+
+    // Exposed for console/Playwright testing.
+    window.state = state;
+    window.terrain = terrain;
+    window.WEAPONS = WEAPONS;
+    window.terrainAt = terrainAt;
+    window.skipSetup = function (cfgOverrides) {
+        Object.assign(state.config, cfgOverrides || {});
+        buildPlayers(state.config);
+        state.round = 1;
+        closeSetup();
+        startRound();
+    };
+    window.fireAt = function (angleDeg, charge) {
+        const p = currentPlayer();
+        p.angle = clamp(angleDeg, 5, 175);
+        state.charge = clamp(charge, 0, 1);
+        fire();
+    };
+    window.solveShot = solveShot;
+</script>
+</body>
+</html>

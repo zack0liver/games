@@ -5,6 +5,64 @@ top.
 
 ---
 
+## 2026-07-10 — Tank Wars (built from scratch to v1)
+
+**Branch:** `claude/tank-wars-game`
+
+Built the last arcade cartridge — a turn-based artillery duel — from concept to
+shipped v1. One self-contained file in the house style (inline CSS/JS, single
+canvas + rAF, Press Start 2P, no assets).
+
+### What shipped
+
+- **The game** (`index_tank_wars.html`, ~1490 lines) — Scorched-Earth-style
+  artillery for **2-4 players**, any mix of hotseat humans and CPU opponents.
+  Rendered in a **monochrome green-phosphor CRT** look (chosen over the pixel-
+  sprite style deliberately to keep it retro and light): dithered terrain mass
+  with a bright heightline, silhouette tanks distinguished by fill pattern
+  (solid/stripes/checker/dots), line-drawn UI, and a CSS scanline overlay.
+- **Core loop** — set turret angle (arrows / on-screen ◀▶), **hold to charge**
+  a power meter that ping-pongs at max, release to fire. Shells fly under
+  gravity + **wind** (per-turn, HUD meter), collide with a destructible column-
+  heightmap that **craters** on impact; tanks fall and take fall damage, and
+  the Sky Island theme's void is lethal. Last tank standing wins the round;
+  best-of-N match with a fresh battlefield each round.
+- **Four battlefields by difficulty** — Hills (easy) → Mountains → Canyon
+  (gorge to arc over) → Sky Island (separate floating plateaus, void kills),
+  plus Random. Midpoint-displacement generator with per-theme post-passes.
+- **Weapons + power-up economy** — standard SHELL (infinite; the only shot that
+  earns a perfect-shot bonus) plus TWIN TURRET (2 shells), TRIPLE SHOT, BIG
+  BLAST and DIGGER. Power-ups arrive three ways: one granted per player each
+  round, a bonus for a direct standard-shell hit on an enemy ("PERFECT SHOT!"),
+  and crates scattered ≥90px from tanks that arm whoever's blast cracks them
+  open. Per-player inventory chip row, keys 1-5 or tap.
+- **CPU AI** — closed-form ballistic guess refined by silent trajectory
+  simulation (which includes wind), with difficulty-scaled aim noise (Easy
+  loose → Hard tight) and a paced turret sweep + charge so its turns read
+  clearly. Simple weapon heuristic.
+- **Setup screen** — CRT menu: player count, per-slot HUMAN/CPU·EASY/MED/HARD,
+  battlefield, match length; config + mute persisted in localStorage. Full
+  keyboard + mobile-button control, Escape back to the arcade.
+- **Integration** — hub cartridge flipped from coming-soon to live
+  (`ARTILLERY DUEL 2-4P`), README entry with direct link.
+
+### Verification
+
+21-check Playwright suite (scratchpad) driving the real page: terrain carve,
+hold-charge fire, wind deflection (both directions), perfect-shot award,
+crate pickup, twin-turret double shell, a CPU taking its turn unassisted,
+round→match flow with score + modal, 3-player skip-dead turn order, mute/
+config persistence across reload, and portrait/landscape mobile layouts. All
+passing; all four terrain themes + setup + match-end screens eyeballed.
+
+Two real bugs fixed during verification: the CPU's dry-run trajectory used a
+coarser timestep than real flight (so "solved" shots drifted and missed) —
+now matched to the flight substep and given the same self-tank grace period;
+and crates were only collectible by a pixel-perfect fly-through, now also
+cracked open by any blast landing within the explosion's splash radius.
+
+---
+
 ## 2026-07-10 — Candy Checkers v2 (customization + optional captures)
 
 **Branch:** `claude/candy-checkers-game-clm7jp`
