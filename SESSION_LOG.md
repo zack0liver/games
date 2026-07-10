@@ -5,6 +5,48 @@ top.
 
 ---
 
+## 2026-07-10 — Candy Checkers v2 (customization + optional captures)
+
+**Branch:** `claude/candy-checkers-game-clm7jp`
+
+Second pass on Candy Checkers, from a playtest wishlist. Same single
+self-contained file.
+
+### What shipped
+
+- **Optional captures** — the forced-jump rule is gone. Every slide and jump
+  is legal; you're never compelled into a move. After a jump you *may* keep
+  chaining with the same piece or stop via a new pulsing **END TURN ✓** button
+  (multi-jumps are fully player-driven now). Crowning still ends the turn.
+  Move-hints reworked to match: with nothing selected, pieces that *can*
+  capture get a soft flag (a suggestion, not an order); capture destinations
+  are marked with a bolder ring than plain moves.
+- **Candy shop** — the pre-game screen is now a shop: each player picks a candy
+  off a wooden shelf of jars (gumdrop, twist, peppermint, jawbreaker, lollipop)
+  and a flavor color, with a live preview. The opponent's chosen color is
+  greyed out so the two sides always stay distinct. Reachable any time via a
+  SHOP button and the win modal's "NEW CANDIES".
+- **Pixel-art pieces** — candies are now drawn as cached pixel-art sprites
+  (16px offscreen, nearest-neighbor upscaled) in the Galaga/Asteroids 2D
+  aesthetic, recolored per player from the chosen color; kings wear a pixel
+  crown with a soft gold glow.
+- **Drag controls** — pieces can be dragged (pointer capture, ghost under the
+  cursor, snap-back on illegal drop) in addition to the existing tap-to-select
+  / tap-to-move, on desktop and mobile.
+- **King-kill bonus sound** — capturing a king adds a fat descending jingle on
+  top of the crunch, plus extra gold particles.
+
+### Verification
+
+21-check Playwright suite (scratchpad) driving the real page: shop distinct-
+color guard, style application, optional-capture legality (bystanders
+selectable, jumps not forced), END-TURN early stop vs. chain continuation,
+crowning-ends-chain, king-capture into tray, drag-to-move and illegal-drop
+snap-back, win + modal buttons, per-player pref persistence across reload, and
+portrait/landscape layout. All passing; sprites/shop/kings eyeballed.
+
+---
+
 ## 2026-07-10 — Candy Checkers (built from scratch to v1)
 
 **Branch:** `claude/candy-checkers-game-clm7jp`

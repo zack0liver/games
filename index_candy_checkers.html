@@ -13,9 +13,7 @@
           href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
           media="print" onload="this.media='all'">
     <style>
-        html, body {
-            height: 100%;
-        }
+        html, body { height: 100%; }
 
         body {
             background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a12 100%);
@@ -39,6 +37,7 @@
         }
 
         #game-container {
+            position: relative;
             width: 100%;
             max-width: min(760px, 96vw);
             height: 100%;
@@ -64,13 +63,9 @@
             justify-content: center;
         }
 
-        #gameCanvas {
-            display: block;
-            background-color: transparent;
-            touch-action: none;
-        }
+        #gameCanvas { display: block; background-color: transparent; touch-action: none; }
 
-        /* --- Player bars (one per hotseat player, nearest their side of the board) --- */
+        /* --- Player bars --- */
         .player-bar {
             width: 100%;
             flex-shrink: 0;
@@ -92,23 +87,14 @@
 
         .player-bar .player-name { color: var(--pc); letter-spacing: 1px; }
 
-        .player-bar.active {
-            border-color: var(--pc);
-            box-shadow: 0 0 12px var(--pc);
-        }
+        .player-bar.active { border-color: var(--pc); box-shadow: 0 0 12px var(--pc); }
 
         .turn-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--pc);
-            opacity: 0.15;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--pc); opacity: 0.15;
         }
 
-        .player-bar.active .turn-dot {
-            opacity: 1;
-            animation: dotPulse 0.9s ease-in-out infinite;
-        }
+        .player-bar.active .turn-dot { opacity: 1; animation: dotPulse 0.9s ease-in-out infinite; }
 
         @keyframes dotPulse {
             0%, 100% { transform: scale(1);   box-shadow: 0 0 2px var(--pc); }
@@ -128,11 +114,7 @@
             touch-action: manipulation;
         }
 
-        .pill-btn:active {
-            background: var(--pc, #ffffff);
-            color: #120810;
-        }
-
+        .pill-btn:active { background: var(--pc, #ffffff); color: #120810; }
         .pill-btn.off { opacity: 0.45; }
 
         #back-to-arcade {
@@ -152,14 +134,36 @@
             touch-action: manipulation;
         }
 
-        #back-to-arcade:active {
-            background: rgba(255, 209, 102, 0.3);
-        }
+        #back-to-arcade:active { background: rgba(255, 209, 102, 0.3); }
 
+        /* --- END TURN button (appears during an optional multi-jump) --- */
+        #end-turn-btn {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 60;
+            padding: 8px 14px;
+            border: 2px solid #ffffff;
+            border-radius: 999px;
+            background: #2ecc71;
+            color: #05270f;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.6rem;
+            cursor: pointer;
+            box-shadow: 0 0 14px rgba(46, 204, 113, 0.9);
+            animation: etPulse 0.8s ease-in-out infinite;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        #end-turn-btn.at-top    { top: 8px; }
+        #end-turn-btn.at-bottom { bottom: 8px; }
+        @keyframes etPulse { 0%,100%{ box-shadow:0 0 8px rgba(46,204,113,.7);} 50%{ box-shadow:0 0 20px rgba(46,204,113,1);} }
+
+        /* --- Win modal --- */
         #message-box {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(10, 4, 10, 0.97);
             border: 3px solid #ffd166;
@@ -175,49 +179,130 @@
             box-sizing: border-box;
         }
 
-        #modal-content h1 {
-            font-size: 1.05rem;
-            line-height: 1.6;
-            margin: 0 0 12px;
-            color: #ff4d6d;
-            text-shadow: 0 0 8px rgba(255, 77, 109, 0.8);
-        }
+        #modal-content h1 { font-size: 1.05rem; line-height: 1.6; margin: 0 0 12px; color: #ff4d6d; text-shadow: 0 0 8px rgba(255,77,109,0.8); }
+        #modal-content p  { font-size: 0.6rem; line-height: 1.8; margin: 0 0 12px; color: #ffffff; }
 
-        #modal-content p {
-            font-size: 0.6rem;
-            line-height: 1.8;
-            margin: 0 0 12px;
-            color: #ffffff;
-        }
-
-        #modal-content .rules-note { color: #ffd166; }
-
-        #modal-btn {
+        .modal-btn {
             background-color: #ff4d6d;
             color: #120810;
             border: none;
-            padding: 12px 22px;
+            padding: 12px 20px;
             border-radius: 6px;
-            margin-top: 6px;
+            margin: 6px 4px 0;
             cursor: pointer;
             font-family: 'Press Start 2P', 'Courier New', monospace;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             transition: all 0.15s;
             box-shadow: 0 4px #b23049;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
         }
+        .modal-btn.alt { background-color: #ffd166; box-shadow: 0 4px #a97b1a; }
+        .modal-btn:active { box-shadow: 0 0 #b23049; transform: translateY(4px); }
 
-        #modal-btn:hover { background-color: #ff7089; }
-
-        #modal-btn:active {
-            box-shadow: 0 0 #b23049;
-            transform: translateY(4px);
+        /* --- Candy shop overlay --- */
+        #shop {
+            position: fixed;
+            inset: 0;
+            z-index: 800;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            background: radial-gradient(ellipse at top, #2a1630 0%, #120810 70%);
+            overflow-y: auto;
+            padding: 14px 10px 24px;
+            box-sizing: border-box;
         }
+        #shop.open { display: flex; }
+
+        #shop h1 {
+            font-size: 1.1rem;
+            color: #ffd166;
+            text-shadow: 0 0 10px rgba(255, 209, 102, 0.8);
+            margin: 6px 0 2px;
+            text-align: center;
+        }
+        .shop-sub { font-size: 0.55rem; color: #ff9ec2; margin: 0 0 12px; text-align: center; line-height: 1.7; }
+
+        .shop-cols { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; max-width: 720px; }
+
+        .shop-col {
+            flex: 1 1 300px;
+            max-width: 340px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 10px;
+            box-sizing: border-box;
+            background: rgba(0,0,0,0.25);
+        }
+        .shop-col .who { font-size: 0.7rem; text-align: center; margin-bottom: 8px; color: var(--pc, #fff); }
+
+        .shop-preview-wrap { display: flex; justify-content: center; margin-bottom: 8px; }
+        .shop-preview {
+            width: 84px; height: 84px;
+            image-rendering: pixelated;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,0.12);
+        }
+
+        /* Wooden shelf holding candy jars */
+        .shelf {
+            display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+            padding: 8px 6px 10px;
+            background: linear-gradient(#5a3a24, #3d2717);
+            border-radius: 8px;
+            border-bottom: 5px solid #24160c;
+            margin-bottom: 10px;
+        }
+        .jar {
+            width: 52px; height: 60px;
+            padding: 0; margin: 0;
+            border: none; cursor: pointer;
+            background: linear-gradient(rgba(180,220,255,0.22), rgba(180,220,255,0.10));
+            border-radius: 6px 6px 8px 8px;
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18);
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .jar::before { /* jar lid */
+            content: ''; position: absolute; top: -5px; left: 8px; right: 8px; height: 6px;
+            background: #cfa14e; border-radius: 3px;
+        }
+        .jar canvas { image-rendering: pixelated; width: 40px; height: 40px; }
+        .jar.sel { box-shadow: inset 0 0 0 2px #fff, 0 0 12px #ffd166; background: linear-gradient(rgba(255,231,150,0.35), rgba(255,231,150,0.15)); }
+        .jar-name { display: none; }
+
+        .swatches { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .swatch {
+            width: 30px; height: 30px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3); cursor: pointer; padding: 0;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        .swatch.sel { border-color: #fff; box-shadow: 0 0 10px #fff; transform: scale(1.12); }
+        .swatch.disabled { opacity: 0.25; cursor: not-allowed; }
+
+        #shop-start {
+            margin-top: 16px;
+            padding: 14px 26px;
+            border: none; border-radius: 8px;
+            background: #ff4d6d; color: #120810;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.8rem; cursor: pointer;
+            box-shadow: 0 5px #b23049;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        #shop-start:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: 0 5px #5a2431; }
+        #shop-start:not(:disabled):active { box-shadow: 0 0 #b23049; transform: translateY(5px); }
+        #shop-warn { margin-top: 10px; font-size: 0.55rem; color: #ff6b6b; height: 1em; text-align: center; }
 
         @media (max-width: 480px) {
             .player-bar { font-size: 0.55rem; gap: 6px; padding: 5px 6px; }
             .pill-btn   { font-size: 0.5rem; padding: 4px 8px; }
+            #shop h1 { font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -226,39 +311,64 @@
 <a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
 
 <div id="game-container">
-    <!-- Player 2 (GOLD) sits at the top of the board and plays downward -->
+    <!-- Player 2 (top) plays downward -->
     <div id="bar-top" class="player-bar">
-        <span class="player-name">GOLD</span>
+        <span class="player-name" id="name-2">GOLD</span>
         <span class="turn-dot" id="turn-dot-2"></span>
         <button class="pill-btn" id="hints-btn-2">HINTS: ON</button>
     </div>
     <div id="canvas-wrap">
         <canvas id="gameCanvas"></canvas>
+        <button id="end-turn-btn">END TURN &#10003;</button>
         <div id="message-box">
             <div id="modal-content"></div>
-            <button id="modal-btn">PLAY</button>
+            <button class="modal-btn" id="modal-btn">PLAY AGAIN</button>
+            <button class="modal-btn alt" id="modal-btn2">NEW CANDIES</button>
         </div>
     </div>
-    <!-- Player 1 (PINK) sits at the bottom and plays upward; moves first -->
+    <!-- Player 1 (bottom) plays upward; moves first -->
     <div id="bar-bottom" class="player-bar">
-        <span class="player-name">PINK</span>
+        <span class="player-name" id="name-1">PINK</span>
         <span class="turn-dot" id="turn-dot-1"></span>
         <button class="pill-btn" id="hints-btn-1">HINTS: ON</button>
         <button class="pill-btn" id="mute-btn">&#128266;</button>
         <button class="pill-btn" id="new-game-btn">RESET</button>
+        <button class="pill-btn" id="shop-btn">SHOP</button>
     </div>
+</div>
+
+<!-- Candy shop: pick a candy off the shelf + a color, per player -->
+<div id="shop">
+    <h1>CANDY SHOP</h1>
+    <p class="shop-sub">Pick your candy off the shelf, then choose a flavor color.</p>
+    <div class="shop-cols">
+        <div class="shop-col" id="shop-col-1" style="--pc:#ff4d6d">
+            <div class="who" id="who-1">PLAYER 1</div>
+            <div class="shop-preview-wrap"><canvas class="shop-preview" id="preview-1" width="48" height="48"></canvas></div>
+            <div class="shelf" id="shelf-1"></div>
+            <div class="swatches" id="swatches-1"></div>
+        </div>
+        <div class="shop-col" id="shop-col-2" style="--pc:#ffd166">
+            <div class="who" id="who-2">PLAYER 2</div>
+            <div class="shop-preview-wrap"><canvas class="shop-preview" id="preview-2" width="48" height="48"></canvas></div>
+            <div class="shelf" id="shelf-2"></div>
+            <div class="swatches" id="swatches-2"></div>
+        </div>
+    </div>
+    <button id="shop-start">LET'S PLAY!</button>
+    <div id="shop-warn"></div>
 </div>
 
 <script>
     'use strict';
 
     // =====================================================================
-    // Candy Checkers — 2-player hotseat American checkers.
-    // Rules enforced: forced captures, mandatory multi-jump chains, kings
-    // move one diagonal square any direction, crowning ends the turn even
-    // mid-chain. Win = opponent has zero legal moves at the start of their
-    // turn (covers both total elimination and being blocked).
-    // No draw rule on purpose: two humans at one device use RESET instead.
+    // Candy Checkers — 2-player hotseat checkers (candy edition, v2).
+    // Captures are OPTIONAL: you may jump but are never forced to. After a
+    // jump you MAY continue jumping with the same piece or stop (END TURN).
+    // Kings move one diagonal square any direction; crowning ends your turn.
+    // Win = opponent has zero legal moves at the start of their turn.
+    // No draw rule: hotseat players use RESET.
     // =====================================================================
 
     const canvas = document.getElementById('gameCanvas');
@@ -267,27 +377,24 @@
     const messageBox = document.getElementById('message-box');
     const modalContent = document.getElementById('modal-content');
     const modalBtn = document.getElementById('modal-btn');
+    const modalBtn2 = document.getElementById('modal-btn2');
+    const endTurnBtn = document.getElementById('end-turn-btn');
     const PI = Math.PI;
 
-    // Player 1 = pink, starts rows 5-7, moves UP (dr = -1).
-    // Player 2 = gold, starts rows 0-2, moves DOWN (dr = +1).
+    // Per-player config. `style` and `color` (and `main`, used for particles
+    // and the board glow) are set from the candy shop before each game.
     const PLAYER = {
-        1: { name: 'PINK', main: '#ff4d6d', dark: '#a12440', dir: -1, backRow: 0 },
-        2: { name: 'GOLD', main: '#ffd166', dark: '#a97b1a', dir: +1, backRow: 7 }
+        1: { name: 'PINK', style: 'gumdrop', color: '#ff4d6d', main: '#ff4d6d', dir: -1, backRow: 0 },
+        2: { name: 'GOLD', style: 'wrapped', color: '#ffd166', main: '#ffd166', dir: +1, backRow: 7 }
     };
 
-    const BOARD_DARK  = '#5a2a3a';   // chocolate (playable squares)
-    const BOARD_LIGHT = '#f7e8d0';   // cream
+    const BOARD_DARK  = '#5a2a3a';
+    const BOARD_LIGHT = '#f7e8d0';
     const HINT_GOLD   = '#ffd166';
 
     // --- Persisted preferences ---------------------------------------------
-    const LS = {
-        muted:  'candyCheckersMuted',
-        hints1: 'candyCheckersHints1',
-        hints2: 'candyCheckersHints2'
-    };
+    const LS = { muted: 'candyCheckersMuted', hints1: 'candyCheckersHints1', hints2: 'candyCheckersHints2' };
     let muted = localStorage.getItem(LS.muted) === '1';
-    // Hints default ON: anything other than an explicit '0' means on.
     const hintsOn = {
         1: localStorage.getItem(LS.hints1) !== '0',
         2: localStorage.getItem(LS.hints2) !== '0'
@@ -295,15 +402,14 @@
 
     // --- Game state ---------------------------------------------------------
     // Piece: { p: 1|2, king: bool } or null. board[row][col], row 0 at top.
-    // Playable squares are (r + c) % 2 === 1.
     const state = {
         board: null,
         turn: 1,
         selected: null,     // {r,c} of selected piece
         legalMoves: [],     // moves available to the selected piece
-        allLegal: [],       // every legal move for state.turn (forced-capture filtered)
-        chain: null,        // {r,c} of piece locked mid-multi-jump
-        captured: { 1: [], 2: [] },  // candies captured BY each player ({king})
+        allLegal: [],       // every legal move for state.turn (all slides + jumps)
+        chain: null,        // {r,c} of a piece mid-multi-jump (continuation offered, not forced)
+        captured: { 1: [], 2: [] },
         winner: null,
         winByElimination: false,
         animating: false
@@ -328,7 +434,6 @@
     }
 
     function dirsFor(piece) {
-        // Men only move toward the enemy; kings go all four diagonals.
         if (piece.king) return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
         const dr = PLAYER[piece.p].dir;
         return [[dr, -1], [dr, 1]];
@@ -340,9 +445,7 @@
         const piece = b[r][c], out = [];
         for (const [dr, dc] of dirsFor(piece)) {
             const tr = r + dr, tc = c + dc;
-            if (inBounds(tr, tc) && !b[tr][tc]) {
-                out.push({ fr: r, fc: c, tr, tc, cap: null });
-            }
+            if (inBounds(tr, tc) && !b[tr][tc]) out.push({ fr: r, fc: c, tr, tc, cap: null });
         }
         return out;
     }
@@ -350,29 +453,27 @@
     function jumpsFrom(b, r, c) {
         const piece = b[r][c], out = [];
         for (const [dr, dc] of dirsFor(piece)) {
-            const mr = r + dr, mc = c + dc;        // square being jumped
-            const tr = r + 2 * dr, tc = c + 2 * dc; // landing square
-            if (inBounds(tr, tc) && !b[tr][tc] &&
-                b[mr][mc] && b[mr][mc].p !== piece.p) {
+            const mr = r + dr, mc = c + dc;
+            const tr = r + 2 * dr, tc = c + 2 * dc;
+            if (inBounds(tr, tc) && !b[tr][tc] && b[mr][mc] && b[mr][mc].p !== piece.p) {
                 out.push({ fr: r, fc: c, tr, tc, cap: { r: mr, c: mc } });
             }
         }
         return out;
     }
 
-    // The ONE place the forced-capture rule lives: if any jump exists for
-    // this player, only jumps are legal this turn.
+    // Captures are OPTIONAL: every slide AND every jump is legal. (v1 filtered
+    // to jumps-only when any existed; that forced-capture rule is gone.)
     function movesFor(b, player) {
-        const jumps = [], slides = [];
+        const out = [];
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const piece = b[r][c];
                 if (!piece || piece.p !== player) continue;
-                jumps.push(...jumpsFrom(b, r, c));
-                if (!jumps.length) slides.push(...slidesFrom(b, r, c));
+                out.push(...slidesFrom(b, r, c), ...jumpsFrom(b, r, c));
             }
         }
-        return jumps.length ? jumps : slides;
+        return out;
     }
 
     // Applies a move's consequences once its slide animation lands.
@@ -388,15 +489,16 @@
             state.captured[state.turn].push({ p: victim.p, king: victim.king });
             b[mv.cap.r][mv.cap.c] = null;
             const [vx, vy] = squareCenter(mv.cap.r, mv.cap.c);
-            spawnBurst(vx, vy, PLAYER[victim.p].main, 14);
-            sfx.capture();
+            spawnBurst(vx, vy, PLAYER[victim.p].main, victim.king ? 22 : 14);
+            if (victim.king) { sfx.kingCapture(); spawnBurst(vx, vy, HINT_GOLD, 12); }
+            else sfx.capture();
             capturedNow = true;
         } else {
             sfx.move();
         }
 
-        // Crowning terminates the turn unconditionally, even if more jumps
-        // would otherwise be available (standard American rule).
+        // Crowning ends the turn unconditionally (standard rule), even if
+        // another jump would be available.
         if (!piece.king && mv.tr === PLAYER[piece.p].backRow) {
             piece.king = true;
             const [kx, ky] = squareCenter(mv.tr, mv.tc);
@@ -409,12 +511,13 @@
         if (capturedNow) {
             const cont = jumpsFrom(b, mv.tr, mv.tc);
             if (cont.length) {
-                // Mandatory chain: same piece stays selected, only its jump
-                // continuations are tappable until the chain is exhausted.
+                // Optional continuation: the piece stays selected and only its
+                // further jumps are legal, but the player may also END TURN.
                 state.chain = { r: mv.tr, c: mv.tc };
                 state.selected = { r: mv.tr, c: mv.tc };
                 state.legalMoves = cont;
                 state.allLegal = cont;
+                updateChainUI();
                 return;
             }
         }
@@ -427,8 +530,8 @@
         state.legalMoves = [];
         state.turn = 3 - state.turn;
         state.allLegal = movesFor(state.board, state.turn);
+        updateChainUI();
         if (!state.allLegal.length) {
-            // Loser has no legal move — either eliminated or blocked.
             const loser = state.turn;
             state.winner = 3 - loser;
             state.winByElimination = countPieces(loser) === 0;
@@ -457,27 +560,23 @@
         state.winByElimination = false;
         state.animating = false;
         anim = null;
+        drag = null; dragPos = null;
         particles.length = 0;
         state.allLegal = movesFor(state.board, state.turn);
         messageBox.style.display = 'none';
+        updateChainUI();
         updateBars();
     }
 
     // --- Layout / resize ------------------------------------------------------
 
     let VIEW_W = 320, VIEW_H = 480;
-    // L = layout in CSS pixels, recomputed on every resize. Trays sit above/
-    // below the board in portrait, or beside it in landscape (so a short,
-    // wide screen doesn't squeeze the board into unusable tap targets).
-    // trays[p] = the strip where pieces captured BY player p are shown.
-    const L = { boardX: 0, boardY: 0, boardSide: 0, cell: 0, trayH: 0,
-                trays: { 1: null, 2: null } };
+    const L = { boardX: 0, boardY: 0, boardSide: 0, cell: 0, trayH: 0, trays: { 1: null, 2: null } };
 
     function resizeCanvas() {
         const rect = canvasWrap.getBoundingClientRect();
         VIEW_W = Math.max(240, Math.floor(rect.width));
         VIEW_H = Math.max(240, Math.floor(rect.height));
-
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.floor(VIEW_W * dpr);
         canvas.height = Math.floor(VIEW_H * dpr);
@@ -490,33 +589,22 @@
     function computeLayout() {
         const pad = 6;
         L.trayH = Math.max(24, Math.min(48, Math.max(VIEW_W, VIEW_H) * 0.07));
-
-        // Prefer side trays whenever the full-height board leaves room for
-        // them; otherwise stack trays above/below (portrait phones).
         const sideBoard = Math.min(VIEW_H - 2 * pad, VIEW_W - 2 * (L.trayH + 2 * pad));
         const stackBoard = Math.min(VIEW_W - 2 * pad, VIEW_H - 2 * (L.trayH + 2 * pad));
-
         if (sideBoard >= stackBoard) {
             L.boardSide = sideBoard;
             L.cell = L.boardSide / 8;
             L.boardX = (VIEW_W - L.boardSide) / 2;
             L.boardY = (VIEW_H - L.boardSide) / 2;
-            // Gold's winnings on the left (their side of the screen top has
-            // no room here), pink's on the right.
-            L.trays[2] = { x: L.boardX - pad - L.trayH, y: L.boardY,
-                           w: L.trayH, h: L.boardSide, vertical: true };
-            L.trays[1] = { x: L.boardX + L.boardSide + pad, y: L.boardY,
-                           w: L.trayH, h: L.boardSide, vertical: true };
+            L.trays[2] = { x: L.boardX - pad - L.trayH, y: L.boardY, w: L.trayH, h: L.boardSide, vertical: true };
+            L.trays[1] = { x: L.boardX + L.boardSide + pad, y: L.boardY, w: L.trayH, h: L.boardSide, vertical: true };
         } else {
             L.boardSide = stackBoard;
             L.cell = L.boardSide / 8;
             L.boardX = (VIEW_W - L.boardSide) / 2;
             L.boardY = (VIEW_H - L.boardSide) / 2;
-            // Gold's winnings up top by gold's bar, pink's at the bottom.
-            L.trays[2] = { x: L.boardX, y: L.boardY - pad - L.trayH,
-                           w: L.boardSide, h: L.trayH, vertical: false };
-            L.trays[1] = { x: L.boardX, y: L.boardY + L.boardSide + pad,
-                           w: L.boardSide, h: L.trayH, vertical: false };
+            L.trays[2] = { x: L.boardX, y: L.boardY - pad - L.trayH, w: L.boardSide, h: L.trayH, vertical: false };
+            L.trays[1] = { x: L.boardX, y: L.boardY + L.boardSide + pad, w: L.boardSide, h: L.trayH, vertical: false };
         }
     }
 
@@ -526,15 +614,13 @@
 
     // --- Audio (WebAudio, generated — no asset files) -------------------------
 
-    let audioCtx = null;
-    let noiseBuffer = null;
+    let audioCtx = null, noiseBuffer = null;
 
     function ensureAudio() {
         if (!audioCtx) {
             const AC = window.AudioContext || window.webkitAudioContext;
             if (!AC) return;
             audioCtx = new AC();
-            // Pre-build a 0.1s white-noise buffer for the candy "crunch".
             noiseBuffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.1), audioCtx.sampleRate);
             const data = noiseBuffer.getChannelData(0);
             for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -577,15 +663,149 @@
         deny:    () => tone(110, 0.09, 'square', 0.1),
         move:    () => tone(330, 0.1, 'sine', 0.18, 220),
         capture: () => { tone(200, 0.13, 'sawtooth', 0.2, 60); crunch(); },
+        // Taking a KING: the crunch plus a fat descending two-tone "boss down".
+        kingCapture: () => {
+            crunch();
+            tone(180, 0.16, 'sawtooth', 0.22, 50);
+            tone(660, 0.18, 'square', 0.16, 220, 0.04);
+            tone(330, 0.28, 'square', 0.16, 110, 0.12);
+        },
         king:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.09, 'triangle', 0.16, null, i * 0.09)),
-        win:     () => [392, 523, 659, 784, 1047].forEach((f, i) =>
-                       tone(f, i === 4 ? 0.35 : 0.12, 'square', 0.14, null, i * 0.12))
+        win:     () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, i === 4 ? 0.35 : 0.12, 'square', 0.14, null, i * 0.12))
     };
+
+    // --- Pixel-art candy sprites ---------------------------------------------
+    // Each candy is drawn once into a tiny offscreen canvas at SPRITE_RES and
+    // then blitted with imageSmoothingEnabled=false, so it scales up chunky
+    // and pixelated (matching the arcade's Galaga/Asteroids 2D look). Sprites
+    // are cached by style+color+king since they never change per frame.
+
+    const SPRITE_RES = 16;
+    const spriteCache = {};
+
+    function hexToRgb(h) { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+    function rgbToHex(r, g, b) { const f = x => ('0' + Math.max(0, Math.min(255, Math.round(x))).toString(16)).slice(-2); return '#' + f(r) + f(g) + f(b); }
+    function mix(h1, h2, t) { const a = hexToRgb(h1), b = hexToRgb(h2); return rgbToHex(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t); }
+
+    function paletteFor(hex) {
+        return { base: hex, hi: mix(hex, '#ffffff', 0.45), lo: mix(hex, '#000000', 0.28), line: mix(hex, '#000000', 0.5), white: '#fff8f0' };
+    }
+
+    // Fill one grid pixel.
+    function px(o, x, y, color) { o.fillStyle = color; o.fillRect(x, y, 1, 1); }
+
+    // Generic shaded, outlined disc — the base for most candies.
+    function disc(o, cx, cy, R, pal) {
+        for (let gy = 0; gy < SPRITE_RES; gy++) {
+            for (let gx = 0; gx < SPRITE_RES; gx++) {
+                const dx = gx + 0.5 - cx, dy = gy + 0.5 - cy, d = Math.hypot(dx, dy);
+                if (d <= R) {
+                    const sh = dx * 0.55 + dy * 0.75;
+                    let col = sh < -R * 0.3 ? pal.hi : (sh > R * 0.35 ? pal.lo : pal.base);
+                    if (d > R - 1.05) col = pal.line;
+                    px(o, gx, gy, col);
+                }
+            }
+        }
+    }
+
+    const STYLES = {
+        gumdrop: { name: 'Gumdrop', draw(o, pal) {
+            disc(o, 8, 8.4, 6.6, pal);
+            // sugar speckles + shine
+            [[5, 5], [10, 6], [7, 9], [10, 10], [5, 10]].forEach(([x, y]) => px(o, x, y, 'rgba(255,255,255,0.85)'));
+            px(o, 5, 4, '#ffffff'); px(o, 6, 4, 'rgba(255,255,255,0.7)');
+        } },
+        wrapped: { name: 'Twist', draw(o, pal) {
+            // wrapper twists (behind the body)
+            [[1, 8], [2, 7], [2, 8], [2, 9], [3, 6], [3, 7], [3, 8], [3, 9], [3, 10]].forEach(([x, y]) => px(o, x, y, pal.lo));
+            [[14, 8], [13, 7], [13, 8], [13, 9], [12, 6], [12, 7], [12, 8], [12, 9], [12, 10]].forEach(([x, y]) => px(o, x, y, pal.lo));
+            px(o, 1, 8, pal.line); px(o, 14, 8, pal.line);
+            disc(o, 8, 8, 5.2, pal);
+            px(o, 6, 5, '#ffffff');
+        } },
+        peppermint: { name: 'Peppermint', draw(o, pal) {
+            const cx = 8, cy = 8, R = 6.6;
+            for (let gy = 0; gy < SPRITE_RES; gy++) {
+                for (let gx = 0; gx < SPRITE_RES; gx++) {
+                    const dx = gx + 0.5 - cx, dy = gy + 0.5 - cy, d = Math.hypot(dx, dy);
+                    if (d <= R) {
+                        if (d > R - 1.05) { px(o, gx, gy, pal.line); continue; }
+                        const ang = Math.atan2(dy, dx);
+                        const seg = Math.floor(((ang + PI) / (2 * PI)) * 6) % 2;
+                        px(o, gx, gy, seg ? pal.base : pal.white);
+                    }
+                }
+            }
+            px(o, 6, 5, '#ffffff');
+        } },
+        jawbreaker: { name: 'Jawbreaker', draw(o, pal) {
+            const cx = 8, cy = 8, R = 6.6;
+            disc(o, cx, cy, R, pal);
+            // concentric ring
+            for (let gy = 0; gy < SPRITE_RES; gy++)
+                for (let gx = 0; gx < SPRITE_RES; gx++) {
+                    const d = Math.hypot(gx + 0.5 - cx, gy + 0.5 - cy);
+                    if (Math.abs(d - R * 0.55) < 0.65) px(o, gx, gy, pal.hi);
+                }
+            px(o, 5, 5, '#ffffff'); px(o, 6, 5, 'rgba(255,255,255,0.8)');
+        } },
+        lollipop: { name: 'Lollipop', draw(o, pal) {
+            disc(o, 8, 6, 5.2, pal);
+            // spiral hint + shine
+            [[8, 6], [9, 5], [7, 7], [6, 6], [10, 7]].forEach(([x, y]) => px(o, x, y, pal.white));
+            px(o, 6, 3, '#ffffff');
+            // stick
+            for (let y = 11; y < 16; y++) { px(o, 8, y, '#efe6d0'); px(o, 9, y, '#cdbfa0'); }
+        } }
+    };
+
+    function drawCrown(o, pal) {
+        // pixel crown perched on top rows
+        const gold = '#ffd166', edge = '#7a5510';
+        [[4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3]].forEach(([x, y]) => px(o, x, y, gold));
+        [[4, 2], [4, 1], [7, 2], [8, 2], [8, 1], [11, 2], [11, 1]].forEach(([x, y]) => px(o, x, y, gold));
+        [[4, 0], [8, 0], [11, 0]].forEach(([x, y]) => px(o, x, y, '#fff2b0'));
+        [[3, 3], [12, 3]].forEach(([x, y]) => px(o, x, y, edge));
+        px(o, 7, 4, edge); // small dark shadow under crown
+    }
+
+    function getSprite(style, color, king) {
+        const key = style + '|' + color + '|' + (king ? 'k' : 'm');
+        let c = spriteCache[key];
+        if (c) return c;
+        c = document.createElement('canvas');
+        c.width = SPRITE_RES; c.height = SPRITE_RES;
+        const o = c.getContext('2d');
+        o.imageSmoothingEnabled = false;
+        (STYLES[style] || STYLES.gumdrop).draw(o, paletteFor(color));
+        if (king) drawCrown(o, paletteFor(color));
+        spriteCache[key] = c;
+        return c;
+    }
+
+    function drawPiece(g, x, y, size, player, king, t) {
+        const cfg = PLAYER[player];
+        if (king) {
+            // soft pulsing glow so kings read instantly
+            const rg = g.createRadialGradient(x, y, size * 0.1, x, y, size * 0.75);
+            const a = 0.22 + 0.14 * Math.sin(t * 4);
+            rg.addColorStop(0, 'rgba(255,209,102,' + a + ')');
+            rg.addColorStop(1, 'rgba(255,209,102,0)');
+            g.fillStyle = rg;
+            g.beginPath(); g.arc(x, y, size * 0.75, 0, 2 * PI); g.fill();
+        }
+        const spr = getSprite(cfg.style, cfg.color, king);
+        const prev = g.imageSmoothingEnabled;
+        g.imageSmoothingEnabled = false;
+        g.drawImage(spr, Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+        g.imageSmoothingEnabled = prev;
+    }
 
     // --- Particles & animation -------------------------------------------------
 
-    const particles = [];  // {x,y,vx,vy,life,maxLife,size,color,type:'dot'|'ring'}
-    let anim = null;       // {mv,x0,y0,x1,y1,t0,dur,hop}
+    const particles = [];
+    let anim = null;
 
     function spawnBurst(x, y, color, n) {
         for (let i = 0; i < n; i++) {
@@ -593,9 +813,7 @@
             const sp = (0.4 + Math.random() * 0.9) * L.cell * 4;
             particles.push({
                 x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.cell * 2,
-                life: 0.55, maxLife: 0.55,
-                size: L.cell * (0.05 + Math.random() * 0.07),
-                color, type: 'dot'
+                life: 0.55, maxLife: 0.55, size: L.cell * (0.05 + Math.random() * 0.07), color, type: 'dot'
             });
         }
     }
@@ -603,21 +821,19 @@
     function spawnCrownFX(x, y) {
         spawnBurst(x, y, '#ffffff', 8);
         spawnBurst(x, y, HINT_GOLD, 10);
-        particles.push({ x, y, vx: 0, vy: 0, life: 0.5, maxLife: 0.5,
-                         size: L.cell * 0.4, color: HINT_GOLD, type: 'ring' });
+        particles.push({ x, y, vx: 0, vy: 0, life: 0.5, maxLife: 0.5, size: L.cell * 0.4, color: HINT_GOLD, type: 'ring' });
     }
 
     function playMove(mv) {
         ensureAudio();
         const [x0, y0] = squareCenter(mv.fr, mv.fc);
         const [x1, y1] = squareCenter(mv.tr, mv.tc);
-        anim = { mv, x0, y0, x1, y1, t0: performance.now(),
-                 dur: mv.cap ? 180 : 150, hop: !!mv.cap };
+        anim = { mv, x0, y0, x1, y1, t0: performance.now(), dur: mv.cap ? 180 : 150, hop: !!mv.cap };
         state.animating = true;
-        // Hide the selection visuals during flight; finishMove restores what
-        // matters (chain continuation re-selects the piece itself).
         state.selected = null;
         state.legalMoves = [];
+        drag = null; dragPos = null;
+        updateChainUI();
     }
 
     function updateAnim() {
@@ -630,7 +846,10 @@
         }
     }
 
-    // --- Input ------------------------------------------------------------------
+    // --- Input (tap-tap AND click-drag, unified over pointer events) ----------
+
+    let drag = null;       // active gesture: {id, downX, downY, downSq, moved, picked, justSelected}
+    let dragPos = null;    // {x,y} in canvas CSS px while a piece is held
 
     function eventToSquare(e) {
         const rect = canvas.getBoundingClientRect();
@@ -640,30 +859,34 @@
         return { r: Math.floor(y / L.cell), c: Math.floor(x / L.cell) };
     }
 
+    function sameSq(a, b) { return a && b && a.r === b.r && a.c === b.c; }
+
+    function movesFrom(sq) { return state.allLegal.filter(m => m.fr === sq.r && m.fc === sq.c); }
+
+    // Own piece the current player is allowed to pick up right now.
+    function isOwnSelectable(sq) {
+        const piece = state.board[sq.r][sq.c];
+        if (!piece || piece.p !== state.turn) return false;
+        if (state.chain && !sameSq(sq, state.chain)) return false; // mid-chain only the chain piece
+        return movesFrom(sq).length > 0;
+    }
+
+    function selectPiece(sq) {
+        state.selected = sq;
+        state.legalMoves = movesFrom(sq);
+        sfx.select();
+    }
+
+    // Resolve a tap (no meaningful drag) at square `sq`.
     function handleTap(sq) {
         if (state.winner || state.animating || !sq) return;
-
-        // Destination tap → play the move.
-        const mv = state.selected &&
-                   state.legalMoves.find(m => m.tr === sq.r && m.tc === sq.c);
+        const mv = state.selected && state.legalMoves.find(m => m.tr === sq.r && m.tc === sq.c);
         if (mv) { playMove(mv); return; }
-
-        // Mid-chain, everything except a continuation square is inert: a
-        // player cannot deselect their way out of a mandatory multi-jump.
-        if (state.chain) return;
-
+        if (state.chain) return; // mid-chain: only continuations act; stop via END TURN
         const piece = state.board[sq.r][sq.c];
         if (piece && piece.p === state.turn) {
-            const mine = state.allLegal.filter(m => m.fr === sq.r && m.fc === sq.c);
-            if (mine.length) {
-                state.selected = sq;
-                state.legalMoves = mine;
-                sfx.select();
-            } else {
-                // Owned piece with no legal move — usually because a capture
-                // is forced elsewhere. The buzz teaches the rule.
-                sfx.deny();
-            }
+            if (movesFrom(sq).length) selectPiece(sq);
+            else sfx.deny();      // own piece that is completely blocked
         } else {
             state.selected = null;
             state.legalMoves = [];
@@ -673,8 +896,44 @@
     canvas.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         ensureAudio();
-        handleTap(eventToSquare(e));
+        if (state.winner || state.animating) return;
+        const sq = eventToSquare(e);
+        drag = { id: e.pointerId, downX: e.clientX, downY: e.clientY, downSq: sq, moved: false, picked: false, justSelected: false };
+        if (sq && isOwnSelectable(sq)) {
+            if (!sameSq(sq, state.selected)) { selectPiece(sq); drag.justSelected = true; }
+            drag.picked = true;   // eligible to be dragged
+        }
+        try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
     });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (!drag || drag.id !== e.pointerId) return;
+        if (!drag.moved && Math.hypot(e.clientX - drag.downX, e.clientY - drag.downY) > 6) drag.moved = true;
+        if (drag.moved && drag.picked) {
+            const rect = canvas.getBoundingClientRect();
+            dragPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+    });
+
+    function endGesture(e, cancelled) {
+        if (!drag || drag.id !== e.pointerId) return;
+        const d = drag;
+        drag = null; dragPos = null;
+        try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (cancelled || state.winner || state.animating) return;
+        const upSq = eventToSquare(e);
+        if (d.moved && d.picked) {                       // dropped a held piece
+            const mv = state.selected && upSq && state.legalMoves.find(m => m.tr === upSq.r && m.tc === upSq.c);
+            if (mv) playMove(mv);                         // else snap back, stay selected
+            return;
+        }
+        if (d.moved) return;                             // dragged from empty/enemy — ignore
+        if (d.justSelected && sameSq(upSq, d.downSq)) return; // a piece was just picked; keep it selected
+        handleTap(upSq);
+    }
+
+    canvas.addEventListener('pointerup', (e) => endGesture(e, false));
+    canvas.addEventListener('pointercancel', (e) => endGesture(e, true));
 
     // --- Drawing ------------------------------------------------------------------
 
@@ -689,7 +948,6 @@
     }
 
     function drawBoard() {
-        // Board frame glows in the active player's color as a turn cue.
         ctx.save();
         ctx.shadowColor = state.winner ? HINT_GOLD : PLAYER[state.turn].main;
         ctx.shadowBlur = 14;
@@ -697,173 +955,74 @@
         rr(ctx, L.boardX - 5, L.boardY - 5, L.boardSide + 10, L.boardSide + 10, 8);
         ctx.fill();
         ctx.restore();
-
-        for (let r = 0; r < 8; r++) {
+        for (let r = 0; r < 8; r++)
             for (let c = 0; c < 8; c++) {
                 ctx.fillStyle = (r + c) % 2 === 1 ? BOARD_DARK : BOARD_LIGHT;
                 ctx.fillRect(L.boardX + c * L.cell, L.boardY + r * L.cell, L.cell + 0.5, L.cell + 0.5);
             }
-        }
     }
 
     function drawHighlights(t) {
         if (state.winner || state.animating) return;
         const pulse = 0.5 + 0.5 * Math.sin(t * 5);
 
-        // Movable-piece pulse (advisory — gated by the current player's
-        // hint toggle). With forced captures only the capturers glow.
-        if (hintsOn[state.turn] && !state.selected) {
+        // Nothing selected + hints on: gently flag pieces that COULD capture
+        // (optional now — a suggestion, not an obligation).
+        if (hintsOn[state.turn] && !state.selected && !state.chain) {
             const seen = new Set();
             for (const m of state.allLegal) {
+                if (!m.cap) continue;
                 const key = m.fr * 8 + m.fc;
                 if (seen.has(key)) continue;
                 seen.add(key);
                 ctx.strokeStyle = `rgba(255, 209, 102, ${0.35 + 0.45 * pulse})`;
                 ctx.lineWidth = 3;
-                rr(ctx, L.boardX + m.fc * L.cell + 3, L.boardY + m.fr * L.cell + 3,
-                   L.cell - 6, L.cell - 6, 6);
+                rr(ctx, L.boardX + m.fc * L.cell + 3, L.boardY + m.fr * L.cell + 3, L.cell - 6, L.cell - 6, 6);
                 ctx.stroke();
             }
         }
 
         if (state.selected) {
-            // Selection ring always shows, even with hints off — the player
-            // must be able to see what they picked.
+            // Selection ring always shows (even hints-off, even while dragging).
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 3;
             ctx.save();
-            ctx.shadowColor = '#ffffff';
-            ctx.shadowBlur = 8;
-            rr(ctx, L.boardX + state.selected.c * L.cell + 2,
-               L.boardY + state.selected.r * L.cell + 2, L.cell - 4, L.cell - 4, 6);
+            ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 8;
+            rr(ctx, L.boardX + state.selected.c * L.cell + 2, L.boardY + state.selected.r * L.cell + 2, L.cell - 4, L.cell - 4, 6);
             ctx.stroke();
             ctx.restore();
 
-            // Destination glow is advisory EXCEPT mid-chain: the mandatory
-            // continuation is rule-critical, so it ignores the hint toggle.
+            // Destinations: shown when hints on, or always mid-chain (so the
+            // player can see their continuation options).
             if (hintsOn[state.turn] || state.chain) {
                 for (const m of state.legalMoves) {
                     const [dx, dy] = squareCenter(m.tr, m.tc);
                     ctx.fillStyle = `rgba(255, 209, 102, ${0.10 + 0.12 * pulse})`;
                     ctx.fillRect(L.boardX + m.tc * L.cell, L.boardY + m.tr * L.cell, L.cell, L.cell);
-                    ctx.fillStyle = `rgba(255, 209, 102, ${0.55 + 0.45 * pulse})`;
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, L.cell * 0.13, 0, 2 * PI);
-                    ctx.fill();
+                    if (m.cap) {   // capture destination — bolder ring
+                        ctx.strokeStyle = `rgba(255, 120, 140, ${0.7 + 0.3 * pulse})`;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath(); ctx.arc(dx, dy, L.cell * 0.28, 0, 2 * PI); ctx.stroke();
+                    } else {       // plain move — dot
+                        ctx.fillStyle = `rgba(255, 209, 102, ${0.55 + 0.45 * pulse})`;
+                        ctx.beginPath(); ctx.arc(dx, dy, L.cell * 0.13, 0, 2 * PI); ctx.fill();
+                    }
                 }
             }
         }
     }
 
-    // Deterministic sugar-dot placement (fractions of the radius).
-    const SUGAR = [[-0.4, -0.1], [0.1, -0.45], [0.35, 0.2], [-0.15, 0.35], [0.45, -0.25], [-0.45, 0.3]];
-
-    function drawCandy(g, x, y, rad, player, king, t) {
-        const col = PLAYER[player];
-
-        if (king) {
-            // Peppermint swirl in the owner's color, slowly rotating, with a
-            // little crown so king status reads even at tray size.
-            g.fillStyle = '#fff8f0';
-            g.beginPath();
-            g.arc(x, y, rad, 0, 2 * PI);
-            g.fill();
-
-            g.save();
-            g.translate(x, y);
-            g.rotate(t * 0.5);
-            g.fillStyle = col.main;
-            for (let i = 0; i < 6; i++) {
-                const a = i * PI / 3;
-                g.beginPath();
-                g.moveTo(0, 0);
-                g.arc(0, 0, rad * 0.94, a, a + PI / 6);
-                g.closePath();
-                g.fill();
-            }
-            g.restore();
-
-            g.strokeStyle = col.dark;
-            g.lineWidth = Math.max(1.5, rad * 0.12);
-            g.beginPath();
-            g.arc(x, y, rad, 0, 2 * PI);
-            g.stroke();
-
-            // Crown perched on the top edge.
-            const cw = rad * 0.8, ch = rad * 0.5, cy = y - rad - ch * 0.35;
-            g.fillStyle = HINT_GOLD;
-            g.strokeStyle = '#7a5510';
-            g.lineWidth = Math.max(1, rad * 0.07);
-            g.beginPath();
-            g.moveTo(x - cw / 2, cy + ch);
-            g.lineTo(x - cw / 2, cy + ch * 0.35);
-            g.lineTo(x - cw / 4, cy + ch * 0.65);
-            g.lineTo(x, cy);
-            g.lineTo(x + cw / 4, cy + ch * 0.65);
-            g.lineTo(x + cw / 2, cy + ch * 0.35);
-            g.lineTo(x + cw / 2, cy + ch);
-            g.closePath();
-            g.fill();
-            g.stroke();
-        } else if (player === 1) {
-            // Pink gumdrop: glossy dome with sugar dots.
-            g.fillStyle = col.main;
-            g.beginPath();
-            g.arc(x, y, rad, 0, 2 * PI);
-            g.fill();
-            g.strokeStyle = col.dark;
-            g.lineWidth = Math.max(1.5, rad * 0.1);
-            g.stroke();
-
-            g.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            for (const [sx, sy] of SUGAR) {
-                g.beginPath();
-                g.arc(x + sx * rad, y + sy * rad, Math.max(1, rad * 0.07), 0, 2 * PI);
-                g.fill();
-            }
-        } else {
-            // Gold wrapped candy: round body plus two wrapper twists.
-            const body = rad * 0.85;
-            g.fillStyle = col.main;
-            g.strokeStyle = col.dark;
-            g.lineWidth = Math.max(1, rad * 0.07);
-            for (const side of [-1, 1]) {
-                g.beginPath();
-                g.moveTo(x + side * body * 0.75, y);
-                g.lineTo(x + side * rad * 1.35, y - body * 0.55);
-                g.lineTo(x + side * rad * 1.35, y + body * 0.55);
-                g.closePath();
-                g.fill();
-                g.stroke();
-            }
-            g.fillStyle = col.main;
-            g.beginPath();
-            g.arc(x, y, body, 0, 2 * PI);
-            g.fill();
-            g.strokeStyle = col.dark;
-            g.lineWidth = Math.max(1.5, rad * 0.1);
-            g.stroke();
-        }
-
-        // Shared gloss highlight, upper-left.
-        g.fillStyle = 'rgba(255, 255, 255, 0.35)';
-        g.beginPath();
-        g.ellipse(x - rad * 0.3, y - rad * 0.35, rad * 0.32, rad * 0.18, -PI / 5, 0, 2 * PI);
-        g.fill();
-    }
-
     function drawPieces(t) {
-        const rad = L.cell * 0.34;
-        for (let r = 0; r < 8; r++) {
+        const size = L.cell * 0.84;
+        for (let r = 0; r < 8; r++)
             for (let c = 0; c < 8; c++) {
                 const piece = state.board[r][c];
                 if (!piece) continue;
-                // The moving piece is drawn separately at its animated position.
-                if (anim && anim.mv.fr === r && anim.mv.fc === c) continue;
+                if (anim && anim.mv.fr === r && anim.mv.fc === c) continue;       // animating separately
+                if (dragPos && state.selected && sameSq({ r, c }, state.selected)) continue; // held under cursor
                 const [x, y] = squareCenter(r, c);
-                drawCandy(ctx, x, y, rad, piece.p, piece.king, t);
+                drawPiece(ctx, x, y, size, piece.p, piece.king, t);
             }
-        }
     }
 
     function drawAnimPiece(t) {
@@ -874,8 +1033,20 @@
         const ease = 1 - Math.pow(1 - p, 3);
         const x = anim.x0 + (anim.x1 - anim.x0) * ease;
         let y = anim.y0 + (anim.y1 - anim.y0) * ease;
-        if (anim.hop) y -= Math.sin(p * PI) * L.cell * 0.35;  // parabolic hop over the victim
-        drawCandy(ctx, x, y, L.cell * 0.34, piece.p, piece.king, t);
+        if (anim.hop) y -= Math.sin(p * PI) * L.cell * 0.35;
+        drawPiece(ctx, x, y, L.cell * 0.84, piece.p, piece.king, t);
+    }
+
+    function drawDragPiece(t) {
+        if (!dragPos || !state.selected) return;
+        const piece = state.board[state.selected.r][state.selected.c];
+        if (!piece) return;
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.ellipse(dragPos.x, dragPos.y + L.cell * 0.4, L.cell * 0.3, L.cell * 0.12, 0, 0, 2 * PI); ctx.fill();
+        ctx.restore();
+        drawPiece(ctx, dragPos.x, dragPos.y, L.cell * 0.94, piece.p, piece.king, t);
     }
 
     function drawTray(tray, pieces, t) {
@@ -884,21 +1055,17 @@
         ctx.fill();
         if (!pieces.length) return;
         const len = tray.vertical ? tray.h : tray.w;
-        const rad = Math.min(L.trayH * 0.36, L.cell * 0.28);
-        const step = pieces.length > 1
-            ? Math.min(rad * 2.4, (len - 2.8 * rad) / (pieces.length - 1))
-            : 0;
-        // Kings draw a crown above their circle, so nudge the row down a bit.
-        let px = tray.vertical ? tray.x + tray.w / 2 : tray.x + rad * 1.4;
-        let py = tray.vertical ? tray.y + rad * 1.6 : tray.y + tray.h * 0.62;
+        const size = Math.min(L.trayH * 0.8, L.cell * 0.62);
+        const step = pieces.length > 1 ? Math.min(size * 1.05, (len - 1.3 * size) / (pieces.length - 1)) : 0;
+        let px0 = tray.vertical ? tray.x + tray.w / 2 : tray.x + size * 0.7;
+        let py0 = tray.vertical ? tray.y + size * 0.75 : tray.y + tray.h * 0.55;
         for (const pc of pieces) {
-            drawCandy(ctx, px, py, rad, pc.p, pc.king, t);
-            if (tray.vertical) py += step; else px += step;
+            drawPiece(ctx, px0, py0, size, pc.p, pc.king, t);
+            if (tray.vertical) py0 += step; else px0 += step;
         }
     }
 
     function drawTrays(t) {
-        // trays[p] holds the candies captured BY player p (enemy colors).
         drawTray(L.trays[2], state.captured[2], t);
         drawTray(L.trays[1], state.captured[1], t);
     }
@@ -910,21 +1077,13 @@
             if (pt.life <= 0) { particles.splice(i, 1); continue; }
             const a = pt.life / pt.maxLife;
             if (pt.type === 'ring') {
-                ctx.strokeStyle = pt.color;
-                ctx.globalAlpha = a;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, pt.size * (1 + 2.2 * (1 - a)), 0, 2 * PI);
-                ctx.stroke();
+                ctx.strokeStyle = pt.color; ctx.globalAlpha = a; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size * (1 + 2.2 * (1 - a)), 0, 2 * PI); ctx.stroke();
             } else {
-                pt.vy += L.cell * 10 * dt;  // gravity
-                pt.x += pt.vx * dt;
-                pt.y += pt.vy * dt;
-                ctx.globalAlpha = a;
-                ctx.fillStyle = pt.color;
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, pt.size, 0, 2 * PI);
-                ctx.fill();
+                pt.vy += L.cell * 10 * dt;
+                pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+                ctx.globalAlpha = a; ctx.fillStyle = pt.color;
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, 2 * PI); ctx.fill();
             }
             ctx.globalAlpha = 1;
         }
@@ -935,17 +1094,15 @@
         const t = ts / 1000;
         const dt = Math.min(0.05, t - lastT || 0.016);
         lastT = t;
-
         updateAnim();
-
         ctx.clearRect(0, 0, VIEW_W, VIEW_H);
         drawBoard();
         drawHighlights(t);
         drawPieces(t);
         drawTrays(t);
         drawAnimPiece(t);
+        drawDragPiece(t);
         updateAndDrawParticles(dt);
-
         requestAnimationFrame(loop);
     }
 
@@ -953,7 +1110,15 @@
 
     const bars = { 1: document.getElementById('bar-bottom'), 2: document.getElementById('bar-top') };
     const hintBtns = { 1: document.getElementById('hints-btn-1'), 2: document.getElementById('hints-btn-2') };
+    const nameEls = { 1: document.getElementById('name-1'), 2: document.getElementById('name-2') };
     const muteBtn = document.getElementById('mute-btn');
+
+    function applyPlayerColors() {
+        for (const p of [1, 2]) {
+            PLAYER[p].main = PLAYER[p].color;
+            bars[p].style.setProperty('--pc', PLAYER[p].color);
+        }
+    }
 
     function updateBars() {
         for (const p of [1, 2]) {
@@ -963,6 +1128,18 @@
         }
         muteBtn.textContent = muted ? '\u{1F507}' : '\u{1F50A}';
     }
+
+    function updateChainUI() {
+        if (state.chain && !state.winner) {
+            endTurnBtn.style.display = 'block';
+            endTurnBtn.classList.toggle('at-top', state.turn === 2);
+            endTurnBtn.classList.toggle('at-bottom', state.turn === 1);
+        } else {
+            endTurnBtn.style.display = 'none';
+        }
+    }
+
+    endTurnBtn.addEventListener('click', () => { ensureAudio(); sfx.select(); if (state.chain) endTurn(); });
 
     for (const p of [1, 2]) {
         hintBtns[p].addEventListener('click', () => {
@@ -978,77 +1155,127 @@
         ensureAudio();
         muted = !muted;
         localStorage.setItem(LS.muted, muted ? '1' : '0');
-        sfx.select();  // audible confirmation when unmuting; silent when muting
+        sfx.select();
         updateBars();
     });
 
-    document.getElementById('new-game-btn').addEventListener('click', () => {
-        ensureAudio();
-        sfx.select();
-        newGame();
-    });
-
-    modalBtn.addEventListener('click', () => {
-        ensureAudio();
-        sfx.select();
-        newGame();
-    });
-
-    function showIntroModal() {
-        modalContent.innerHTML = `
-            <h1>CANDY CHECKERS</h1>
-            <p><span style="color:#ff4d6d">PINK</span> vs <span style="color:#ffd166">GOLD</span> &mdash; pass &amp; play!</p>
-            <p class="rules-note">Captures are FORCED: if you can jump, you must.
-            Multi-jumps keep going. Reach the far row to crown a peppermint king.</p>
-            <p>PINK moves first. Om nom nom.</p>
-        `;
-        modalBtn.textContent = 'PLAY';
-        messageBox.style.display = 'block';
-    }
+    document.getElementById('new-game-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); newGame(); });
+    document.getElementById('shop-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); openShop(); });
+    modalBtn.addEventListener('click', () => { ensureAudio(); sfx.select(); newGame(); });
+    modalBtn2.addEventListener('click', () => { ensureAudio(); sfx.select(); openShop(); });
 
     function showWinModal() {
         const w = PLAYER[state.winner], l = PLAYER[3 - state.winner];
         const reason = state.winByElimination
             ? `All of ${l.name}'s candies got crunched!`
             : `${l.name} has no moves left. Stuck like taffy!`;
-        modalContent.innerHTML = `
-            <h1 style="color:${w.main}">${w.name} WINS!</h1>
-            <p>${reason}</p>
-        `;
-        modalBtn.textContent = 'NEW GAME';
+        modalContent.innerHTML = `<h1 style="color:${w.color}">${w.name} WINS!</h1><p>${reason}</p>`;
+        modalBtn.textContent = 'PLAY AGAIN';
         messageBox.style.display = 'block';
     }
 
-    // Escape always returns to the arcade landing page.
+    // Escape returns to the arcade (unless the shop is open — then it closes it).
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            window.location.href = 'index.html';
+        if (e.key !== 'Escape') return;
+        if (shopEl.classList.contains('open') && state.board) { closeShop(); return; }
+        window.location.href = 'index.html';
+    });
+
+    // --- Candy shop -------------------------------------------------------------
+
+    const shopEl = document.getElementById('shop');
+    const shopStartBtn = document.getElementById('shop-start');
+    const shopWarn = document.getElementById('shop-warn');
+    const STYLE_IDS = ['gumdrop', 'wrapped', 'peppermint', 'jawbreaker', 'lollipop'];
+    const COLORS = [
+        ['Pink', '#ff4d6d'], ['Gold', '#ffd166'], ['Mint', '#4dd6a8'], ['Sky', '#5aa9ff'],
+        ['Grape', '#b26bff'], ['Orange', '#ff8a3d'], ['Cherry', '#ff3b3b'], ['Cream', '#f2ead4']
+    ];
+    // Working selections while shopping (committed to PLAYER on start).
+    const shopPick = {
+        1: { style: PLAYER[1].style, color: PLAYER[1].color },
+        2: { style: PLAYER[2].style, color: PLAYER[2].color }
+    };
+
+    function drawSpriteToCanvas(cnv, style, color, king) {
+        const g = cnv.getContext('2d');
+        g.clearRect(0, 0, cnv.width, cnv.height);
+        g.imageSmoothingEnabled = false;
+        g.drawImage(getSprite(style, color, king), 0, 0, cnv.width, cnv.height);
+    }
+
+    function renderShop() {
+        for (const p of [1, 2]) {
+            const shelf = document.getElementById('shelf-' + p);
+            const swatches = document.getElementById('swatches-' + p);
+            const other = 3 - p;
+            shelf.innerHTML = '';
+            STYLE_IDS.forEach(id => {
+                const jar = document.createElement('button');
+                jar.className = 'jar' + (shopPick[p].style === id ? ' sel' : '');
+                jar.title = STYLES[id].name;
+                const c = document.createElement('canvas');
+                c.width = 40; c.height = 40;
+                drawSpriteToCanvas(c, id, shopPick[p].color, false);
+                jar.appendChild(c);
+                jar.addEventListener('click', () => { ensureAudio(); sfx.select(); shopPick[p].style = id; renderShop(); });
+                shelf.appendChild(jar);
+            });
+            swatches.innerHTML = '';
+            COLORS.forEach(([name, hex]) => {
+                const sw = document.createElement('button');
+                const taken = shopPick[other].color === hex;
+                sw.className = 'swatch' + (shopPick[p].color === hex ? ' sel' : '') + (taken ? ' disabled' : '');
+                sw.style.background = hex;
+                sw.title = name + (taken ? ' (taken)' : '');
+                if (!taken) sw.addEventListener('click', () => { ensureAudio(); sfx.select(); shopPick[p].color = hex; renderShop(); });
+                swatches.appendChild(sw);
+            });
+            document.getElementById('shop-col-' + p).style.setProperty('--pc', shopPick[p].color);
+            drawSpriteToCanvas(document.getElementById('preview-' + p), shopPick[p].style, shopPick[p].color, false);
         }
+        const clash = shopPick[1].color === shopPick[2].color;
+        shopStartBtn.disabled = clash;
+        shopWarn.textContent = clash ? 'Pick two different colors!' : '';
+    }
+
+    function openShop() {
+        renderShop();
+        shopEl.classList.add('open');
+        messageBox.style.display = 'none';
+    }
+
+    function closeShop() { shopEl.classList.remove('open'); }
+
+    shopStartBtn.addEventListener('click', () => {
+        ensureAudio();
+        if (shopPick[1].color === shopPick[2].color) return;
+        for (const p of [1, 2]) { PLAYER[p].style = shopPick[p].style; PLAYER[p].color = shopPick[p].color; }
+        applyPlayerColors();
+        sfx.win();
+        closeShop();
+        newGame();
     });
 
     // --- Boot ---------------------------------------------------------------------
 
-    // Boot immediately (script sits at the end of <body>, so the DOM is
-    // ready) rather than on window.onload — a slow font/CDN fetch must not
-    // hold the board hostage. The font swaps in whenever it arrives.
     resizeCanvas();
     let resizeRAF;
-    window.addEventListener('resize', () => {
-        cancelAnimationFrame(resizeRAF);
-        resizeRAF = requestAnimationFrame(resizeCanvas);
-    });
+    window.addEventListener('resize', () => { cancelAnimationFrame(resizeRAF); resizeRAF = requestAnimationFrame(resizeCanvas); });
     window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
 
-    newGame();
-    showIntroModal();
+    applyPlayerColors();
+    newGame();            // set up a board so something renders behind the shop
+    openShop();           // the shop IS the pre-game screen
     requestAnimationFrame(loop);
 
-    // Exposed for console/Playwright testing: set positions on window.state.board,
-    // then call window.recompute() so legal moves reflect the new position.
+    // Exposed for console/Playwright testing.
     window.state = state;
+    window.PLAYER = PLAYER;
     window.movesFor = movesFor;
     window.L = L;
     window.recompute = () => { state.allLegal = movesFor(state.board, state.turn); };
+    window.endTurnNow = () => { if (state.chain) endTurn(); };
 </script>
 </body>
 </html>

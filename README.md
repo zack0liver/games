@@ -29,12 +29,16 @@ Drag a cartridge into the console (or tap one) to play.
 
 4. **Candy Checkers**  
    Direct link: [https://zack0liver.github.io/games/index_candy_checkers.html](https://zack0liver.github.io/games/index_candy_checkers.html)  
-   Two-player pass-and-play American checkers with a retro candy theme: pink
-   gumdrops vs gold wrapped candies on a chocolate board, with peppermint-swirl
-   kings. Full rules enforced — forced captures, mandatory multi-jump chains,
-   crowning ends the turn. Each player gets their own move-hints toggle,
-   captured candies pile up in side trays, and every move bleeps and crunches
-   with generated retro sound effects (mutable, remembered between visits).
+   Two-player pass-and-play checkers with a retro pixel-candy theme. Start at
+   the **candy shop**: each player picks a candy off the shelf (gumdrop, twist,
+   peppermint, jawbreaker or lollipop) and a flavor color, rendered as chunky
+   pixel-art pieces; reaching the far row crowns your candy with a king's crown.
+   Captures are **optional** — jump if you like, but you're never forced to —
+   and after a jump you may keep chaining or hit **END TURN** to stop. Move
+   pieces by tap-to-select-tap-to-move or by dragging them. Each player has
+   their own move-hints toggle, captured candies pile into side trays, and
+   generated retro sound effects crunch on every capture (with a bonus jingle
+   for taking a king) — all mutable and remembered between visits.
 
 ## Planned Enhancements
 
