@@ -40,6 +40,22 @@ Drag a cartridge into the console (or tap one) to play.
    generated retro sound effects crunch on every capture (with a bonus jingle
    for taking a king) — all mutable and remembered between visits.
 
+5. **Tank Wars**  
+   Direct link: [https://zack0liver.github.io/games/index_tank_wars.html](https://zack0liver.github.io/games/index_tank_wars.html)  
+   A turn-based artillery duel for 2-4 players (any mix of humans passing the
+   device and CPU opponents at three difficulties), rendered in a monochrome
+   green-phosphor CRT style. Set your turret angle with the arrows, hold fire
+   to charge a power meter, and let go to lob a shell across destructible
+   terrain that craters on impact — four battlefields (Hills, Mountains,
+   Canyon, Sky Island) escalate the danger, with Sky Island's void dropping
+   tanks who wander off its floating plateaus. Wind pushes every shot off
+   course, and captures are earned three ways: one power-up granted per
+   player each round, a bonus for landing a perfect direct hit with the
+   standard shell, and crates scattered across the map that arm whoever
+   shoots them. Twin Turret, Triple Shot, Big Blast and Digger shells add
+   variety on top of the standard round. Play to a best-of series and watch
+   the score climb in the HUD.
+
 ## Planned Enhancements
 
 ### Galaga
