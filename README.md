@@ -27,6 +27,15 @@ Drag a cartridge into the console (or tap one) to play.
    blast it open and fly in for a permanent ship upgrade (+1 hull, +30% size,
    fancier hull trim). Every full loop replays all seven faster and harder.
 
+4. **Candy Checkers**  
+   Direct link: [https://zack0liver.github.io/games/index_candy_checkers.html](https://zack0liver.github.io/games/index_candy_checkers.html)  
+   Two-player pass-and-play American checkers with a retro candy theme: pink
+   gumdrops vs gold wrapped candies on a chocolate board, with peppermint-swirl
+   kings. Full rules enforced — forced captures, mandatory multi-jump chains,
+   crowning ends the turn. Each player gets their own move-hints toggle,
+   captured candies pile up in side trays, and every move bleeps and crunches
+   with generated retro sound effects (mutable, remembered between visits).
+
 ## Planned Enhancements
 
 ### Galaga
