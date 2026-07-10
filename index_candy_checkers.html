@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Candy Checkers</title>
+    <!-- Font is loaded non-blocking (media=print swap): a slow/unreachable
+         fonts CDN must never delay the game booting. A CSS @import here
+         would block the end-of-body script until the fetch settles. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+          media="print" onload="this.media='all'">
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a12 100%);
+            color: #ffffff;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 8px;
+            box-sizing: border-box;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: min(760px, 96vw);
+            height: 100%;
+            max-height: min(980px, 96vh);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid #ff4d6d;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #ff4d6d, inset 0 0 20px rgba(255, 77, 109, 0.35);
+            background: #120810;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: transparent;
+            touch-action: none;
+        }
+
+        /* --- Player bars (one per hotseat player, nearest their side of the board) --- */
+        .player-bar {
+            width: 100%;
+            flex-shrink: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            box-sizing: border-box;
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            font-size: 0.65rem;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        #bar-top    { --pc: #ffd166; margin-bottom: 6px; }
+        #bar-bottom { --pc: #ff4d6d; margin-top: 6px; }
+
+        .player-bar .player-name { color: var(--pc); letter-spacing: 1px; }
+
+        .player-bar.active {
+            border-color: var(--pc);
+            box-shadow: 0 0 12px var(--pc);
+        }
+
+        .turn-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--pc);
+            opacity: 0.15;
+        }
+
+        .player-bar.active .turn-dot {
+            opacity: 1;
+            animation: dotPulse 0.9s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(1);   box-shadow: 0 0 2px var(--pc); }
+            50%      { transform: scale(1.5); box-shadow: 0 0 10px var(--pc); }
+        }
+
+        .pill-btn {
+            background: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+            border: 2px solid var(--pc, #ffffff);
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.55rem;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .pill-btn:active {
+            background: var(--pc, #ffffff);
+            color: #120810;
+        }
+
+        .pill-btn.off { opacity: 0.45; }
+
+        #back-to-arcade {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.6rem;
+            color: #ffd166;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid #ffd166;
+            border-radius: 6px;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #back-to-arcade:active {
+            background: rgba(255, 209, 102, 0.3);
+        }
+
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 4, 10, 0.97);
+            border: 3px solid #ffd166;
+            padding: 22px 28px;
+            border-radius: 10px;
+            text-align: center;
+            color: #ffd166;
+            box-shadow: 0 0 30px rgba(255, 209, 102, 0.7);
+            z-index: 100;
+            display: none;
+            max-width: 88vw;
+            width: 380px;
+            box-sizing: border-box;
+        }
+
+        #modal-content h1 {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin: 0 0 12px;
+            color: #ff4d6d;
+            text-shadow: 0 0 8px rgba(255, 77, 109, 0.8);
+        }
+
+        #modal-content p {
+            font-size: 0.6rem;
+            line-height: 1.8;
+            margin: 0 0 12px;
+            color: #ffffff;
+        }
+
+        #modal-content .rules-note { color: #ffd166; }
+
+        #modal-btn {
+            background-color: #ff4d6d;
+            color: #120810;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 6px;
+            margin-top: 6px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-size: 0.7rem;
+            transition: all 0.15s;
+            box-shadow: 0 4px #b23049;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #modal-btn:hover { background-color: #ff7089; }
+
+        #modal-btn:active {
+            box-shadow: 0 0 #b23049;
+            transform: translateY(4px);
+        }
+
+        @media (max-width: 480px) {
+            .player-bar { font-size: 0.55rem; gap: 6px; padding: 5px 6px; }
+            .pill-btn   { font-size: 0.5rem; padding: 4px 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
+
+<div id="game-container">
+    <!-- Player 2 (GOLD) sits at the top of the board and plays downward -->
+    <div id="bar-top" class="player-bar">
+        <span class="player-name">GOLD</span>
+        <span class="turn-dot" id="turn-dot-2"></span>
+        <button class="pill-btn" id="hints-btn-2">HINTS: ON</button>
+    </div>
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="message-box">
+            <div id="modal-content"></div>
+            <button id="modal-btn">PLAY</button>
+        </div>
+    </div>
+    <!-- Player 1 (PINK) sits at the bottom and plays upward; moves first -->
+    <div id="bar-bottom" class="player-bar">
+        <span class="player-name">PINK</span>
+        <span class="turn-dot" id="turn-dot-1"></span>
+        <button class="pill-btn" id="hints-btn-1">HINTS: ON</button>
+        <button class="pill-btn" id="mute-btn">&#128266;</button>
+        <button class="pill-btn" id="new-game-btn">RESET</button>
+    </div>
+</div>
+
+<script>
+    'use strict';
+
+    // =====================================================================
+    // Candy Checkers — 2-player hotseat American checkers.
+    // Rules enforced: forced captures, mandatory multi-jump chains, kings
+    // move one diagonal square any direction, crowning ends the turn even
+    // mid-chain. Win = opponent has zero legal moves at the start of their
+    // turn (covers both total elimination and being blocked).
+    // No draw rule on purpose: two humans at one device use RESET instead.
+    // =====================================================================
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    const messageBox = document.getElementById('message-box');
+    const modalContent = document.getElementById('modal-content');
+    const modalBtn = document.getElementById('modal-btn');
+    const PI = Math.PI;
+
+    // Player 1 = pink, starts rows 5-7, moves UP (dr = -1).
+    // Player 2 = gold, starts rows 0-2, moves DOWN (dr = +1).
+    const PLAYER = {
+        1: { name: 'PINK', main: '#ff4d6d', dark: '#a12440', dir: -1, backRow: 0 },
+        2: { name: 'GOLD', main: '#ffd166', dark: '#a97b1a', dir: +1, backRow: 7 }
+    };
+
+    const BOARD_DARK  = '#5a2a3a';   // chocolate (playable squares)
+    const BOARD_LIGHT = '#f7e8d0';   // cream
+    const HINT_GOLD   = '#ffd166';
+
+    // --- Persisted preferences ---------------------------------------------
+    const LS = {
+        muted:  'candyCheckersMuted',
+        hints1: 'candyCheckersHints1',
+        hints2: 'candyCheckersHints2'
+    };
+    let muted = localStorage.getItem(LS.muted) === '1';
+    // Hints default ON: anything other than an explicit '0' means on.
+    const hintsOn = {
+        1: localStorage.getItem(LS.hints1) !== '0',
+        2: localStorage.getItem(LS.hints2) !== '0'
+    };
+
+    // --- Game state ---------------------------------------------------------
+    // Piece: { p: 1|2, king: bool } or null. board[row][col], row 0 at top.
+    // Playable squares are (r + c) % 2 === 1.
+    const state = {
+        board: null,
+        turn: 1,
+        selected: null,     // {r,c} of selected piece
+        legalMoves: [],     // moves available to the selected piece
+        allLegal: [],       // every legal move for state.turn (forced-capture filtered)
+        chain: null,        // {r,c} of piece locked mid-multi-jump
+        captured: { 1: [], 2: [] },  // candies captured BY each player ({king})
+        winner: null,
+        winByElimination: false,
+        animating: false
+    };
+
+    // --- Rules --------------------------------------------------------------
+
+    function initBoard() {
+        const b = [];
+        for (let r = 0; r < 8; r++) {
+            b.push([]);
+            for (let c = 0; c < 8; c++) {
+                let piece = null;
+                if ((r + c) % 2 === 1) {
+                    if (r <= 2) piece = { p: 2, king: false };
+                    else if (r >= 5) piece = { p: 1, king: false };
+                }
+                b[r].push(piece);
+            }
+        }
+        return b;
+    }
+
+    function dirsFor(piece) {
+        // Men only move toward the enemy; kings go all four diagonals.
+        if (piece.king) return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+        const dr = PLAYER[piece.p].dir;
+        return [[dr, -1], [dr, 1]];
+    }
+
+    function inBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+    function slidesFrom(b, r, c) {
+        const piece = b[r][c], out = [];
+        for (const [dr, dc] of dirsFor(piece)) {
+            const tr = r + dr, tc = c + dc;
+            if (inBounds(tr, tc) && !b[tr][tc]) {
+                out.push({ fr: r, fc: c, tr, tc, cap: null });
+            }
+        }
+        return out;
+    }
+
+    function jumpsFrom(b, r, c) {
+        const piece = b[r][c], out = [];
+        for (const [dr, dc] of dirsFor(piece)) {
+            const mr = r + dr, mc = c + dc;        // square being jumped
+            const tr = r + 2 * dr, tc = c + 2 * dc; // landing square
+            if (inBounds(tr, tc) && !b[tr][tc] &&
+                b[mr][mc] && b[mr][mc].p !== piece.p) {
+                out.push({ fr: r, fc: c, tr, tc, cap: { r: mr, c: mc } });
+            }
+        }
+        return out;
+    }
+
+    // The ONE place the forced-capture rule lives: if any jump exists for
+    // this player, only jumps are legal this turn.
+    function movesFor(b, player) {
+        const jumps = [], slides = [];
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = b[r][c];
+                if (!piece || piece.p !== player) continue;
+                jumps.push(...jumpsFrom(b, r, c));
+                if (!jumps.length) slides.push(...slidesFrom(b, r, c));
+            }
+        }
+        return jumps.length ? jumps : slides;
+    }
+
+    // Applies a move's consequences once its slide animation lands.
+    function finishMove(mv) {
+        const b = state.board;
+        const piece = b[mv.fr][mv.fc];
+        b[mv.fr][mv.fc] = null;
+        b[mv.tr][mv.tc] = piece;
+
+        let capturedNow = false;
+        if (mv.cap) {
+            const victim = b[mv.cap.r][mv.cap.c];
+            state.captured[state.turn].push({ p: victim.p, king: victim.king });
+            b[mv.cap.r][mv.cap.c] = null;
+            const [vx, vy] = squareCenter(mv.cap.r, mv.cap.c);
+            spawnBurst(vx, vy, PLAYER[victim.p].main, 14);
+            sfx.capture();
+            capturedNow = true;
+        } else {
+            sfx.move();
+        }
+
+        // Crowning terminates the turn unconditionally, even if more jumps
+        // would otherwise be available (standard American rule).
+        if (!piece.king && mv.tr === PLAYER[piece.p].backRow) {
+            piece.king = true;
+            const [kx, ky] = squareCenter(mv.tr, mv.tc);
+            spawnCrownFX(kx, ky);
+            sfx.king();
+            endTurn();
+            return;
+        }
+
+        if (capturedNow) {
+            const cont = jumpsFrom(b, mv.tr, mv.tc);
+            if (cont.length) {
+                // Mandatory chain: same piece stays selected, only its jump
+                // continuations are tappable until the chain is exhausted.
+                state.chain = { r: mv.tr, c: mv.tc };
+                state.selected = { r: mv.tr, c: mv.tc };
+                state.legalMoves = cont;
+                state.allLegal = cont;
+                return;
+            }
+        }
+        endTurn();
+    }
+
+    function endTurn() {
+        state.chain = null;
+        state.selected = null;
+        state.legalMoves = [];
+        state.turn = 3 - state.turn;
+        state.allLegal = movesFor(state.board, state.turn);
+        if (!state.allLegal.length) {
+            // Loser has no legal move — either eliminated or blocked.
+            const loser = state.turn;
+            state.winner = 3 - loser;
+            state.winByElimination = countPieces(loser) === 0;
+            sfx.win();
+            showWinModal();
+        }
+        updateBars();
+    }
+
+    function countPieces(player) {
+        let n = 0;
+        for (let r = 0; r < 8; r++)
+            for (let c = 0; c < 8; c++)
+                if (state.board[r][c] && state.board[r][c].p === player) n++;
+        return n;
+    }
+
+    function newGame() {
+        state.board = initBoard();
+        state.turn = 1;
+        state.selected = null;
+        state.legalMoves = [];
+        state.chain = null;
+        state.captured = { 1: [], 2: [] };
+        state.winner = null;
+        state.winByElimination = false;
+        state.animating = false;
+        anim = null;
+        particles.length = 0;
+        state.allLegal = movesFor(state.board, state.turn);
+        messageBox.style.display = 'none';
+        updateBars();
+    }
+
+    // --- Layout / resize ------------------------------------------------------
+
+    let VIEW_W = 320, VIEW_H = 480;
+    // L = layout in CSS pixels, recomputed on every resize. Trays sit above/
+    // below the board in portrait, or beside it in landscape (so a short,
+    // wide screen doesn't squeeze the board into unusable tap targets).
+    // trays[p] = the strip where pieces captured BY player p are shown.
+    const L = { boardX: 0, boardY: 0, boardSide: 0, cell: 0, trayH: 0,
+                trays: { 1: null, 2: null } };
+
+    function resizeCanvas() {
+        const rect = canvasWrap.getBoundingClientRect();
+        VIEW_W = Math.max(240, Math.floor(rect.width));
+        VIEW_H = Math.max(240, Math.floor(rect.height));
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(VIEW_W * dpr);
+        canvas.height = Math.floor(VIEW_H * dpr);
+        canvas.style.width = VIEW_W + 'px';
+        canvas.style.height = VIEW_H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        computeLayout();
+    }
+
+    function computeLayout() {
+        const pad = 6;
+        L.trayH = Math.max(24, Math.min(48, Math.max(VIEW_W, VIEW_H) * 0.07));
+
+        // Prefer side trays whenever the full-height board leaves room for
+        // them; otherwise stack trays above/below (portrait phones).
+        const sideBoard = Math.min(VIEW_H - 2 * pad, VIEW_W - 2 * (L.trayH + 2 * pad));
+        const stackBoard = Math.min(VIEW_W - 2 * pad, VIEW_H - 2 * (L.trayH + 2 * pad));
+
+        if (sideBoard >= stackBoard) {
+            L.boardSide = sideBoard;
+            L.cell = L.boardSide / 8;
+            L.boardX = (VIEW_W - L.boardSide) / 2;
+            L.boardY = (VIEW_H - L.boardSide) / 2;
+            // Gold's winnings on the left (their side of the screen top has
+            // no room here), pink's on the right.
+            L.trays[2] = { x: L.boardX - pad - L.trayH, y: L.boardY,
+                           w: L.trayH, h: L.boardSide, vertical: true };
+            L.trays[1] = { x: L.boardX + L.boardSide + pad, y: L.boardY,
+                           w: L.trayH, h: L.boardSide, vertical: true };
+        } else {
+            L.boardSide = stackBoard;
+            L.cell = L.boardSide / 8;
+            L.boardX = (VIEW_W - L.boardSide) / 2;
+            L.boardY = (VIEW_H - L.boardSide) / 2;
+            // Gold's winnings up top by gold's bar, pink's at the bottom.
+            L.trays[2] = { x: L.boardX, y: L.boardY - pad - L.trayH,
+                           w: L.boardSide, h: L.trayH, vertical: false };
+            L.trays[1] = { x: L.boardX, y: L.boardY + L.boardSide + pad,
+                           w: L.boardSide, h: L.trayH, vertical: false };
+        }
+    }
+
+    function squareCenter(r, c) {
+        return [L.boardX + (c + 0.5) * L.cell, L.boardY + (r + 0.5) * L.cell];
+    }
+
+    // --- Audio (WebAudio, generated — no asset files) -------------------------
+
+    let audioCtx = null;
+    let noiseBuffer = null;
+
+    function ensureAudio() {
+        if (!audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            audioCtx = new AC();
+            // Pre-build a 0.1s white-noise buffer for the candy "crunch".
+            noiseBuffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.1), audioCtx.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function tone(freq, dur, type, vol, slideTo, when) {
+        if (muted || !audioCtx) return;
+        const t0 = audioCtx.currentTime + (when || 0);
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type || 'square';
+        osc.frequency.setValueAtTime(freq, t0);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+        gain.gain.setValueAtTime(vol || 0.15, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+    }
+
+    function crunch() {
+        if (muted || !audioCtx || !noiseBuffer) return;
+        const t0 = audioCtx.currentTime;
+        const src = audioCtx.createBufferSource();
+        src.buffer = noiseBuffer;
+        const bp = audioCtx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1800;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.25, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+        src.connect(bp).connect(gain).connect(audioCtx.destination);
+        src.start(t0);
+    }
+
+    const sfx = {
+        select:  () => tone(660, 0.06, 'square', 0.12),
+        deny:    () => tone(110, 0.09, 'square', 0.1),
+        move:    () => tone(330, 0.1, 'sine', 0.18, 220),
+        capture: () => { tone(200, 0.13, 'sawtooth', 0.2, 60); crunch(); },
+        king:    () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.09, 'triangle', 0.16, null, i * 0.09)),
+        win:     () => [392, 523, 659, 784, 1047].forEach((f, i) =>
+                       tone(f, i === 4 ? 0.35 : 0.12, 'square', 0.14, null, i * 0.12))
+    };
+
+    // --- Particles & animation -------------------------------------------------
+
+    const particles = [];  // {x,y,vx,vy,life,maxLife,size,color,type:'dot'|'ring'}
+    let anim = null;       // {mv,x0,y0,x1,y1,t0,dur,hop}
+
+    function spawnBurst(x, y, color, n) {
+        for (let i = 0; i < n; i++) {
+            const a = Math.random() * 2 * PI;
+            const sp = (0.4 + Math.random() * 0.9) * L.cell * 4;
+            particles.push({
+                x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.cell * 2,
+                life: 0.55, maxLife: 0.55,
+                size: L.cell * (0.05 + Math.random() * 0.07),
+                color, type: 'dot'
+            });
+        }
+    }
+
+    function spawnCrownFX(x, y) {
+        spawnBurst(x, y, '#ffffff', 8);
+        spawnBurst(x, y, HINT_GOLD, 10);
+        particles.push({ x, y, vx: 0, vy: 0, life: 0.5, maxLife: 0.5,
+                         size: L.cell * 0.4, color: HINT_GOLD, type: 'ring' });
+    }
+
+    function playMove(mv) {
+        ensureAudio();
+        const [x0, y0] = squareCenter(mv.fr, mv.fc);
+        const [x1, y1] = squareCenter(mv.tr, mv.tc);
+        anim = { mv, x0, y0, x1, y1, t0: performance.now(),
+                 dur: mv.cap ? 180 : 150, hop: !!mv.cap };
+        state.animating = true;
+        // Hide the selection visuals during flight; finishMove restores what
+        // matters (chain continuation re-selects the piece itself).
+        state.selected = null;
+        state.legalMoves = [];
+    }
+
+    function updateAnim() {
+        if (!anim) return;
+        if (performance.now() - anim.t0 >= anim.dur) {
+            const mv = anim.mv;
+            anim = null;
+            state.animating = false;
+            finishMove(mv);
+        }
+    }
+
+    // --- Input ------------------------------------------------------------------
+
+    function eventToSquare(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left - L.boardX;
+        const y = e.clientY - rect.top - L.boardY;
+        if (x < 0 || y < 0 || x >= L.boardSide || y >= L.boardSide) return null;
+        return { r: Math.floor(y / L.cell), c: Math.floor(x / L.cell) };
+    }
+
+    function handleTap(sq) {
+        if (state.winner || state.animating || !sq) return;
+
+        // Destination tap → play the move.
+        const mv = state.selected &&
+                   state.legalMoves.find(m => m.tr === sq.r && m.tc === sq.c);
+        if (mv) { playMove(mv); return; }
+
+        // Mid-chain, everything except a continuation square is inert: a
+        // player cannot deselect their way out of a mandatory multi-jump.
+        if (state.chain) return;
+
+        const piece = state.board[sq.r][sq.c];
+        if (piece && piece.p === state.turn) {
+            const mine = state.allLegal.filter(m => m.fr === sq.r && m.fc === sq.c);
+            if (mine.length) {
+                state.selected = sq;
+                state.legalMoves = mine;
+                sfx.select();
+            } else {
+                // Owned piece with no legal move — usually because a capture
+                // is forced elsewhere. The buzz teaches the rule.
+                sfx.deny();
+            }
+        } else {
+            state.selected = null;
+            state.legalMoves = [];
+        }
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        ensureAudio();
+        handleTap(eventToSquare(e));
+    });
+
+    // --- Drawing ------------------------------------------------------------------
+
+    function rr(g, x, y, w, h, rad) {
+        g.beginPath();
+        g.moveTo(x + rad, y);
+        g.arcTo(x + w, y, x + w, y + h, rad);
+        g.arcTo(x + w, y + h, x, y + h, rad);
+        g.arcTo(x, y + h, x, y, rad);
+        g.arcTo(x, y, x + w, y, rad);
+        g.closePath();
+    }
+
+    function drawBoard() {
+        // Board frame glows in the active player's color as a turn cue.
+        ctx.save();
+        ctx.shadowColor = state.winner ? HINT_GOLD : PLAYER[state.turn].main;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#2a1420';
+        rr(ctx, L.boardX - 5, L.boardY - 5, L.boardSide + 10, L.boardSide + 10, 8);
+        ctx.fill();
+        ctx.restore();
+
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                ctx.fillStyle = (r + c) % 2 === 1 ? BOARD_DARK : BOARD_LIGHT;
+                ctx.fillRect(L.boardX + c * L.cell, L.boardY + r * L.cell, L.cell + 0.5, L.cell + 0.5);
+            }
+        }
+    }
+
+    function drawHighlights(t) {
+        if (state.winner || state.animating) return;
+        const pulse = 0.5 + 0.5 * Math.sin(t * 5);
+
+        // Movable-piece pulse (advisory — gated by the current player's
+        // hint toggle). With forced captures only the capturers glow.
+        if (hintsOn[state.turn] && !state.selected) {
+            const seen = new Set();
+            for (const m of state.allLegal) {
+                const key = m.fr * 8 + m.fc;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                ctx.strokeStyle = `rgba(255, 209, 102, ${0.35 + 0.45 * pulse})`;
+                ctx.lineWidth = 3;
+                rr(ctx, L.boardX + m.fc * L.cell + 3, L.boardY + m.fr * L.cell + 3,
+                   L.cell - 6, L.cell - 6, 6);
+                ctx.stroke();
+            }
+        }
+
+        if (state.selected) {
+            // Selection ring always shows, even with hints off — the player
+            // must be able to see what they picked.
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.save();
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            rr(ctx, L.boardX + state.selected.c * L.cell + 2,
+               L.boardY + state.selected.r * L.cell + 2, L.cell - 4, L.cell - 4, 6);
+            ctx.stroke();
+            ctx.restore();
+
+            // Destination glow is advisory EXCEPT mid-chain: the mandatory
+            // continuation is rule-critical, so it ignores the hint toggle.
+            if (hintsOn[state.turn] || state.chain) {
+                for (const m of state.legalMoves) {
+                    const [dx, dy] = squareCenter(m.tr, m.tc);
+                    ctx.fillStyle = `rgba(255, 209, 102, ${0.10 + 0.12 * pulse})`;
+                    ctx.fillRect(L.boardX + m.tc * L.cell, L.boardY + m.tr * L.cell, L.cell, L.cell);
+                    ctx.fillStyle = `rgba(255, 209, 102, ${0.55 + 0.45 * pulse})`;
+                    ctx.beginPath();
+                    ctx.arc(dx, dy, L.cell * 0.13, 0, 2 * PI);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    // Deterministic sugar-dot placement (fractions of the radius).
+    const SUGAR = [[-0.4, -0.1], [0.1, -0.45], [0.35, 0.2], [-0.15, 0.35], [0.45, -0.25], [-0.45, 0.3]];
+
+    function drawCandy(g, x, y, rad, player, king, t) {
+        const col = PLAYER[player];
+
+        if (king) {
+            // Peppermint swirl in the owner's color, slowly rotating, with a
+            // little crown so king status reads even at tray size.
+            g.fillStyle = '#fff8f0';
+            g.beginPath();
+            g.arc(x, y, rad, 0, 2 * PI);
+            g.fill();
+
+            g.save();
+            g.translate(x, y);
+            g.rotate(t * 0.5);
+            g.fillStyle = col.main;
+            for (let i = 0; i < 6; i++) {
+                const a = i * PI / 3;
+                g.beginPath();
+                g.moveTo(0, 0);
+                g.arc(0, 0, rad * 0.94, a, a + PI / 6);
+                g.closePath();
+                g.fill();
+            }
+            g.restore();
+
+            g.strokeStyle = col.dark;
+            g.lineWidth = Math.max(1.5, rad * 0.12);
+            g.beginPath();
+            g.arc(x, y, rad, 0, 2 * PI);
+            g.stroke();
+
+            // Crown perched on the top edge.
+            const cw = rad * 0.8, ch = rad * 0.5, cy = y - rad - ch * 0.35;
+            g.fillStyle = HINT_GOLD;
+            g.strokeStyle = '#7a5510';
+            g.lineWidth = Math.max(1, rad * 0.07);
+            g.beginPath();
+            g.moveTo(x - cw / 2, cy + ch);
+            g.lineTo(x - cw / 2, cy + ch * 0.35);
+            g.lineTo(x - cw / 4, cy + ch * 0.65);
+            g.lineTo(x, cy);
+            g.lineTo(x + cw / 4, cy + ch * 0.65);
+            g.lineTo(x + cw / 2, cy + ch * 0.35);
+            g.lineTo(x + cw / 2, cy + ch);
+            g.closePath();
+            g.fill();
+            g.stroke();
+        } else if (player === 1) {
+            // Pink gumdrop: glossy dome with sugar dots.
+            g.fillStyle = col.main;
+            g.beginPath();
+            g.arc(x, y, rad, 0, 2 * PI);
+            g.fill();
+            g.strokeStyle = col.dark;
+            g.lineWidth = Math.max(1.5, rad * 0.1);
+            g.stroke();
+
+            g.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (const [sx, sy] of SUGAR) {
+                g.beginPath();
+                g.arc(x + sx * rad, y + sy * rad, Math.max(1, rad * 0.07), 0, 2 * PI);
+                g.fill();
+            }
+        } else {
+            // Gold wrapped candy: round body plus two wrapper twists.
+            const body = rad * 0.85;
+            g.fillStyle = col.main;
+            g.strokeStyle = col.dark;
+            g.lineWidth = Math.max(1, rad * 0.07);
+            for (const side of [-1, 1]) {
+                g.beginPath();
+                g.moveTo(x + side * body * 0.75, y);
+                g.lineTo(x + side * rad * 1.35, y - body * 0.55);
+                g.lineTo(x + side * rad * 1.35, y + body * 0.55);
+                g.closePath();
+                g.fill();
+                g.stroke();
+            }
+            g.fillStyle = col.main;
+            g.beginPath();
+            g.arc(x, y, body, 0, 2 * PI);
+            g.fill();
+            g.strokeStyle = col.dark;
+            g.lineWidth = Math.max(1.5, rad * 0.1);
+            g.stroke();
+        }
+
+        // Shared gloss highlight, upper-left.
+        g.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        g.beginPath();
+        g.ellipse(x - rad * 0.3, y - rad * 0.35, rad * 0.32, rad * 0.18, -PI / 5, 0, 2 * PI);
+        g.fill();
+    }
+
+    function drawPieces(t) {
+        const rad = L.cell * 0.34;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = state.board[r][c];
+                if (!piece) continue;
+                // The moving piece is drawn separately at its animated position.
+                if (anim && anim.mv.fr === r && anim.mv.fc === c) continue;
+                const [x, y] = squareCenter(r, c);
+                drawCandy(ctx, x, y, rad, piece.p, piece.king, t);
+            }
+        }
+    }
+
+    function drawAnimPiece(t) {
+        if (!anim) return;
+        const piece = state.board[anim.mv.fr][anim.mv.fc];
+        if (!piece) return;
+        const p = Math.min(1, (performance.now() - anim.t0) / anim.dur);
+        const ease = 1 - Math.pow(1 - p, 3);
+        const x = anim.x0 + (anim.x1 - anim.x0) * ease;
+        let y = anim.y0 + (anim.y1 - anim.y0) * ease;
+        if (anim.hop) y -= Math.sin(p * PI) * L.cell * 0.35;  // parabolic hop over the victim
+        drawCandy(ctx, x, y, L.cell * 0.34, piece.p, piece.king, t);
+    }
+
+    function drawTray(tray, pieces, t) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        rr(ctx, tray.x, tray.y, tray.w, tray.h, 6);
+        ctx.fill();
+        if (!pieces.length) return;
+        const len = tray.vertical ? tray.h : tray.w;
+        const rad = Math.min(L.trayH * 0.36, L.cell * 0.28);
+        const step = pieces.length > 1
+            ? Math.min(rad * 2.4, (len - 2.8 * rad) / (pieces.length - 1))
+            : 0;
+        // Kings draw a crown above their circle, so nudge the row down a bit.
+        let px = tray.vertical ? tray.x + tray.w / 2 : tray.x + rad * 1.4;
+        let py = tray.vertical ? tray.y + rad * 1.6 : tray.y + tray.h * 0.62;
+        for (const pc of pieces) {
+            drawCandy(ctx, px, py, rad, pc.p, pc.king, t);
+            if (tray.vertical) py += step; else px += step;
+        }
+    }
+
+    function drawTrays(t) {
+        // trays[p] holds the candies captured BY player p (enemy colors).
+        drawTray(L.trays[2], state.captured[2], t);
+        drawTray(L.trays[1], state.captured[1], t);
+    }
+
+    function updateAndDrawParticles(dt) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const pt = particles[i];
+            pt.life -= dt;
+            if (pt.life <= 0) { particles.splice(i, 1); continue; }
+            const a = pt.life / pt.maxLife;
+            if (pt.type === 'ring') {
+                ctx.strokeStyle = pt.color;
+                ctx.globalAlpha = a;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size * (1 + 2.2 * (1 - a)), 0, 2 * PI);
+                ctx.stroke();
+            } else {
+                pt.vy += L.cell * 10 * dt;  // gravity
+                pt.x += pt.vx * dt;
+                pt.y += pt.vy * dt;
+                ctx.globalAlpha = a;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, 2 * PI);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    let lastT = 0;
+    function loop(ts) {
+        const t = ts / 1000;
+        const dt = Math.min(0.05, t - lastT || 0.016);
+        lastT = t;
+
+        updateAnim();
+
+        ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+        drawBoard();
+        drawHighlights(t);
+        drawPieces(t);
+        drawTrays(t);
+        drawAnimPiece(t);
+        updateAndDrawParticles(dt);
+
+        requestAnimationFrame(loop);
+    }
+
+    // --- DOM wiring -------------------------------------------------------------
+
+    const bars = { 1: document.getElementById('bar-bottom'), 2: document.getElementById('bar-top') };
+    const hintBtns = { 1: document.getElementById('hints-btn-1'), 2: document.getElementById('hints-btn-2') };
+    const muteBtn = document.getElementById('mute-btn');
+
+    function updateBars() {
+        for (const p of [1, 2]) {
+            bars[p].classList.toggle('active', !state.winner && state.turn === p);
+            hintBtns[p].textContent = 'HINTS: ' + (hintsOn[p] ? 'ON' : 'OFF');
+            hintBtns[p].classList.toggle('off', !hintsOn[p]);
+        }
+        muteBtn.textContent = muted ? '\u{1F507}' : '\u{1F50A}';
+    }
+
+    for (const p of [1, 2]) {
+        hintBtns[p].addEventListener('click', () => {
+            ensureAudio();
+            hintsOn[p] = !hintsOn[p];
+            localStorage.setItem(p === 1 ? LS.hints1 : LS.hints2, hintsOn[p] ? '1' : '0');
+            sfx.select();
+            updateBars();
+        });
+    }
+
+    muteBtn.addEventListener('click', () => {
+        ensureAudio();
+        muted = !muted;
+        localStorage.setItem(LS.muted, muted ? '1' : '0');
+        sfx.select();  // audible confirmation when unmuting; silent when muting
+        updateBars();
+    });
+
+    document.getElementById('new-game-btn').addEventListener('click', () => {
+        ensureAudio();
+        sfx.select();
+        newGame();
+    });
+
+    modalBtn.addEventListener('click', () => {
+        ensureAudio();
+        sfx.select();
+        newGame();
+    });
+
+    function showIntroModal() {
+        modalContent.innerHTML = `
+            <h1>CANDY CHECKERS</h1>
+            <p><span style="color:#ff4d6d">PINK</span> vs <span style="color:#ffd166">GOLD</span> &mdash; pass &amp; play!</p>
+            <p class="rules-note">Captures are FORCED: if you can jump, you must.
+            Multi-jumps keep going. Reach the far row to crown a peppermint king.</p>
+            <p>PINK moves first. Om nom nom.</p>
+        `;
+        modalBtn.textContent = 'PLAY';
+        messageBox.style.display = 'block';
+    }
+
+    function showWinModal() {
+        const w = PLAYER[state.winner], l = PLAYER[3 - state.winner];
+        const reason = state.winByElimination
+            ? `All of ${l.name}'s candies got crunched!`
+            : `${l.name} has no moves left. Stuck like taffy!`;
+        modalContent.innerHTML = `
+            <h1 style="color:${w.main}">${w.name} WINS!</h1>
+            <p>${reason}</p>
+        `;
+        modalBtn.textContent = 'NEW GAME';
+        messageBox.style.display = 'block';
+    }
+
+    // Escape always returns to the arcade landing page.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            window.location.href = 'index.html';
+        }
+    });
+
+    // --- Boot ---------------------------------------------------------------------
+
+    // Boot immediately (script sits at the end of <body>, so the DOM is
+    // ready) rather than on window.onload — a slow font/CDN fetch must not
+    // hold the board hostage. The font swaps in whenever it arrives.
+    resizeCanvas();
+    let resizeRAF;
+    window.addEventListener('resize', () => {
+        cancelAnimationFrame(resizeRAF);
+        resizeRAF = requestAnimationFrame(resizeCanvas);
+    });
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
+    newGame();
+    showIntroModal();
+    requestAnimationFrame(loop);
+
+    // Exposed for console/Playwright testing: set positions on window.state.board,
+    // then call window.recompute() so legal moves reflect the new position.
+    window.state = state;
+    window.movesFor = movesFor;
+    window.L = L;
+    window.recompute = () => { state.allLegal = movesFor(state.board, state.turn); };
+</script>
+</body>
+</html>

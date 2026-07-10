@@ -5,6 +5,43 @@ top.
 
 ---
 
+## 2026-07-10 — Candy Checkers (built from scratch to v1)
+
+**Branch:** `claude/candy-checkers-game-clm7jp`
+
+Built the Candy Checkers cartridge from concept to shipped v1 in one session,
+flipping the hub's coming-soon placeholder to a live game.
+
+### What shipped
+
+- **The game** (`index_candy_checkers.html`) — Two-player pass-and-play
+  American checkers, one self-contained file in the house style (inline
+  CSS/JS, single canvas + rAF, Press Start 2P, no assets). Pink gumdrops vs
+  gold wrapped candies on a chocolate/cream board; kings are slowly spinning
+  peppermint swirls with a little crown.
+- **Rules enforced in full** — forced captures (if you can jump you must),
+  mandatory multi-jump chains with locked selection (taps elsewhere are inert
+  mid-chain), crowning ends the turn even mid-chain, win on zero legal moves
+  (covers elimination and blockade in one check). No draw rule on purpose —
+  hotseat players use RESET.
+- **Per-player extras** — each player has their own HINTS toggle (movable
+  pieces pulse, destinations glow; chain continuations glow regardless since
+  they're rule-critical); captured candies pile into trays (top/bottom in
+  portrait, sides in landscape); WebAudio-generated bleeps/crunches/fanfares
+  with a persisted mute. Prefs live in localStorage.
+- **Integration** — hub cartridge flipped from coming-soon to live
+  (`2P SUGAR STRATEGY`), README entry with direct link.
+
+### Verification
+
+22-check Playwright suite (scratchpad, not committed) drove the real page:
+forced-capture filtering, chain lock, crowning-ends-chain, backward king
+capture, both win paths, per-player hint + mute persistence across reload,
+and portrait/landscape layout (side trays fixed a 23px-cell squeeze in
+phone landscape). All passing; screenshots eyeballed.
+
+---
+
 ## 2026-07-09 — Asteroids: Maze Edition (built from scratch to v1)
 
 **Branch:** `claude/asteroids-maze-game-ovvr59` (merged into `main` throughout)
