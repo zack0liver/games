@@ -36,6 +36,16 @@ self-contained file.
 - **King-kill bonus sound** — capturing a king adds a fat descending jingle on
   top of the crunch, plus extra gold particles.
 
+### Follow-up (same day): glossy-toon art pass
+
+Mocked up four piece-art directions (current baseline, HD 24px remaster,
+glossy toon, new candy shapes) as a side-by-side sprite sheet; owner picked
+**glossy toon**. All five candies redrawn at 24px as filled silhouettes with a
+thick dark outline, flat color, one bottom shadow crescent and a big bubble
+gloss (gumdrop got a real dome shape, twist real wrapper points + stripes,
+peppermint/lollipop curved swirls, jawbreaker layered rings). Same sprite
+pipeline, full 21-check suite still green.
+
 ### Verification
 
 21-check Playwright suite (scratchpad) driving the real page: shop distinct-
