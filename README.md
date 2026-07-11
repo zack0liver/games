@@ -8,7 +8,11 @@ Drag a cartridge into the console (or tap one) to play.
 ## Available Games
 
 1. **Asteroids - Jungle Aces**  
-   Direct link: [https://zack0liver.github.io/games/index_asteroids_monkeys.html](https://zack0liver.github.io/games/index_asteroids_monkeys.html)
+   Direct link: [https://zack0liver.github.io/games/index_asteroids_monkeys.html](https://zack0liver.github.io/games/index_asteroids_monkeys.html)  
+   Blast waves of cosmic monkeys and asteroids. Shield power-ups (ported from
+   the Maze Edition) drift in from time to time — grab one for a few seconds of
+   invincibility that lets you fly straight through rocks and monkeys to smash
+   them.
 
 2. **Galaga Style Game v1**  
    Direct link: [https://zack0liver.github.io/games/index_galaga_v1.html](https://zack0liver.github.io/games/index_galaga_v1.html)
