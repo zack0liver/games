@@ -63,6 +63,16 @@ Drag a cartridge into the console (or tap one) to play.
    shot's strength for reference. Play to a best-of series and watch the
    score climb in the HUD.
 
+6. **Snake Duel**  
+   Direct link: [https://zack0liver.github.io/games/index_snake_duel.html](https://zack0liver.github.io/games/index_snake_duel.html)  
+   Two snakes share one arena in a green-phosphor CRT style: grow by eating
+   pellets and box your rival into a wall, their tail, or your own. Last snake
+   slithering wins the round; play a best-of series. Play two humans on one
+   device (P1 on WASD, P2 on the arrow keys — or each player swipes their half
+   of a phone screen) or take on a CPU snake at three difficulties. Pick your
+   speed (Chill / Normal / Fast) and whether the walls are solid or wrap
+   around the edges, with settings remembered between visits.
+
 ## Planned Enhancements
 
 ### Galaga
