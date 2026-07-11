@@ -5,6 +5,50 @@ top.
 
 ---
 
+## 2026-07-10 — Tank Wars v2 (movement, shields, richer combat)
+
+**Branch:** `claude/tank-wars-game`
+
+Enhancement pass on Tank Wars from a playtest wishlist. Same self-contained
+file, same green-CRT look.
+
+### What shipped
+
+- **Two-tier blasts** — every explosion now has a hard inner core (carves
+  terrain + full damage) and a wider outer ring (no terrain damage, a lighter
+  health hit), so near-misses graze. Blasts are slightly larger on easy
+  battlefields and tighter on expert (`blastScale()`).
+- **Shrapnel bomb** — a new power-up that bursts into a fan of ~7 fragment
+  shells raining down in different directions, each with its own small blast.
+- **More power-ups to start** — the roster is now Twin/Triple/Big/Digger/
+  Shrapnel, and each player is granted two distinct ones at round start.
+- **Tank movement** — drive left/right during your aiming turn on a per-round
+  energy budget worth ~one screen width of flat ground; steep uphill climbs
+  cost extra (never impossible), and when the treads run out you stop. An
+  orange fuel bar rides above the active tank.
+- **One-per-round shield** — raise a shield that absorbs the next hit entirely
+  then pops; can't be re-raised until next round. Drawn as a pulsing bubble.
+- **360° aiming** — the turret rotates a full circle (wrap, no clamp), so you
+  can point straight down and deliberately blow a pit under yourself; shells
+  now spawn from the muzzle tip so near-horizontal shots clear the hull.
+- **Last-shot marker** — the power meter shows a dashed marker at the current
+  player's previous shot strength for reference.
+- **Controls** — desktop: arrows aim, ↑↓ fine, A/D drive, S shield, Space
+  hold-to-fire, 1-6 weapons (with an on-screen key legend). Mobile: a
+  redesigned two-row pad — AIM ◀▶, DRIVE ◀▶ (orange), SHIELD, and a big HOLD
+  TO FIRE — plus the existing weapon chips. New sfx for driving and shields.
+- Power-up illustrations on click were deliberately deferred to v3.
+
+### Verification
+
+15-check Playwright suite (scratchpad) on top of the original 21: shrapnel
+fragment burst, two-tier damage, easy-vs-expert blast width, shield absorb +
+one-use guard, driving/energy drain + exhaustion, 360 straight-down dig, the
+last-shot marker, and the six-button mobile layout — all passing, with the
+full v1 suite re-run to guard against regressions.
+
+---
+
 ## 2026-07-10 — Tank Wars (built from scratch to v1)
 
 **Branch:** `claude/tank-wars-game`

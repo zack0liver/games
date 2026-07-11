@@ -49,12 +49,19 @@ Drag a cartridge into the console (or tap one) to play.
    terrain that craters on impact — four battlefields (Hills, Mountains,
    Canyon, Sky Island) escalate the danger, with Sky Island's void dropping
    tanks who wander off its floating plateaus. Wind pushes every shot off
-   course, and captures are earned three ways: one power-up granted per
+   course, and captures are earned three ways: two power-ups granted per
    player each round, a bonus for landing a perfect direct hit with the
    standard shell, and crates scattered across the map that arm whoever
-   shoots them. Twin Turret, Triple Shot, Big Blast and Digger shells add
-   variety on top of the standard round. Play to a best-of series and watch
-   the score climb in the HUD.
+   shoots them. Twin Turret, Triple Shot, Big Blast, Digger and Shrapnel
+   (which bursts into a fan of fragments) shells add variety on top of the
+   standard round. Each blast has a hard inner core that carves land and
+   deals a big hit, plus a wider outer ring that grazes for less. Between
+   shots you can **drive** your tank (a per-round fuel budget worth about a
+   full screen, with steep climbs costing extra), raise a one-per-round
+   **shield** that soaks a hit, and aim a full **360°** — even straight
+   down to blow a pit beneath yourself. The power meter marks your last
+   shot's strength for reference. Play to a best-of series and watch the
+   score climb in the HUD.
 
 ## Planned Enhancements
 
