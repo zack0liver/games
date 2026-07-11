@@ -127,6 +127,13 @@
             position: absolute; bottom: 0; left: 0; width: 100%;
             height: 0%; background: var(--g-bright);
         }
+        /* horizontal marker showing the strength of this player's last shot */
+        #power-last {
+            position: absolute; left: -2px; right: -2px; height: 0;
+            border-top: 2px dashed var(--orange);
+            bottom: 0%; display: none;
+        }
+        #power-meter.show #power-last.show { display: block; }
 
         #inventory-row {
             position: absolute;
@@ -181,29 +188,47 @@
         }
         #back-to-arcade:active { background: rgba(102, 255, 102, 0.25); }
 
+        #kb-hint {
+            display: none;
+            width: 100%;
+            text-align: center;
+            font-size: 0.42rem;
+            color: var(--g-dim);
+            padding: 6px 4px 0;
+            box-sizing: border-box;
+            letter-spacing: 0.5px;
+        }
+        @media (pointer: fine) { #kb-hint { display: block; } }
+
         #mobile-controls {
             display: none;
             width: 100%;
-            gap: 8px;
+            flex-direction: column;
+            gap: 6px;
             padding: 6px 4px 0;
             box-sizing: border-box;
         }
         @media (pointer: coarse) {
             #mobile-controls { display: flex; }
         }
+        .mc-row { display: flex; gap: 6px; width: 100%; }
         #mobile-controls button {
             flex: 1;
-            min-height: 52px;
+            min-height: 46px;
             background: rgba(0,20,0,0.8);
             color: var(--g-bright);
             border: 2px solid var(--g-mid);
             border-radius: 8px;
             font-family: 'Press Start 2P', 'Courier New', monospace;
-            font-size: 0.6rem;
+            font-size: 0.5rem;
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
         }
         #mobile-controls button:active { background: rgba(102,255,102,0.25); }
+        .mc-drive { border-color: var(--orange); color: var(--orange); }
+        #btn-shield { border-color: var(--g-bright); }
+        #btn-shield.used { opacity: 0.35; }
+        #btn-shield.on { background: var(--g-bright); color: #001500; }
         #btn-fire { flex: 2; }
 
         /* --- Match end modal --- */
@@ -314,7 +339,7 @@
     <div id="canvas-wrap">
         <canvas id="gameCanvas"></canvas>
         <div id="scanlines"></div>
-        <div id="power-meter"><div id="power-fill"></div></div>
+        <div id="power-meter"><div id="power-fill"></div><div id="power-last"></div></div>
         <div id="inventory-row"></div>
         <div id="banner"></div>
         <div id="match-modal">
@@ -323,10 +348,18 @@
             <button class="tw-btn alt" id="match-setup-btn">SETUP</button>
         </div>
     </div>
+    <div id="kb-hint">&#9668;&#9658; AIM &middot; &#9650;&#9660; FINE &middot; A/D DRIVE &middot; SPACE HOLD=FIRE &middot; S SHIELD &middot; 1-6 WEAPON</div>
     <div id="mobile-controls">
-        <button id="btn-angle-minus">&#9668;</button>
-        <button id="btn-fire">HOLD TO FIRE</button>
-        <button id="btn-angle-plus">&#9658;</button>
+        <div class="mc-row">
+            <button id="btn-aim-left" class="mc-aim">AIM &#9668;</button>
+            <button id="btn-aim-right" class="mc-aim">AIM &#9658;</button>
+            <button id="btn-drive-left" class="mc-drive">&#9668; DRIVE</button>
+            <button id="btn-drive-right" class="mc-drive">DRIVE &#9658;</button>
+        </div>
+        <div class="mc-row">
+            <button id="btn-shield">SHIELD</button>
+            <button id="btn-fire">HOLD TO FIRE</button>
+        </div>
     </div>
 </div>
 
@@ -374,9 +407,22 @@
     const FLIGHT_SUBSTEP_DT = 1 / 240;
     const BOUNDS_MARGIN = 120;
     const ANGLE_SPEED = 45, FINE_SPEED = 12;
-    const WEAPON_ORDER = ['standard', 'twin', 'triple', 'big', 'digger'];
+    const WEAPON_ORDER = ['standard', 'twin', 'triple', 'big', 'digger', 'shrapnel'];
     const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKER', 'DOTS'];
     const VOID_Y = H + 300;
+
+    // Damage model: an explosion has an inner core (carves terrain + full
+    // damage) and a wider outer ring (no terrain damage, a lighter health
+    // hit). OUTER_MULT is how much wider the light ring is; OUTER_FACTOR is
+    // its fraction of full damage.
+    const OUTER_MULT = 1.7, OUTER_FACTOR = 0.35;
+
+    // Tank movement: each tank gets a per-round energy budget worth about one
+    // full screen width of driving on flat ground; steep climbs cost more.
+    const ENERGY_MAX = 100;
+    const ENERGY_PER_PX = ENERGY_MAX / W;        // flat: a full screen = empty tank
+    const STEEP_SURCHARGE = 2.2;                 // extra cost per px of uphill climb
+    const MOVE_SPEED = 72;                        // px/s while driving
 
     const GREEN_BRIGHT = '#66ff66', GREEN_MID = '#22cc22', GREEN_DIM = '#114411', ORANGE = '#ffa500';
 
@@ -385,10 +431,20 @@
         twin:     { name: 'TWIN TURRET', short: '2 TWN', shots: [-5, 5], carveR: 22, dmgR: 22, dmg: 30 },
         triple:   { name: 'TRIPLE SHOT', short: '3 TRI', shots: [-9, 0, 9], carveR: 18, dmgR: 18, dmg: 24 },
         big:      { name: 'BIG BLAST', short: '4 BIG', shots: [0], carveR: 44, dmgR: 44, dmg: 60 },
-        digger:   { name: 'DIGGER', short: '5 DIG', shots: [0], carveR: 34, dmgR: 12, dmg: 15 }
+        digger:   { name: 'DIGGER', short: '5 DIG', shots: [0], carveR: 34, dmgR: 12, dmg: 15 },
+        shrapnel: { name: 'SHRAPNEL', short: '6 SHR', shots: [0], carveR: 16, dmgR: 15, dmg: 20, shrapnel: 7 },
+        // internal: secondary fragments thrown by a SHRAPNEL burst (never in inventory)
+        shrapnelFrag: { name: 'FRAG', shots: [0], carveR: 9, dmgR: 10, dmg: 14 }
     };
     const TANKBLAST = { carveR: 35, dmgR: 35, dmg: 30 };
-    const POWERUP_KEYS = ['twin', 'triple', 'big', 'digger'];
+    const POWERUP_KEYS = ['twin', 'triple', 'big', 'digger', 'shrapnel'];
+
+    // Easy battlefields get slightly bigger, more forgiving blasts; expert
+    // terrain gets tighter ones.
+    function blastScale() {
+        const t = state.config ? state.config.terrain : 'hills';
+        return t === 'hills' ? 1.2 : t === 'mountains' ? 1.05 : t === 'canyon' ? 0.98 : t === 'skyisland' ? 0.9 : 1.0;
+    }
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -404,6 +460,8 @@
     const hudScore = document.getElementById('hud-score');
     const powerMeter = document.getElementById('power-meter');
     const powerFill = document.getElementById('power-fill');
+    const powerLast = document.getElementById('power-last');
+    const shieldBtn = document.getElementById('btn-shield');
     const invRow = document.getElementById('inventory-row');
     const bannerEl = document.getElementById('banner');
     const matchModal = document.getElementById('match-modal');
@@ -584,8 +642,9 @@
             state.players.push({
                 idx: i, x: 0, y: 0, vy: 0, airborneStartY: null,
                 hp: 100, alive: true, deathProcessed: false,
-                angle: 55, inventory: { twin: 0, triple: 0, big: 0, digger: 0 },
-                selected: 'standard'
+                angle: 55, inventory: { twin: 0, triple: 0, big: 0, digger: 0, shrapnel: 0 },
+                selected: 'standard',
+                energy: ENERGY_MAX, shieldActive: false, shieldUsed: false, lastCharge: null
             });
         }
         state.scores = new Array(cfg.playerCount).fill(0);
@@ -676,7 +735,10 @@
         perfect: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.07)),
         tankDie: () => { crunch(); tone(180, 0.4, 'sawtooth', 0.09, 30); },
         roundWin: () => [392, 523, 659, 784].forEach((f, i) => tone(f, 0.1, 'square', 0.06, undefined, i * 0.1)),
-        fanfare: () => [523, 523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.09))
+        fanfare: () => [523, 523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.09)),
+        drive: () => tone(70, 0.05, 'square', 0.02),
+        shieldUp: () => { tone(400, 0.08, 'sine', 0.06, 950); tone(750, 0.1, 'sine', 0.05, 1250, 0.05); },
+        shieldPop: () => { tone(950, 0.12, 'sine', 0.08, 260); crunch(); }
     };
 
     // --- Particles ---------------------------------------------------------------
@@ -716,21 +778,41 @@
 
     // --- Explosions / damage ------------------------------------------------------
 
+    // Applies damage to a tank, but a raised shield absorbs the whole hit
+    // once and then pops (one shield use per round). Returns true if the
+    // shield ate it.
+    function applyDamage(t, dmg) {
+        if (t.shieldActive) {
+            t.shieldActive = false;
+            spawnParticles(t.x, t.y - TANK_H / 2, 10);
+            sfx.shieldPop();
+            return true;
+        }
+        t.hp = Math.max(0, t.hp - dmg);
+        return false;
+    }
+
     function explode(x, y, weaponKeyOrSpec, ownerIdx) {
         const spec = typeof weaponKeyOrSpec === 'string' ? WEAPONS[weaponKeyOrSpec] : weaponKeyOrSpec;
-        carveTerrain(x, y, spec.carveR);
-        const falloffR = spec.dmgR + 14;
+        const scale = blastScale();
+        const carveR = spec.carveR * scale;
+        const innerR = spec.dmgR * scale;      // full-damage core (also carves terrain)
+        const outerR = innerR * OUTER_MULT;    // wider, lighter-damage ring
+        carveTerrain(x, y, carveR);
         for (const t of state.players) {
             if (!t.alive) continue;
             const d = dist(t.x, t.y - TANK_H / 2, x, y);
-            if (d < falloffR) t.hp = Math.max(0, t.hp - spec.dmg * (1 - clamp(d / falloffR, 0, 1)));
+            let dmg = 0;
+            if (d <= innerR) dmg = spec.dmg * (1 - 0.35 * (d / innerR));                          // big hit, mild falloff
+            else if (d <= outerR) dmg = spec.dmg * OUTER_FACTOR * (1 - (d - innerR) / (outerR - innerR)); // small hit
+            if (dmg > 0) applyDamage(t, dmg);
         }
         // A blast landing near a crate cracks it open, awarding the shooter —
         // a direct fly-through hit is not required (that hitbox is a thin
         // 14px box a fast shell can arc over between substeps). Skipped for
         // tank-death blasts (ownerIdx < 0), which have no shooter to credit.
         if (ownerIdx != null && ownerIdx >= 0) {
-            const splash = spec.carveR + 10;
+            const splash = carveR + 10;
             for (let ci = state.crates.length - 1; ci >= 0; ci--) {
                 const c = state.crates[ci];
                 if (dist(c.x, c.y, x, y) <= splash) {
@@ -740,8 +822,24 @@
                 }
             }
         }
-        spawnParticles(x, y, Math.min(20, Math.round(8 + spec.carveR / 5)));
-        sfx.boom(spec.carveR);
+        spawnParticles(x, y, Math.min(20, Math.round(8 + carveR / 5)));
+        // second faint ring shows the lighter outer damage radius
+        state.particles.push({ x, y, vx: 0, vy: 0, life: 0.3, maxLife: 0.3, size: outerR * 0.6, type: 'ring' });
+        sfx.boom(carveR);
+        // SHRAPNEL bursts throw a fan of fragment shells (which do not recurse).
+        if (spec.shrapnel) spawnShrapnel(x, y, spec.shrapnel, ownerIdx);
+    }
+
+    // Fan of secondary shells thrown upward/outward from a shrapnel burst.
+    function spawnShrapnel(x, y, count, ownerIdx) {
+        for (let i = 0; i < count; i++) {
+            const ang = (20 + Math.random() * 140) * Math.PI / 180;   // upward hemisphere
+            const speed = 130 + Math.random() * 140;
+            state.shells.push({
+                x, y: y - 3, vx: Math.cos(ang) * speed, vy: -Math.sin(ang) * speed,
+                weapon: 'shrapnelFrag', ownerIdx, age: 0, trail: [], isFragment: true
+            });
+        }
     }
 
     // --- Shells ------------------------------------------------------------------
@@ -750,9 +848,16 @@
         const p = currentPlayer();
         const spec = WEAPONS[p.selected];
         const speed = 120 + state.charge * 480;
+        p.lastCharge = state.charge;    // remembered for the power-meter reference marker
+        const pivotY = p.y - TANK_H;    // turret pivot sits at the top of the hull
         for (const off of spec.shots) {
             const rad = (p.angle + off) * Math.PI / 180;
-            state.shells.push({ x: p.x, y: p.y - TANK_H * 0.7, vx: Math.cos(rad) * speed, vy: -Math.sin(rad) * speed, weapon: p.selected, ownerIdx: p.idx, age: 0, trail: [] });
+            // Spawn from the muzzle tip so near-horizontal shots clear the
+            // hull, and a straight-down shot detonates just under the tank —
+            // letting a player deliberately dig a pit beneath themselves.
+            const sx = p.x + Math.cos(rad) * 18;
+            const sy = pivotY - Math.sin(rad) * 18;
+            state.shells.push({ x: sx, y: sy, vx: Math.cos(rad) * speed, vy: -Math.sin(rad) * speed, weapon: p.selected, ownerIdx: p.idx, age: 0, trail: [] });
         }
         if (p.selected !== 'standard') p.inventory[p.selected] = Math.max(0, p.inventory[p.selected] - 1);
         p.selected = 'standard';
@@ -853,6 +958,7 @@
         const targetHp = target.hp != null ? target.hp : 999;
         if (has('big') && targetHp <= 50) return 'big';
         if (has('digger') && (state.config.terrain === 'skyisland' || state.config.terrain === 'canyon') && Math.random() < 0.5) return 'digger';
+        if (has('shrapnel') && missDist > 30 && Math.random() < 0.4) return 'shrapnel';
         if ((has('twin') || has('triple')) && missDist > 40) return has('triple') ? 'triple' : 'twin';
         return 'standard';
     }
@@ -992,7 +1098,13 @@
     }
 
     function grantRoundStart() {
-        for (const p of state.players) p.inventory[randomPowerupKey()]++;
+        // Each player starts a round with two distinct random power-ups.
+        for (const p of state.players) {
+            const pool = POWERUP_KEYS.slice();
+            for (let n = 0; n < 2 && pool.length; n++) {
+                p.inventory[pool.splice(Math.floor(Math.random() * pool.length), 1)[0]]++;
+            }
+        }
     }
 
     function processRoundEnd() {
@@ -1020,9 +1132,10 @@
         state.players.forEach((p, i) => {
             p.hp = 100; p.alive = true; p.deathProcessed = false;
             p.x = xs[i]; p.y = terrainAt(xs[i]); p.vy = 0; p.airborneStartY = null;
-            p.inventory = { twin: 0, triple: 0, big: 0, digger: 0 };
+            p.inventory = { twin: 0, triple: 0, big: 0, digger: 0, shrapnel: 0 };
             p.selected = 'standard';
             p.angle = xs[i] < W / 2 ? 55 : 125;
+            p.energy = ENERGY_MAX; p.shieldActive = false; p.shieldUsed = false; p.lastCharge = null;
         });
         grantRoundStart();
         state.shells = []; state.particles = []; state.crates = [];
@@ -1069,7 +1182,7 @@
 
     // --- Input -----------------------------------------------------------------
 
-    const input = { left: false, right: false, fineUp: false, fineDown: false };
+    const input = { left: false, right: false, fineUp: false, fineDown: false, driveLeft: false, driveRight: false };
 
     function updateHumanAiming(dt) {
         const p = currentPlayer();
@@ -1077,7 +1190,38 @@
         if (input.right) p.angle -= ANGLE_SPEED * dt;
         if (input.fineUp) p.angle += FINE_SPEED * dt;
         if (input.fineDown) p.angle -= FINE_SPEED * dt;
-        p.angle = clamp(p.angle, 5, 175);
+        // Full 360° aiming (wrap, no clamp) so a tank can point straight down
+        // and dig a pit under itself.
+        p.angle = ((p.angle % 360) + 360) % 360;
+        if (input.driveLeft) driveTank(p, -1, dt);
+        if (input.driveRight) driveTank(p, 1, dt);
+    }
+
+    // Drive a tank along the terrain, spending its per-round energy budget.
+    // Uphill costs more (never impossible); driving into a void column or
+    // another tank is blocked; when energy runs out the treads give up.
+    function driveTank(p, dir, dt) {
+        if (p.energy <= 0) return;
+        const nx = clamp(p.x + dir * MOVE_SPEED * dt, 20, W - 20);
+        if (Math.abs(nx - p.x) < 0.01) return;
+        if (terrainAt(nx) >= H - 6) return;                       // don't drive off a sky island
+        for (const o of state.players) if (o !== p && o.alive && Math.abs(o.x - nx) < TANK_W) return;
+        const climb = Math.max(0, terrainAt(p.x) - terrainAt(nx)); // uphill = ground rises (smaller y)
+        const cost = (Math.abs(nx - p.x) + climb * STEEP_SURCHARGE) * ENERGY_PER_PX;
+        p.energy = Math.max(0, p.energy - cost);
+        p.x = nx;
+        p.y = terrainAt(nx);
+        state._driveSndAcc = (state._driveSndAcc || 0) + dt;
+        if (state._driveSndAcc > 0.09) { state._driveSndAcc = 0; sfx.drive(); }
+    }
+
+    function activateShield() {
+        if (state.phase !== 'aiming') return;
+        const p = currentPlayer();
+        if (isCPU(p) || p.shieldUsed || p.shieldActive) { sfx.deny(); return; }
+        p.shieldActive = true; p.shieldUsed = true;
+        showBanner(nameOf(p) + ' SHIELD UP', 1.0);
+        sfx.shieldUp();
     }
 
     function startCharge() {
@@ -1091,7 +1235,7 @@
     }
 
     function selectWeaponByKey(k) {
-        const map = { '1': 'standard', '2': 'twin', '3': 'triple', '4': 'big', '5': 'digger' };
+        const map = { '1': 'standard', '2': 'twin', '3': 'triple', '4': 'big', '5': 'digger', '6': 'shrapnel' };
         const key = map[k];
         if (!key || state.phase !== 'aiming') return;
         const p = currentPlayer();
@@ -1108,19 +1252,26 @@
     }
 
     document.addEventListener('keydown', (e) => {
+        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         if (e.key === 'ArrowLeft') { input.left = true; ensureAudio(); }
         else if (e.key === 'ArrowRight') { input.right = true; ensureAudio(); }
         else if (e.key === 'ArrowUp') { input.fineUp = true; ensureAudio(); e.preventDefault(); }
         else if (e.key === 'ArrowDown') { input.fineDown = true; ensureAudio(); e.preventDefault(); }
+        else if (k === 'a') { input.driveLeft = true; ensureAudio(); }
+        else if (k === 'd') { input.driveRight = true; ensureAudio(); }
+        else if (k === 's') { ensureAudio(); activateShield(); }
         else if (e.key === ' ') { e.preventDefault(); ensureAudio(); if (!state.charging) startCharge(); }
-        else if (e.key >= '1' && e.key <= '5') { ensureAudio(); selectWeaponByKey(e.key); }
+        else if (e.key >= '1' && e.key <= '6') { ensureAudio(); selectWeaponByKey(e.key); }
         else if (e.key === 'Escape') { handleEscape(); }
     });
     document.addEventListener('keyup', (e) => {
+        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         if (e.key === 'ArrowLeft') input.left = false;
         else if (e.key === 'ArrowRight') input.right = false;
         else if (e.key === 'ArrowUp') input.fineUp = false;
         else if (e.key === 'ArrowDown') input.fineDown = false;
+        else if (k === 'a') input.driveLeft = false;
+        else if (k === 'd') input.driveRight = false;
         else if (e.key === ' ') releaseCharge();
     });
 
@@ -1130,9 +1281,12 @@
         el.addEventListener('pointercancel', onUp);
         el.addEventListener('pointerleave', onUp);
     }
-    bindHold(document.getElementById('btn-angle-minus'), () => { input.right = true; }, () => { input.right = false; });
-    bindHold(document.getElementById('btn-angle-plus'), () => { input.left = true; }, () => { input.left = false; });
+    bindHold(document.getElementById('btn-aim-left'), () => { input.left = true; }, () => { input.left = false; });
+    bindHold(document.getElementById('btn-aim-right'), () => { input.right = true; }, () => { input.right = false; });
+    bindHold(document.getElementById('btn-drive-left'), () => { input.driveLeft = true; }, () => { input.driveLeft = false; });
+    bindHold(document.getElementById('btn-drive-right'), () => { input.driveRight = true; }, () => { input.driveRight = false; });
     bindHold(document.getElementById('btn-fire'), () => { if (!state.charging) startCharge(); }, () => releaseCharge());
+    document.getElementById('btn-shield').addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); activateShield(); });
 
     // --- Layout / resize (fixed logical 800x500 world, letterboxed) -------------
 
@@ -1173,6 +1327,14 @@
     function drawTank(t) {
         if (!t.alive) return;
         const x = t.x, yBase = t.y, bodyTop = yBase - TANK_H;
+        // Shield bubble (pulsing) when raised.
+        if (t.shieldActive) {
+            const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 150);
+            ctx.strokeStyle = GREEN_BRIGHT; ctx.globalAlpha = pulse; ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath(); ctx.arc(x, bodyTop - 1, TANK_W * 0.85, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]); ctx.globalAlpha = 1;
+        }
         fillPatternRect(ctx, x - TANK_W / 2, bodyTop, TANK_W, TANK_H, t.idx);
         ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 1;
         ctx.strokeRect(x - TANK_W / 2, bodyTop, TANK_W, TANK_H);
@@ -1191,9 +1353,16 @@
         ctx.fillRect(barX, barY, barW * clamp(t.hp / 100, 0, 1), 3);
         ctx.strokeStyle = GREEN_MID; ctx.lineWidth = 1; ctx.strokeRect(barX, barY, barW, 3);
 
+        // Fuel/energy bar (orange) for the active human tank while it's their turn.
+        if (state.currentIdx === t.idx && !isCPU(t) && (state.phase === 'aiming' || state.phase === 'charging')) {
+            const fY = barY - 4;
+            ctx.fillStyle = GREEN_DIM; ctx.fillRect(barX, fY, barW, 2);
+            ctx.fillStyle = ORANGE; ctx.fillRect(barX, fY, barW * clamp(t.energy / ENERGY_MAX, 0, 1), 2);
+        }
+
         ctx.fillStyle = state.currentIdx === t.idx && state.phase !== 'flight' ? GREEN_BRIGHT : GREEN_MID;
         ctx.font = '8px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('P' + (t.idx + 1), x, barY - 4);
+        ctx.fillText('P' + (t.idx + 1), x, barY - 8);
     }
 
     function drawCrate(c) {
@@ -1240,8 +1409,21 @@
             powerMeter.classList.add('show');
             powerFill.style.height = (state.charge * 100) + '%';
             powerFill.style.background = state.charge > 0.85 ? ORANGE : GREEN_BRIGHT;
+            // reference marker: strength of this player's previous shot
+            if (p && p.lastCharge != null) {
+                powerLast.classList.add('show');
+                powerLast.style.bottom = (p.lastCharge * 100) + '%';
+            } else {
+                powerLast.classList.remove('show');
+            }
         } else {
             powerMeter.classList.remove('show');
+        }
+        // Mobile shield button reflects the current player's shield state.
+        if (p) {
+            shieldBtn.classList.toggle('used', p.shieldUsed && !p.shieldActive);
+            shieldBtn.classList.toggle('on', p.shieldActive);
+            shieldBtn.textContent = p.shieldActive ? 'SHIELD ON' : 'SHIELD';
         }
     }
 
@@ -1473,11 +1655,13 @@
     };
     window.fireAt = function (angleDeg, charge) {
         const p = currentPlayer();
-        p.angle = clamp(angleDeg, 5, 175);
+        p.angle = ((angleDeg % 360) + 360) % 360;
         state.charge = clamp(charge, 0, 1);
         fire();
     };
     window.solveShot = solveShot;
+    window.activateShield = activateShield;
+    window.driveCurrent = function (dir, dt) { driveTank(currentPlayer(), dir, dt || 0.1); };
 </script>
 </body>
 </html>
