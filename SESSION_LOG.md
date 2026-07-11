@@ -5,6 +5,34 @@ top.
 
 ---
 
+## 2026-07-10 — Snake Duel: solo survival mode
+
+**Branch:** `claude/snake-duel-game`
+
+Follow-up on Snake Duel adding a single-player mode.
+
+### What shipped
+
+- **Solo survival** — a new MODE toggle (Duel / Solo) in setup. Solo is one
+  snake, endless: grow by eating, don't crash. A persistent high score
+  (`sd_highscore`, shown as BEST length) tracks how far you get.
+- **Levels + obstacles** — every few pellets (4) you level up; each level
+  scatters more obstacle blocks across the arena (crashing one is fatal) and
+  nudges the speed up. Obstacles avoid spawning on the snake or right in front
+  of the head, and a "LEVEL n" banner + jingle marks each promotion.
+- **UX** — HUD switches to LEN / LEVEL / BEST in solo; arrow keys also steer
+  the single snake (either hand); the setup hides the Player-2 and match-length
+  rows in solo. Switching back to Duel clears obstacles cleanly.
+
+### Verification
+
+10-check Playwright suite (solo start state, eat-to-grow scoring, level-up
+obstacle spawn, obstacle-crash game over, high-score save + persist + no
+overwrite by a lower run, solo steering, and clean duel/solo switching) — all
+passing, plus a re-run of the original 13-check duel suite for regressions.
+
+---
+
 ## 2026-07-10 — Snake Duel (built from scratch to v1)
 
 **Branch:** `claude/snake-duel-game`
