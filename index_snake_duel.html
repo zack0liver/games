@@ -341,8 +341,12 @@
     }
 
     function spawnFood() {
+        // Keep pellets one cell off every edge so they never sit flush against
+        // the wall (which reads badly and is awkward to grab).
+        const m = 1;
         for (let tries = 0; tries < 400; tries++) {
-            const c = Math.floor(Math.random() * COLS), r = Math.floor(Math.random() * ROWS);
+            const c = m + Math.floor(Math.random() * (COLS - 2 * m));
+            const r = m + Math.floor(Math.random() * (ROWS - 2 * m));
             if (!occupied(c, r)) { state.food.push({ c, r }); return; }
         }
     }
