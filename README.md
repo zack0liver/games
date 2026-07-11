@@ -76,6 +76,16 @@ Drag a cartridge into the console (or tap one) to play.
    speed (Chill / Normal / Fast) and whether the walls are solid or wrap
    around the edges, with settings remembered between visits.
 
+7. **Neon Breakout**  
+   Direct link: [https://zack0liver.github.io/games/index_neon_breakout.html](https://zack0liver.github.io/games/index_neon_breakout.html)  
+   A single-player brick breaker drenched in neon glow. Bounce the ball off
+   your paddle to smash rows of glowing bricks — tougher multi-hit bricks show
+   up as you climb the levels, which get taller and busier each time. Broken
+   bricks sometimes drop power-ups you catch with the paddle: wide paddle,
+   multiball, slow ball, paddle laser, and extra lives. Move with the mouse or
+   arrow keys (drag on touch), Space to launch and to fire the laser. Three
+   lives, three difficulties, and a saved high score to chase.
+
 ## Planned Enhancements
 
 ### Galaga
