@@ -5,6 +5,36 @@ top.
 
 ---
 
+## 2026-07-10 — Asteroids Jungle Aces: shield power-up + Snake food fix
+
+**Branches:** `claude/jungle-aces-shields`, `claude/snake-food-fix`
+
+Two small requested tweaks.
+
+### Jungle Aces shield power-up (ported from Maze Edition)
+
+- Added the `ShieldPickup` class and the ship's `shieldTimer` / `shielded`
+  getter / bubble render, lifted from `index_asteroids_maze.html` and adapted
+  to the wave-based Jungle Aces game (the maze spawns shields per level; here a
+  timer drops one every ~16-26s, max one on screen).
+- Collecting a pickup grants 5-10s of invulnerability; while shielded, flying
+  into an asteroid/monkey smashes it (score, no life lost) instead of dying.
+  Unshielded contact still costs a life. A cyan shield bubble, "SHIELD UP!"
+  banner, and a bottom-left "◇ SHIELD Ns" readout show the state. The maze's
+  other "power-up" (the permanent +1-hull ship upgrade) is tied to that game's
+  hull system and tunnel-ring obstacles, so it wasn't applicable to the
+  lives-based Jungle Aces.
+- Verified with a 7-check Playwright suite (pickup spawn, collection → shield,
+  shielded smash with no life loss, unshielded still costs a life, expiry, no
+  errors).
+
+### Snake Duel food fix
+
+- `spawnFood` now insets pellets one cell from every edge so food never sits
+  flush against the wall (confirmed over 2000 samples).
+
+---
+
 ## 2026-07-10 — Neon Breakout (built from scratch to v1)
 
 **Branch:** `claude/neon-breakout-game`
