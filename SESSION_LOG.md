@@ -5,6 +5,46 @@ top.
 
 ---
 
+## 2026-07-10 — Neon Breakout (built from scratch to v1)
+
+**Branch:** `claude/neon-breakout-game`
+
+Second game from the concept-sheet round (Neon Breakout, following Snake Duel).
+Single self-contained file, neon-glow aesthetic matching the arcade hub.
+
+### What shipped
+
+- **The game** (`index_neon_breakout.html`) — classic single-player brick
+  breaker on a fixed 600×720 portrait field, letterboxed. Glowing bricks,
+  a cyan paddle, a white ball with substepped circle-vs-AABB collision
+  (axis-of-least-penetration reflection, no tunneling), and a paddle-angle
+  bounce based on contact point.
+- **Progression** — procedural levels that get taller and more gap-riddled
+  each round; multi-hit bricks (up to 3 HP, brighter tint per HP) start
+  appearing at higher levels; ball speed ramps per level. Score, 3 lives,
+  and a persistent high score (`nb_highscore`).
+- **Power-ups** — broken bricks may drop a falling capsule you catch with the
+  paddle: WIDE paddle, MULTIBALL (splits every ball into three), SLOW ball,
+  LASER (paddle fires bolts on Space/tap), and EXTRA LIFE. Timed effects
+  expire; a legend is shown on the start screen.
+- **Controls** — mouse or ←/→ (or A/D) to move; drag on touch; Space or
+  tap to launch the ball and fire the laser. Start screen with a difficulty
+  picker (Casual/Normal/Hard affecting ball speed, ramp, and drop rate);
+  mute + difficulty persisted; Escape returns to the arcade. Neon shards on
+  brick breaks and a small screen shake on losing a ball.
+- **Integration** — new arcade cartridge (`BRICK BREAKER`, cyan/magenta),
+  README entry.
+
+### Verification
+
+12-check Playwright suite (start screen, game start state, ball launch,
+brick-break scoring over a short auto-rally, level-advance with tougher
+bricks, multiball/extra-life/wide power-ups, last-ball-at-1-life game over +
+high-score save, high-score and mute persistence across reload, and the mobile
+layout) — all passing; start/play/mobile screens eyeballed.
+
+---
+
 ## 2026-07-10 — Snake Duel: solo survival mode
 
 **Branch:** `claude/snake-duel-game`
