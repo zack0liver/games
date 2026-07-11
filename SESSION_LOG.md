@@ -5,6 +5,48 @@ top.
 
 ---
 
+## 2026-07-10 — Snake Duel (built from scratch to v1)
+
+**Branch:** `claude/snake-duel-game`
+
+New game picked from a concept-sheet mockup round (Snake Duel chosen; Neon
+Breakout earmarked for later). Single self-contained file, green-CRT look that
+pairs with Tank Wars.
+
+### What shipped
+
+- **The game** (`index_snake_duel.html`) — two snakes share a 30×20 grid
+  arena. Grow by eating pellets; die on any collision with a wall, your own
+  body, or the rival. Last snake alive wins the round; best-of-N match. Glowing
+  green (P1) and magenta (P2) snakes with directional eyes, gold pellets, faint
+  grid + scanline overlay.
+- **Simultaneous-tick engine** — all snakes advance one cell per tick with
+  buffered turns (no 180° reversal into your own neck); collisions resolve
+  against the post-move board so head-to-head ties kill both (a draw replays the
+  round), and a snake may safely follow into the cell a tail is vacating.
+- **Controls** — desktop: P1 WASD, P2 arrow keys, Space to ready/pause. Mobile:
+  multi-touch swipe, where each player swipes their half of the screen (split
+  left/right in landscape, bottom/top in portrait; solo play steers P1 from
+  anywhere). On-screen legend for each.
+- **CPU snake** — greedy pathing toward the nearest pellet with collision
+  avoidance; difficulty scales from sloppy (Easy) to a flood-fill open-space
+  check that avoids boxing itself in (Hard).
+- **Setup + options** — opponent (2-player or CPU Easy/Med/Hard), speed
+  (Chill/Normal/Fast), walls (Solid or Wrap-around), and match length;
+  config + mute persisted in localStorage. Escape returns to the arcade.
+- **Integration** — new arcade cartridge (`2P GROW & TRAP`, green/magenta),
+  README entry.
+
+### Verification
+
+13-check Playwright suite (scratchpad) driving the real page with a
+deterministic single-tick hook: food growth + respawn, solid-wall death,
+wrap-around, head-to-head double-KO draw, round scoring, 180°-reversal guard,
+an unattended CPU snake surviving and growing, mute/config persistence across
+reload, and the mobile swipe layout. All passing; setup/board/mobile eyeballed.
+
+---
+
 ## 2026-07-10 — Tank Wars v2 (movement, shields, richer combat)
 
 **Branch:** `claude/tank-wars-game`
