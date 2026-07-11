@@ -69,7 +69,10 @@ Drag a cartridge into the console (or tap one) to play.
    pellets and box your rival into a wall, their tail, or your own. Last snake
    slithering wins the round; play a best-of series. Play two humans on one
    device (P1 on WASD, P2 on the arrow keys — or each player swipes their half
-   of a phone screen) or take on a CPU snake at three difficulties. Pick your
+   of a phone screen) or take on a CPU snake at three difficulties. There's
+   also a **solo survival mode**: one snake, endless, chasing a saved high
+   score — every few pellets you level up and the arena grows more obstacle
+   blocks to weave around, with the speed creeping up each level. Pick your
    speed (Chill / Normal / Fast) and whether the walls are solid or wrap
    around the edges, with settings remembered between visits.
 

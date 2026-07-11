@@ -47,6 +47,7 @@
         }
         #hud .p1 { color: var(--p1); text-shadow: 0 0 6px var(--p1); }
         #hud .p2 { color: var(--p2); text-shadow: 0 0 6px var(--p2); }
+        #hud .best { color: var(--food); text-shadow: 0 0 6px var(--food); }
         #hud-mid { color: var(--g-mid); }
         .pill-btn {
             background: transparent; color: #d8ffd8; border: 2px solid var(--g-mid);
@@ -147,8 +148,12 @@
 <div id="setup">
     <div id="setup-box">
         <h1>SNAKE DUEL</h1>
-        <p class="setup-sub">Grow by eating. Box in your rival. Last snake slithering wins.</p>
+        <p class="setup-sub">Grow by eating. Box in your rival, or go solo and see how long you last.</p>
         <div class="setup-row">
+            <span class="setup-label">MODE</span>
+            <div class="opt-group" id="mode-options"></div>
+        </div>
+        <div class="setup-row" id="row-opp">
             <span class="setup-label">PLAYER 2</span>
             <div class="opt-group" id="opp-options"></div>
         </div>
@@ -160,7 +165,7 @@
             <span class="setup-label">WALLS</span>
             <div class="opt-group" id="walls-options"></div>
         </div>
-        <div class="setup-row">
+        <div class="setup-row" id="row-rounds">
             <span class="setup-label">MATCH</span>
             <div class="opt-group" id="rounds-options"></div>
         </div>
@@ -180,6 +185,10 @@
     const P1 = '#33ff66', P2 = '#ff3caa', FOOD = '#ffd166';
     const GRID = 'rgba(40,120,40,0.18)', BRIGHT = '#d8ffd8';
     const START_LEN = 4;
+    // Solo survival: level up every N pellets; each level adds obstacle blocks.
+    const LEVEL_UP_EVERY = 4;
+    const OBSTACLE_PER_LEVEL = 3;
+    const OBSTACLE_CAP = 34;
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -200,10 +209,11 @@
 
     const SPEED_LEVELS = { chill: 6.5, normal: 9, fast: 12 };
 
-    function defaultConfig() { return { opponent: 'cpu2', speed: 'normal', walls: 'solid', roundsToWin: 3 }; }
+    function defaultConfig() { return { mode: 'duel', opponent: 'cpu2', speed: 'normal', walls: 'solid', roundsToWin: 3 }; }
     function loadConfig() {
         try {
             const c = Object.assign(defaultConfig(), JSON.parse(localStorage.getItem(LS.config) || '{}'));
+            if (c.mode !== 'duel' && c.mode !== 'solo') c.mode = 'duel';
             if (!SPEED_LEVELS[c.speed]) c.speed = 'normal';
             if (c.walls !== 'solid' && c.walls !== 'wrap') c.walls = 'solid';
             if (!(c.roundsToWin >= 1 && c.roundsToWin <= 5)) c.roundsToWin = 3;
@@ -212,7 +222,8 @@
     }
 
     // opponent: 'human' | 'cpu1' | 'cpu2' | 'cpu3'
-    function p2IsCPU() { return state.config.opponent.startsWith('cpu'); }
+    function isSolo() { return state.config.mode === 'solo'; }
+    function p2IsCPU() { return !isSolo() && state.config.opponent.startsWith('cpu'); }
     function cpuLevel() { return parseInt(state.config.opponent.slice(3)) || 2; }
 
     // --- Game state ----------------------------------------------------------
@@ -221,8 +232,12 @@
         config: null,
         snakes: [],
         food: [],
+        obstacles: [],
         scores: [0, 0],
         round: 1,
+        level: 1,
+        soloScore: 0,
+        highScore: parseInt(localStorage.getItem('sd_highscore') || '0', 10),
         tickAcc: 0,
         banner: null,
         roundWinner: null
@@ -239,6 +254,8 @@
     }
 
     function newRound() {
+        if (isSolo()) return newSolo();
+        state.obstacles = []; state.level = 1;
         state.snakes = [
             makeSnake(0, 6, Math.floor(ROWS / 2), DIRS.right, P1),
             makeSnake(1, COLS - 7, Math.floor(ROWS / 2), DIRS.left, P2)
@@ -252,6 +269,63 @@
         updateHUD();
     }
 
+    // Single-player survival: one snake, endless, level up to add obstacles.
+    function newSolo() {
+        state.level = 1; state.soloScore = 0;
+        state.snakes = [makeSnake(0, Math.floor(COLS / 2), Math.floor(ROWS / 2), DIRS.right, P1)];
+        state.obstacles = [];
+        placeObstacles(obstacleCountForLevel(1));
+        state.food = []; spawnFood();
+        state.tickAcc = 0; state.roundWinner = null;
+        state.phase = 'ready';
+        showBanner('SOLO — GET READY', 0);
+        updateHUD();
+    }
+
+    function obstacleCountForLevel(l) { return Math.min(OBSTACLE_CAP, (l - 1) * OBSTACLE_PER_LEVEL); }
+    function isObstacle(c, r) { return state.obstacles.some(o => o.c === c && o.r === r); }
+
+    // Scatter single-cell obstacle blocks on free cells, keeping clear of the
+    // snake's head so a fresh level never spawns an instant trap.
+    function placeObstacles(count) {
+        state.obstacles = [];
+        const head = state.snakes[0] ? state.snakes[0].cells[0] : { c: COLS / 2, r: ROWS / 2 };
+        let tries = 0;
+        while (state.obstacles.length < count && tries < 3000) {
+            tries++;
+            const c = Math.floor(Math.random() * COLS), r = Math.floor(Math.random() * ROWS);
+            if (occupied(c, r)) continue;
+            if (Math.abs(c - head.c) + Math.abs(r - head.r) < 4) continue;
+            state.obstacles.push({ c, r });
+        }
+    }
+
+    function maybeLevelUp() {
+        const target = Math.floor(state.soloScore / LEVEL_UP_EVERY) + 1;
+        if (target > state.level) {
+            state.level = target;
+            placeObstacles(obstacleCountForLevel(target));
+            state.food = state.food.filter(f => !isObstacle(f.c, f.r));
+            while (state.food.length < 1) spawnFood();
+            showBanner('LEVEL ' + state.level, 1.4);
+            sfx.levelUp();
+        }
+    }
+
+    function gameOverSolo() {
+        state.phase = 'matchOver';
+        const isBest = state.soloScore > state.highScore;
+        if (isBest) { state.highScore = state.soloScore; localStorage.setItem('sd_highscore', String(state.highScore)); }
+        hideBanner();
+        modalContent.innerHTML = '<h1 style="color:' + P1 + '">GAME OVER</h1>' +
+            '<p>LENGTH ' + (state.soloScore + START_LEN) + ' &middot; LEVEL ' + state.level + '</p>' +
+            '<p>' + (isBest ? 'NEW BEST!' : 'BEST ' + (state.highScore + START_LEN)) + '</p>';
+        modal.style.display = 'block';
+        sfx.crash();
+        if (isBest) sfx.fanfare();
+        updateHUD();
+    }
+
     function startMatch() {
         state.scores = [0, 0];
         state.round = 1;
@@ -262,6 +336,7 @@
     function occupied(c, r) {
         for (const s of state.snakes) for (const cell of s.cells) if (cell.c === c && cell.r === r) return true;
         for (const f of state.food) if (f.c === c && f.r === r) return true;
+        for (const o of state.obstacles) if (o.c === c && o.r === r) return true;
         return false;
     }
 
@@ -289,6 +364,7 @@
                 if (walls === 'wrap') { nc = (nc + COLS) % COLS; nr = (nr + ROWS) % ROWS; }
                 else { s.wallDead = true; }
             }
+            if (!s.wallDead && isObstacle(nc, nr)) s.wallDead = true;   // crashing an obstacle kills
             s.newHead = { c: nc, r: nr };
             s.ate = state.food.some(f => f.c === nc && f.r === nr);
             const body = s.cells.slice(0, s.ate ? s.cells.length : s.cells.length - 1);
@@ -318,12 +394,17 @@
                 state.food = state.food.filter(f => !(f.c === s.newHead.c && f.r === s.newHead.r));
                 spawnFood();
                 anyoneAte = true;
+                if (isSolo()) { state.soloScore++; maybeLevelUp(); }
             }
         }
         if (anyoneAte) sfx.eat();
-        // 5. round end?
-        const alive = state.snakes.filter(s => s.alive);
-        if (alive.length <= 1) endRound(alive.length === 1 ? alive[0].idx : -1);
+        // 5. round / game end?
+        if (isSolo()) {
+            if (!state.snakes[0].alive) gameOverSolo();
+        } else {
+            const alive = state.snakes.filter(s => s.alive);
+            if (alive.length <= 1) endRound(alive.length === 1 ? alive[0].idx : -1);
+        }
         updateHUD();
     }
 
@@ -415,10 +496,10 @@
         else if (k === 's') setDir(0, 'down');
         else if (k === 'a') setDir(0, 'left');
         else if (k === 'd') setDir(0, 'right');
-        else if (e.key === 'ArrowUp') { setDir(1, 'up'); e.preventDefault(); }
-        else if (e.key === 'ArrowDown') { setDir(1, 'down'); e.preventDefault(); }
-        else if (e.key === 'ArrowLeft') { setDir(1, 'left'); }
-        else if (e.key === 'ArrowRight') { setDir(1, 'right'); }
+        else if (e.key === 'ArrowUp') { setDir(isSolo() ? 0 : 1, 'up'); e.preventDefault(); }
+        else if (e.key === 'ArrowDown') { setDir(isSolo() ? 0 : 1, 'down'); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft') { setDir(isSolo() ? 0 : 1, 'left'); }
+        else if (e.key === 'ArrowRight') { setDir(isSolo() ? 0 : 1, 'right'); }
         else if (e.key === ' ') { e.preventDefault(); ensureAudio(); if (state.phase === 'ready') beginPlayIfReady(); else if (state.phase === 'playing') state.phase = 'paused'; else if (state.phase === 'paused') state.phase = 'playing'; }
         else if (e.key === 'Escape') { handleEscape(); }
         if (['w','a','s','d'].includes(k) || e.key.startsWith('Arrow')) beginPlayIfReady();
@@ -429,7 +510,7 @@
     const pointers = new Map();
     function playerForPoint(x, y, rect) {
         const landscape = rect.width >= rect.height;
-        if (p2IsCPU()) return 0;   // solo: any swipe drives P1
+        if (isSolo() || p2IsCPU()) return 0;   // one snake: any swipe drives P1
         if (landscape) return x < rect.left + rect.width / 2 ? 0 : 1;
         return y >= rect.top + rect.height / 2 ? 0 : 1;   // bottom = P1
     }
@@ -475,6 +556,7 @@
         crash: () => { tone(200, 0.25, 'sawtooth', 0.09, 40); },
         roundWin: () => [392, 523, 659, 784].forEach((f, i) => tone(f, 0.1, 'square', 0.06, undefined, i * 0.09)),
         fanfare: () => [523, 523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.09)),
+        levelUp: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.09, 'square', 0.06, undefined, i * 0.06)),
         select: () => tone(660, 0.05, 'square', 0.04)
     };
 
@@ -511,6 +593,14 @@
         ctx.strokeStyle = GRID; ctx.lineWidth = 1;
         for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(cx(c), boardY); ctx.lineTo(cx(c), boardY + cell * ROWS); ctx.stroke(); }
         for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(boardX, cy(r)); ctx.lineTo(boardX + cell * COLS, cy(r)); ctx.stroke(); }
+        // obstacles (solo levels)
+        for (const o of state.obstacles) {
+            ctx.fillStyle = '#20351f';
+            rr(cx(o.c) + 1, cy(o.r) + 1, cell - 2, cell - 2, 3); ctx.fill();
+            ctx.strokeStyle = '#5a8a5a'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.strokeStyle = 'rgba(130,190,130,0.4)';
+            ctx.beginPath(); ctx.moveTo(cx(o.c) + 3, cy(o.r) + cell / 2); ctx.lineTo(cx(o.c) + cell - 3, cy(o.r) + cell / 2); ctx.stroke();
+        }
         // food
         const pulse = 0.7 + 0.3 * Math.sin(t * 6);
         ctx.save(); ctx.shadowColor = FOOD; ctx.shadowBlur = 8 * pulse; ctx.fillStyle = FOOD;
@@ -541,7 +631,15 @@
     }
 
     function updateHUD() {
+        if (isSolo()) {
+            const s = state.snakes[0];
+            hudP1.className = 'p1'; hudP1.textContent = 'LEN ' + ((s ? scoreOf(s) : 0) + START_LEN);
+            hudMid.textContent = 'LEVEL ' + state.level;
+            hudP2.className = 'best'; hudP2.textContent = 'BEST ' + (state.highScore + START_LEN);
+            return;
+        }
         const s1 = state.snakes[0], s2 = state.snakes[1];
+        hudP1.className = 'p1'; hudP2.className = 'p2';
         hudP1.textContent = 'P1 ' + state.scores[0] + (s1 ? '  ↑' + scoreOf(s1) : '');
         hudP2.textContent = (s2 ? '↑' + scoreOf(s2) + '  ' : '') + state.scores[1] + ' ' + (p2IsCPU() ? 'CPU' : 'P2');
         hudMid.textContent = 'RND ' + state.round + '/' + (state.config.roundsToWin * 2 - 1);
@@ -564,7 +662,10 @@
         updateBanner(dt);
         if (state.phase === 'playing') {
             if (p2IsCPU() && state.snakes[1] && state.snakes[1].alive) decideCPU(state.snakes[1]);
-            const step = 1 / SPEED_LEVELS[state.config.speed];
+            const base = SPEED_LEVELS[state.config.speed];
+            // Solo speeds up each level (capped) for escalating pressure.
+            const spd = isSolo() ? Math.min(base + 8, base + (state.level - 1) * 0.8) : base;
+            const step = 1 / spd;
             state.tickAcc += dt;
             while (state.tickAcc >= step && state.phase === 'playing') { state.tickAcc -= step; tick(); }
         } else if (state.phase === 'roundOver') {
@@ -599,6 +700,8 @@
     document.getElementById('setup-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); openSetup(); });
 
     const setupEl = document.getElementById('setup');
+    const startBtn = document.getElementById('start-btn');
+    const MODES = [['duel', 'DUEL'], ['solo', 'SOLO']];
     const OPP = [['human', '2 PLAYER'], ['cpu1', 'CPU EASY'], ['cpu2', 'CPU MED'], ['cpu3', 'CPU HARD']];
     const SPEEDS = [['chill', 'CHILL'], ['normal', 'NORMAL'], ['fast', 'FAST']];
     const WALLS = [['solid', 'SOLID'], ['wrap', 'WRAP']];
@@ -615,10 +718,15 @@
         }
     }
     function renderSetup() {
+        optGroup('mode-options', MODES, () => state.config.mode, v => state.config.mode = v);
         optGroup('opp-options', OPP, () => state.config.opponent, v => state.config.opponent = v);
         optGroup('speed-options', SPEEDS, () => state.config.speed, v => state.config.speed = v);
         optGroup('walls-options', WALLS, () => state.config.walls, v => state.config.walls = v);
         optGroup('rounds-options', RNDS, () => state.config.roundsToWin, v => state.config.roundsToWin = v);
+        // Player-2 and match-length only apply in duel mode.
+        document.getElementById('row-opp').style.display = isSolo() ? 'none' : '';
+        document.getElementById('row-rounds').style.display = isSolo() ? 'none' : '';
+        startBtn.textContent = isSolo() ? 'START SOLO' : 'START DUEL';
     }
     function openSetup() { renderSetup(); setupEl.classList.add('open'); }
     function closeSetup() { setupEl.classList.remove('open'); }
