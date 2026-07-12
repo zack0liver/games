@@ -1113,8 +1113,11 @@
                     const c = state.crates[ci];
                     if (pointInCrate(s.x, s.y, c)) {
                         state.pendingAwards.push({ type: 'crate', playerIdx: s.ownerIdx, weaponType: c.type });
-                        spawnParticles(s.x, s.y, 6);
                         state.crates.splice(ci, 1);
+                        // A direct hit still detonates the shell — terrain
+                        // carve, tank damage, and effects — it doesn't just
+                        // vanish into the crate.
+                        handleShellImpact(s, s.x, s.y, null);
                         removed = true; break;
                     }
                 }
@@ -1987,6 +1990,7 @@
     window.solveShot = solveShot;
     window.activateShield = activateShield;
     window.driveCurrent = function (dir, dt) { driveTank(currentPlayer(), dir, dt || 0.1); };
+    window.stepFrame = function (dt) { update(dt || 0.1); render(); };
 </script>
 </body>
 </html>
