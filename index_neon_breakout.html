@@ -153,7 +153,8 @@
         wideUntil: 0, slowUntil: 0, laserUntil: 0,
         laserCooldown: 0,
         banner: null,
-        shake: 0
+        shake: 0,
+        paused: false
     };
 
     function diff() { return DIFF[state.difficulty] || DIFF.normal; }
@@ -212,6 +213,7 @@
     function startGame() {
         state.score = 0; state.lives = 3; state.level = 1;
         state.time = 0;
+        state.paused = false;
         modal.style.display = 'none';
         startLevel(1);
     }
@@ -549,6 +551,7 @@
     let lastT = 0;
     function loop(ts) {
         const t = ts / 1000; const dt = Math.min(0.05, t - lastT || 0.016); lastT = t;
+        if (state.paused) { render(); requestAnimationFrame(loop); return; }
         if (state.phase !== 'start' && state.phase !== 'gameOver') update(dt); else updateParticles(dt);
         render();
         requestAnimationFrame(loop);
@@ -596,6 +599,97 @@
     window.launchBallTest = launchBall;
     window.clearBricksTest = function () { state.bricks = []; };
     window.applyPowerupTest = applyPowerup;
+
+    // ===== Shared arcade UI: CONTROLS keyboard view + pause =====
+    function installArcadeUI(opts) {
+        const accent = opts.accent || '#38e8ff';
+        const pause = opts.pause || null;
+        if (!document.getElementById('aui-style')) {
+            const st = document.createElement('style');
+            st.id = 'aui-style';
+            st.textContent = `
+            #aui-btns{position:fixed;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));z-index:600;display:flex;gap:6px;}
+            .aui-b{width:34px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);color:var(--aui-a);border:1px solid var(--aui-a);border-radius:6px;font-family:'Press Start 2P','Courier New',monospace;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding:0;}
+            .aui-b:active{background:var(--aui-a);color:#000;}
+            #aui-controls,#aui-paused{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;background:rgba(2,2,10,0.88);}
+            #aui-controls.on,#aui-paused.on{display:flex;}
+            #aui-panel{max-width:min(560px,94vw);max-height:92vh;overflow-y:auto;box-sizing:border-box;border:2px solid var(--aui-a);border-radius:12px;background:rgba(6,6,16,0.98);box-shadow:0 0 24px var(--aui-a);padding:16px 16px 20px;text-align:center;font-family:'Press Start 2P','Courier New',monospace;color:#eaf6ff;}
+            #aui-panel h2{font-size:0.85rem;color:var(--aui-a);text-shadow:0 0 8px var(--aui-a);margin:0 0 12px;}
+            .aui-kb{display:flex;flex-direction:column;gap:4px;align-items:center;margin:6px 0 12px;}
+            .aui-row{display:flex;gap:4px;justify-content:center;}
+            .aui-key{min-width:20px;height:22px;padding:0 4px;display:flex;align-items:center;justify-content:center;border:1px solid #33415a;border-radius:4px;color:#5a6b82;font-size:0.5rem;}
+            .aui-key.wide{min-width:120px;}
+            .aui-key.on{border-color:var(--aui-a);color:#000;background:var(--aui-a);box-shadow:0 0 6px var(--aui-a);}
+            .aui-arrows{display:flex;flex-direction:column;gap:4px;align-items:center;margin-left:10px;}
+            .aui-legend{text-align:left;font-size:0.5rem;line-height:1.9;color:#9fb3c8;margin:8px auto 0;max-width:420px;}
+            .aui-legend b{color:var(--aui-a);}
+            .aui-mob{font-size:0.5rem;color:#7a8ca0;margin-top:10px;line-height:1.7;}
+            .aui-close{margin-top:14px;background:var(--aui-a);color:#000;border:none;border-radius:6px;padding:10px 18px;font-family:inherit;font-size:0.6rem;cursor:pointer;touch-action:manipulation;}
+            #aui-paused .p-box{text-align:center;font-family:'Press Start 2P','Courier New',monospace;color:var(--aui-a);text-shadow:0 0 12px var(--aui-a);}
+            #aui-paused h1{font-size:1.4rem;margin:0 0 12px;}
+            #aui-paused p{font-size:0.55rem;color:#9fb3c8;}
+            `;
+            document.head.appendChild(st);
+        }
+        document.documentElement.style.setProperty('--aui-a', accent);
+        const used = new Set();
+        (opts.keys || []).forEach(e => e.k.forEach(k => used.add(String(k).toUpperCase())));
+        const btns = document.createElement('div');
+        btns.id = 'aui-btns';
+        const cBtn = document.createElement('button');
+        cBtn.className = 'aui-b'; cBtn.title = 'Controls'; cBtn.textContent = '⌨';
+        btns.appendChild(cBtn);
+        let pBtn = null;
+        if (pause) { pBtn = document.createElement('button'); pBtn.className = 'aui-b'; pBtn.title = 'Pause'; pBtn.textContent = '⏸'; btns.appendChild(pBtn); }
+        document.body.appendChild(btns);
+        const co = document.createElement('div');
+        co.id = 'aui-controls';
+        const rows = [['1','2','3','4','5','6','7','8','9','0'],['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['Z','X','C','V','B','N','M']];
+        const key = (label, tok, cls) => `<div class="aui-key ${cls || ''} ${used.has(tok) ? 'on' : ''}">${label}</div>`;
+        let kb = '<div class="aui-kb">';
+        for (const r of rows) kb += '<div class="aui-row">' + r.map(k => key(k, k)).join('') + '</div>';
+        kb += '<div class="aui-row" style="align-items:flex-end">' + key('SPACE', 'SPACE', 'wide') +
+            '<div class="aui-arrows"><div class="aui-row">' + key('↑', '↑') + '</div><div class="aui-row">' + key('←', '←') + key('↓', '↓') + key('→', '→') + '</div></div></div></div>';
+        const legend = (opts.keys || []).map(e => `<div><b>${e.k.join(' / ')}</b> — ${e.a}</div>`).join('');
+        co.innerHTML = `<div id="aui-panel"><h2>CONTROLS</h2>${kb}<div class="aui-legend">${legend}</div>` +
+            (opts.mobile ? `<div class="aui-mob">\u{1F4F1} ${opts.mobile}</div>` : '') + `<button class="aui-close">CLOSE</button></div>`;
+        document.body.appendChild(co);
+        const po = document.createElement('div');
+        po.id = 'aui-paused';
+        po.innerHTML = `<div class="p-box"><h1>⏸ PAUSED</h1><p>press P or ⏸ to resume</p></div>`;
+        document.body.appendChild(po);
+        let autoPaused = false;
+        function refreshPaused() { const on = pause && pause.isPaused(); po.classList.toggle('on', !!on); if (pBtn) pBtn.textContent = on ? '▶' : '⏸'; }
+        function togglePause() { if (!pause || !pause.canPause()) return; pause.setPaused(!pause.isPaused()); refreshPaused(); }
+        function openControls() { if (pause && pause.canPause() && !pause.isPaused()) { pause.setPaused(true); autoPaused = true; } po.classList.remove('on'); co.classList.add('on'); }
+        function closeControls() { co.classList.remove('on'); if (autoPaused && pause) { pause.setPaused(false); autoPaused = false; } refreshPaused(); }
+        cBtn.addEventListener('click', () => co.classList.contains('on') ? closeControls() : openControls());
+        co.querySelector('.aui-close').addEventListener('click', closeControls);
+        co.addEventListener('click', (e) => { if (e.target === co) closeControls(); });
+        if (pBtn) pBtn.addEventListener('click', togglePause);
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && co.classList.contains('on')) { e.preventDefault(); e.stopPropagation(); closeControls(); return; }
+            if ((e.key === 'p' || e.key === 'P') && pause) { togglePause(); }
+        }, true);
+        return { togglePause, refresh: refreshPaused };
+    }
+
+    installArcadeUI({
+        accent: '#38e8ff',
+        keys: [
+            { k: ['←', '→', 'A', 'D'], a: 'Move paddle' },
+            { k: ['MOUSE'], a: 'Move paddle (drag)' },
+            { k: ['SPACE'], a: 'Launch / fire laser' },
+            { k: ['P'], a: 'Pause' },
+            { k: ['ESC'], a: 'Back to arcade' }
+        ],
+        mobile: 'Drag to move the paddle · tap to launch / fire',
+        pause: {
+            canPause: () => state.phase !== 'start' && state.phase !== 'gameOver',
+            isPaused: () => state.paused,
+            setPaused: (v) => { state.paused = v; }
+        }
+    });
 </script>
 </body>
 </html>
