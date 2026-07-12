@@ -79,6 +79,18 @@
         #hud-player { color: var(--g-bright); text-shadow: 0 0 6px var(--g-bright); }
         #hud-wind, #hud-angle, #hud-score { color: var(--g-mid); }
 
+        #hud-health {
+            width: 100%;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 10px;
+            box-sizing: border-box;
+            font-size: 0.55rem;
+            margin-bottom: 6px;
+        }
+        #hud-health span { white-space: nowrap; }
+
         .pill-btn {
             background: transparent;
             color: var(--g-bright);
@@ -293,7 +305,7 @@
             border: 1px solid var(--g-dim); border-radius: 6px;
             padding: 6px 8px; margin-bottom: 6px;
         }
-        .slot-swatch { width: 18px; height: 18px; border: 1px solid var(--g-mid); flex-shrink: 0; }
+        .slot-swatch { width: 18px; height: 18px; border: 1px solid var(--g-mid); flex-shrink: 0; cursor: pointer; }
         .slot-label { font-size: 0.5rem; width: 30px; flex-shrink: 0; }
         .slot-type-btn {
             flex: 1; background: transparent; color: var(--g-bright); border: 1px solid var(--g-mid);
@@ -336,6 +348,7 @@
         <button class="pill-btn" id="mute-btn">&#128266;</button>
         <button class="pill-btn" id="setup-btn">SETUP</button>
     </div>
+    <div id="hud-health"></div>
     <div id="canvas-wrap">
         <canvas id="gameCanvas"></canvas>
         <div id="scanlines"></div>
@@ -348,7 +361,7 @@
             <button class="tw-btn alt" id="match-setup-btn">SETUP</button>
         </div>
     </div>
-    <div id="kb-hint">&#9668;&#9658; AIM &middot; &#9650;&#9660; FINE &middot; A/D DRIVE &middot; SPACE HOLD=FIRE &middot; S SHIELD &middot; 1-6 WEAPON</div>
+    <div id="kb-hint">&#9668;&#9658; AIM &middot; &#9650;&#9660; FINE &middot; A/D DRIVE &middot; SPACE HOLD=FIRE &middot; S SHIELD &middot; 1-9 WEAPON</div>
     <div id="mobile-controls">
         <div class="mc-row">
             <button id="btn-aim-left" class="mc-aim">AIM &#9668;</button>
@@ -386,6 +399,10 @@
             <span class="setup-label">MATCH LENGTH</span>
             <div class="opt-group" id="rounds-options"></div>
         </div>
+        <div class="setup-row">
+            <span class="setup-label">SPECIAL WEAPONS (starting count per player)</span>
+            <div id="weapon-options"></div>
+        </div>
         <button id="start-battle">START BATTLE</button>
     </div>
 </div>
@@ -407,8 +424,18 @@
     const FLIGHT_SUBSTEP_DT = 1 / 240;
     const BOUNDS_MARGIN = 120;
     const ANGLE_SPEED = 45, FINE_SPEED = 12;
-    const WEAPON_ORDER = ['standard', 'twin', 'triple', 'big', 'digger', 'shrapnel'];
+    const WEAPON_ORDER = ['standard', 'twin', 'triple', 'big', 'shrapnel', 'rapidfire', 'spray', 'mega', 'heatseeker'];
     const PATTERN_NAMES = ['SOLID', 'STRIPES', 'CHECKER', 'DOTS'];
+    // Phosphor-style tank color options (hull tint); pattern still carries the
+    // solid/stripes/checker/dots distinction per slot.
+    const TANK_COLORS = [
+        { name: 'GREEN',   bright: '#66ff66', mid: '#22cc22' },
+        { name: 'AMBER',   bright: '#ffcc66', mid: '#cc8a22' },
+        { name: 'CYAN',    bright: '#7af0ff', mid: '#22a4cc' },
+        { name: 'MAGENTA', bright: '#ff7ae0', mid: '#cc22a0' },
+        { name: 'RED',     bright: '#ff6666', mid: '#cc2222' },
+        { name: 'BLUE',    bright: '#7a9aff', mid: '#2244cc' }
+    ];
     const VOID_Y = H + 300;
 
     // Damage model: an explosion has an inner core (carves terrain + full
@@ -425,25 +452,65 @@
     const MOVE_SPEED = 72;                        // px/s while driving
 
     const GREEN_BRIGHT = '#66ff66', GREEN_MID = '#22cc22', GREEN_DIM = '#114411', ORANGE = '#ffa500';
+    const CANNON_GRAY = '#d8d8d8';
+    const BARREL_LEN = 20;   // rendered barrel length; shells also spawn from this tip
 
     const WEAPONS = {
         standard: { name: 'SHELL', short: '1 SHL', shots: [0], carveR: 26, dmgR: 26, dmg: 40, infinite: true },
         twin:     { name: 'TWIN TURRET', short: '2 TWN', shots: [-5, 5], carveR: 22, dmgR: 22, dmg: 30 },
         triple:   { name: 'TRIPLE SHOT', short: '3 TRI', shots: [-9, 0, 9], carveR: 18, dmgR: 18, dmg: 24 },
         big:      { name: 'BIG BLAST', short: '4 BIG', shots: [0], carveR: 44, dmgR: 44, dmg: 60 },
-        digger:   { name: 'DIGGER', short: '5 DIG', shots: [0], carveR: 34, dmgR: 12, dmg: 15 },
-        shrapnel: { name: 'SHRAPNEL', short: '6 SHR', shots: [0], carveR: 16, dmgR: 15, dmg: 20, shrapnel: 7 },
+        shrapnel: { name: 'SHRAPNEL', short: '5 SHR', shots: [0], carveR: 16, dmgR: 15, dmg: 20, shrapnel: 7 },
+        // Fires the first shot immediately, then auto-fires the rest of the
+        // burst (see RAPID_FIRE_SHOTS/RAPID_FIRE_SECONDS) at the angle/power
+        // this first shot was released with — no further input from the
+        // player. Individual shots are weak; the burst's power comes from
+        // landing several in a row.
+        rapidfire: { name: 'RAPID FIRE', short: '6 RPD', shots: [0], carveR: 11, dmgR: 11, dmg: 10, burst: true },
+        spray:    { name: 'SPRAY SHOT', short: '7 SPR', shots: [-16, -8, 0, 8, 16], carveR: 12, dmgR: 12, dmg: 12 },
+        mega:     { name: 'MEGA CANNON BOMB', short: '8 MEG', shots: [0], carveR: 88, dmgR: 88, dmg: 120 },
+        // Once within HEATSEEKER_RADIUS of an enemy tank, curves in and
+        // guarantees a hit — see the homing check in updateFlight().
+        heatseeker: { name: 'HEAT SEEKER', short: '9 HSK', shots: [0], carveR: 22, dmgR: 22, dmg: 35, homing: true },
         // internal: secondary fragments thrown by a SHRAPNEL burst (never in inventory)
         shrapnelFrag: { name: 'FRAG', shots: [0], carveR: 9, dmgR: 10, dmg: 14 }
     };
     const TANKBLAST = { carveR: 35, dmgR: 35, dmg: 30 };
-    const POWERUP_KEYS = ['twin', 'triple', 'big', 'digger', 'shrapnel'];
+
+    // Kid-friendly power rating: 1-3 booms per weapon based on how hard a
+    // single shot from it hits, shown on the weapon chips.
+    function powerTier(spec) {
+        if (spec.dmg >= 60) return 3;
+        if (spec.dmg >= 20) return 2;
+        return 1;
+    }
+    const RAPID_FIRE_SHOTS = 10;
+    const RAPID_FIRE_SECONDS = 5;
+    const RAPID_FIRE_INTERVAL = RAPID_FIRE_SECONDS / (RAPID_FIRE_SHOTS - 1);
+    const RAPID_FIRE_ANGLE_JITTER = 6;    // degrees, spreads the auto-fired shots' landing spot
+    const RAPID_FIRE_CHARGE_JITTER = 0.06;
+    const HEATSEEKER_RADIUS = 70;   // lock-on distance to the nearest enemy tank
+    const POWERUP_KEYS = ['twin', 'triple', 'big', 'shrapnel', 'rapidfire', 'spray', 'mega', 'heatseeker'];
+    // Most special weapons can be stocked up to WEAPON_COUNT_MAX per player;
+    // a few (like the Mega Cannon Bomb) are capped lower on the setup screen.
+    const WEAPON_MAX_OVERRIDE = { mega: 1 };
+    const weaponMax = key => WEAPON_MAX_OVERRIDE[key] || WEAPON_COUNT_MAX;
+
+    // The setup screen lets players set how many of each special weapon
+    // everyone starts a round with; crates/perfect-shot awards are drawn from
+    // whichever of those have a count > 0 (falls back to the full roster if
+    // they somehow zero out every weapon).
+    function activePowerupKeys() {
+        const enabled = POWERUP_KEYS.filter(k => (state.config.weaponCounts || {})[k] > 0);
+        return enabled.length ? enabled : POWERUP_KEYS;
+    }
 
     // Easy battlefields get slightly bigger, more forgiving blasts; expert
     // terrain gets tighter ones.
     function blastScale() {
         const t = state.config ? state.config.terrain : 'hills';
-        return t === 'hills' ? 1.2 : t === 'mountains' ? 1.05 : t === 'canyon' ? 0.98 : t === 'skyisland' ? 0.9 : 1.0;
+        return t === 'hills' ? 1.2 : t === 'mountains' ? 1.05 : t === 'canyon' ? 0.98 : t === 'skyisland' ? 0.9
+            : t === 'moonscape' ? 1.1 : t === 'city' ? 0.95 : t === 'volcano' ? 1.0 : 1.0;
     }
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -458,6 +525,7 @@
     const hudWind = document.getElementById('hud-wind');
     const hudAngle = document.getElementById('hud-angle');
     const hudScore = document.getElementById('hud-score');
+    const hudHealthEl = document.getElementById('hud-health');
     const powerMeter = document.getElementById('power-meter');
     const powerFill = document.getElementById('power-fill');
     const powerLast = document.getElementById('power-last');
@@ -490,6 +558,7 @@
     };
 
     let terrain = new Float32Array(W);
+    let bgStars = [];   // populated once per round for the Moonscape theme
     const terrainCanvas = document.createElement('canvas');
     terrainCanvas.width = W; terrainCanvas.height = H;
 
@@ -501,13 +570,16 @@
             roundsToWin: 3,
             terrain: 'hills',
             slots: [
-                { type: 'human', cpuLevel: 1 },
-                { type: 'cpu', cpuLevel: 2 },
-                { type: 'cpu', cpuLevel: 2 },
-                { type: 'cpu', cpuLevel: 2 }
-            ]
+                { type: 'human', cpuLevel: 1, color: 0 },
+                { type: 'cpu', cpuLevel: 2, color: 1 },
+                { type: 'cpu', cpuLevel: 2, color: 2 },
+                { type: 'cpu', cpuLevel: 2, color: 3 }
+            ],
+            weaponCounts: { twin: 1, triple: 1, big: 1, shrapnel: 1, rapidfire: 1, spray: 1, mega: 1, heatseeker: 1 }
         };
     }
+
+    const WEAPON_COUNT_MAX = 2;
 
     function loadConfig() {
         try {
@@ -518,8 +590,19 @@
             if (parsed.playerCount >= 2 && parsed.playerCount <= 4) cfg.playerCount = parsed.playerCount;
             if (parsed.roundsToWin >= 1 && parsed.roundsToWin <= 5) cfg.roundsToWin = parsed.roundsToWin;
             if (typeof parsed.terrain === 'string') cfg.terrain = parsed.terrain;
+            if (parsed.weaponCounts && typeof parsed.weaponCounts === 'object') {
+                let any = false;
+                for (const key of POWERUP_KEYS) {
+                    const n = Math.round(parsed.weaponCounts[key]);
+                    if (Number.isFinite(n) && n >= 0 && n <= weaponMax(key)) { cfg.weaponCounts[key] = n; if (n > 0) any = true; }
+                }
+                if (!any) cfg.weaponCounts = defaultConfig().weaponCounts;
+            }
             if (Array.isArray(parsed.slots)) {
-                for (let i = 0; i < 4; i++) if (parsed.slots[i]) cfg.slots[i] = parsed.slots[i];
+                for (let i = 0; i < 4; i++) {
+                    if (parsed.slots[i]) Object.assign(cfg.slots[i], parsed.slots[i]);
+                    if (!(cfg.slots[i].color >= 0 && cfg.slots[i].color < TANK_COLORS.length)) cfg.slots[i].color = i % TANK_COLORS.length;
+                }
             }
             return cfg;
         } catch (e) { return defaultConfig(); }
@@ -576,15 +659,68 @@
         }
     }
 
-    const THEMES = ['hills', 'mountains', 'canyon', 'skyisland'];
+    // One wide, dominant cone rising out of the rolling base terrain, with an
+    // actual carved bowl (not just a decoration) at the summit.
+    function applyVolcano() {
+        const peakX = W * 0.5 + (Math.random() * 2 - 1) * W * 0.06;
+        const peakHeight = 230, peakRadius = 260;
+        for (let x = 0; x < W; x++) {
+            const d = Math.abs(x - peakX) / peakRadius;
+            if (d >= 1) continue;
+            const cone = peakHeight * Math.pow(Math.cos(d * Math.PI * 0.5), 1.6);
+            terrain[x] = clamp(terrain[x] - cone, 30, H - 30);
+        }
+        const craterRadius = 46, craterDepth = 70;
+        const cx = clamp(Math.round(peakX), 0, W - 1);
+        for (let x = Math.max(0, cx - craterRadius); x <= Math.min(W - 1, cx + craterRadius); x++) {
+            const d = (x - cx) / craterRadius;
+            if (Math.abs(d) > 1) continue;
+            terrain[x] += Math.cos(d * Math.PI / 2) * craterDepth;
+        }
+        state._volcanoPeak = { x: cx, y: terrain[cx] };
+    }
+
+    // A handful of round craters pitted into otherwise low, quiet ground.
+    function applyMoonscape() {
+        const count = 4 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const cx = 50 + Math.random() * (W - 100);
+            const r = 18 + Math.random() * 26;
+            for (let x = Math.max(0, Math.round(cx - r)); x <= Math.min(W - 1, Math.round(cx + r)); x++) {
+                const d = (x - cx) / r;
+                if (Math.abs(d) > 1) continue;
+                terrain[x] += Math.cos(d * Math.PI / 2) * r * 0.55;
+            }
+        }
+        bgStars = [];
+        for (let i = 0; i < 40; i++) bgStars.push({ x: Math.random() * W, y: Math.random() * H * 0.6 });
+    }
+
+    // Blocky stepped skyline in place of a smooth heightmap.
+    function generateCityTerrain() {
+        let x = 0;
+        while (x < W) {
+            const bw = 40 + Math.floor(Math.random() * 55);
+            const roofY = clamp(140 + Math.random() * 260, 40, H - 30);
+            for (let i = 0; i < bw && x < W; i++, x++) terrain[x] = roofY;
+        }
+    }
+
+    const THEMES = ['hills', 'mountains', 'canyon', 'skyisland', 'volcano', 'moonscape', 'city'];
 
     function generateTerrain(theme) {
+        state._volcanoPeak = null;
+        bgStars = [];
+        if (theme === 'city') { generateCityTerrain(); return; }
+
         const size = 1025;
         const heights = new Float32Array(size);
         let roughness, amplitude, baseline, smoothPasses;
         if (theme === 'mountains') { roughness = 0.62; amplitude = 150; baseline = H * 0.5; smoothPasses = 1; }
         else if (theme === 'canyon') { roughness = 0.5; amplitude = 90; baseline = H * 0.45; smoothPasses = 2; }
         else if (theme === 'skyisland') { roughness = 0.6; amplitude = 140; baseline = H * 0.45; smoothPasses = 1; }
+        else if (theme === 'volcano') { roughness = 0.5; amplitude = 20; baseline = H * 0.68; smoothPasses = 2; }
+        else if (theme === 'moonscape') { roughness = 0.4; amplitude = 16; baseline = H * 0.68; smoothPasses = 3; }
         else { roughness = 0.45; amplitude = 70; baseline = H * 0.55; smoothPasses = 3; }
         midpointDisplace(heights, roughness, amplitude, baseline);
         for (let s = 0; s < smoothPasses; s++) smoothHeights(heights);
@@ -594,12 +730,29 @@
         }
         if (theme === 'canyon') applyCanyon();
         if (theme === 'skyisland') applySkyIsland();
+        if (theme === 'volcano') applyVolcano();
+        if (theme === 'moonscape') applyMoonscape();
+    }
+
+    // Ground stays green-phosphor for the original four battlefields; the
+    // newer themes get their own accent so they read as distinct places.
+    function terrainColor() {
+        const t = state.config ? state.config.terrain : 'hills';
+        if (t === 'volcano') return { mid: '#3a1c0c', bright: '#ff8a3d' };
+        if (t === 'moonscape') return { mid: '#23282e', bright: '#cfd8e2' };
+        if (t === 'city') return { mid: '#141c26', bright: '#8fb3d9' };
+        return { mid: GREEN_MID, bright: GREEN_BRIGHT };
     }
 
     function bakeTerrain() {
         const g = terrainCanvas.getContext('2d');
         g.clearRect(0, 0, W, H);
-        g.fillStyle = GREEN_MID;
+        const tc = terrainColor();
+        if (bgStars.length) {
+            g.fillStyle = 'rgba(255,255,255,0.8)';
+            for (const s of bgStars) g.fillRect(s.x, s.y, 1, 1);
+        }
+        g.fillStyle = tc.mid;
         for (let x = 0; x < W; x++) {
             const y = terrain[x];
             if (y >= H) continue;
@@ -610,7 +763,7 @@
         g.fillStyle = 'rgba(0,0,0,0.28)';
         for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
         g.restore();
-        g.strokeStyle = GREEN_BRIGHT;
+        g.strokeStyle = tc.bright;
         g.lineWidth = 1.5;
         g.beginPath();
         let started = false;
@@ -620,6 +773,14 @@
             else g.lineTo(x, terrain[x]);
         }
         g.stroke();
+        if (state._volcanoPeak) {
+            const { x, y } = state._volcanoPeak;
+            const grad = g.createRadialGradient(x, y, 1, x, y, 20);
+            grad.addColorStop(0, 'rgba(255,220,120,0.9)');
+            grad.addColorStop(1, 'rgba(255,80,20,0)');
+            g.fillStyle = grad;
+            g.beginPath(); g.arc(x, y, 20, 0, Math.PI * 2); g.fill();
+        }
     }
 
     function carveTerrain(cx, cy, r) {
@@ -642,12 +803,13 @@
             state.players.push({
                 idx: i, x: 0, y: 0, vy: 0, airborneStartY: null,
                 hp: 100, alive: true, deathProcessed: false,
-                angle: 55, inventory: { twin: 0, triple: 0, big: 0, digger: 0, shrapnel: 0 },
+                angle: 55, inventory: { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 },
                 selected: 'standard',
                 energy: ENERGY_MAX, shieldActive: false, shieldUsed: false, lastCharge: null
             });
         }
         state.scores = new Array(cfg.playerCount).fill(0);
+        renderHealthHUD();
     }
 
     function computeSpawnXs(n) {
@@ -855,16 +1017,39 @@
             // Spawn from the muzzle tip so near-horizontal shots clear the
             // hull, and a straight-down shot detonates just under the tank —
             // letting a player deliberately dig a pit beneath themselves.
-            const sx = p.x + Math.cos(rad) * 18;
-            const sy = pivotY - Math.sin(rad) * 18;
+            const sx = p.x + Math.cos(rad) * BARREL_LEN;
+            const sy = pivotY - Math.sin(rad) * BARREL_LEN;
             state.shells.push({ x: sx, y: sy, vx: Math.cos(rad) * speed, vy: -Math.sin(rad) * speed, weapon: p.selected, ownerIdx: p.idx, age: 0, trail: [] });
         }
         if (p.selected !== 'standard') p.inventory[p.selected] = Math.max(0, p.inventory[p.selected] - 1);
+        if (spec.burst) {
+            // Lock in this shot's angle/power and auto-fire the rest of the
+            // burst on a timer — no further input from the player.
+            state.rapidFire = { ownerIdx: p.idx, shotsLeft: RAPID_FIRE_SHOTS - 1, timer: RAPID_FIRE_INTERVAL, angle: p.angle, charge: state.charge };
+        }
         p.selected = 'standard';
         state.charging = false; state.charge = 0;
         state.cpu = null;
         sfx.fire();
         setPhase('flight');
+    }
+
+    // Fires one shot of an in-progress Rapid Fire burst at the angle/power
+    // the burst was activated with.
+    function spawnBurstShot(rf) {
+        const p = state.players[rf.ownerIdx];
+        if (!p || !p.alive) return;
+        // Jitter each auto-fired shot's angle/power a little so the burst
+        // sprays across an area instead of stacking on one exact spot.
+        const angle = rf.angle + (Math.random() * 2 - 1) * RAPID_FIRE_ANGLE_JITTER;
+        const charge = clamp(rf.charge + (Math.random() * 2 - 1) * RAPID_FIRE_CHARGE_JITTER, 0.05, 1);
+        const speed = 120 + charge * 480;
+        const rad = angle * Math.PI / 180;
+        const pivotY = p.y - TANK_H;
+        const sx = p.x + Math.cos(rad) * BARREL_LEN;
+        const sy = pivotY - Math.sin(rad) * BARREL_LEN;
+        state.shells.push({ x: sx, y: sy, vx: Math.cos(rad) * speed, vy: -Math.sin(rad) * speed, weapon: 'rapidfire', ownerIdx: rf.ownerIdx, age: 0, trail: [] });
+        sfx.fire();
     }
 
     function handleShellImpact(shell, x, y, hitTank) {
@@ -876,6 +1061,16 @@
     }
 
     function updateFlight(dt) {
+        if (state.rapidFire) {
+            const rf = state.rapidFire;
+            rf.timer -= dt;
+            while (rf.timer <= 0 && rf.shotsLeft > 0) {
+                spawnBurstShot(rf);
+                rf.shotsLeft--;
+                rf.timer += RAPID_FIRE_INTERVAL;
+            }
+            if (rf.shotsLeft <= 0) state.rapidFire = null;
+        }
         const sdt = FLIGHT_SUBSTEP_DT;
         const steps = Math.max(1, Math.round(dt / sdt));
         for (let i = state.shells.length - 1; i >= 0; i--) {
@@ -884,6 +1079,23 @@
             for (let k = 0; k < steps && !removed; k++) {
                 s.vx += state.wind * sdt;
                 s.vy += GRAVITY * sdt;
+
+                if (WEAPONS[s.weapon].homing) {
+                    let target = null, bestD = HEATSEEKER_RADIUS;
+                    for (const t of state.players) {
+                        if (!t.alive || t.idx === s.ownerIdx) continue;
+                        const d = dist(s.x, s.y, t.x, t.y - TANK_H / 2);
+                        if (d < bestD) { bestD = d; target = t; }
+                    }
+                    if (target) {
+                        const speed = Math.hypot(s.vx, s.vy);
+                        const dx = target.x - s.x, dy = (target.y - TANK_H / 2) - s.y;
+                        const len = Math.hypot(dx, dy) || 1;
+                        s.vx = (dx / len) * speed;
+                        s.vy = (dy / len) * speed;
+                    }
+                }
+
                 s.x += s.vx * sdt;
                 s.y += s.vy * sdt;
                 s.age += sdt;
@@ -913,7 +1125,7 @@
             }
             if (removed) state.shells.splice(i, 1);
         }
-        if (state.shells.length === 0) setPhase('resolving');
+        if (state.shells.length === 0 && !state.rapidFire) setPhase('resolving');
     }
 
     function simulateShell(x0, y0, angleDeg, charge, wind, ownerIdx) {
@@ -956,9 +1168,12 @@
         if (level <= 1) return 'standard';
         const has = k => p.inventory[k] > 0;
         const targetHp = target.hp != null ? target.hp : 999;
+        if (has('heatseeker') && Math.random() < 0.5) return 'heatseeker';
+        if (has('mega') && targetHp <= 90) return 'mega';
+        if (has('rapidfire') && Math.random() < 0.6) return 'rapidfire';
         if (has('big') && targetHp <= 50) return 'big';
-        if (has('digger') && (state.config.terrain === 'skyisland' || state.config.terrain === 'canyon') && Math.random() < 0.5) return 'digger';
         if (has('shrapnel') && missDist > 30 && Math.random() < 0.4) return 'shrapnel';
+        if (has('spray') && missDist > 30 && Math.random() < 0.4) return 'spray';
         if ((has('twin') || has('triple')) && missDist > 40) return has('triple') ? 'triple' : 'twin';
         return 'standard';
     }
@@ -1045,7 +1260,8 @@
             const player = state.players[a.playerIdx];
             if (!player) continue;
             if (a.type === 'perfect') {
-                const key = POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)];
+                const pool = activePowerupKeys();
+                const key = pool[Math.floor(Math.random() * pool.length)];
                 player.inventory[key]++;
                 showBanner('PERFECT SHOT! ' + nameOf(player) + ' +' + WEAPONS[key].name, 1.6);
                 sfx.perfect();
@@ -1065,10 +1281,10 @@
         rollWind();
         maybeSpawnCrate();
         state.cpu = null;
+        state.phase = 'aiming';
         renderInventory();
         const p = currentPlayer();
         showBanner((isCPU(p) ? nameOf(p) + ' (CPU)' : nameOf(p)) + ' — YOUR TURN', 1.0);
-        state.phase = 'aiming';
     }
 
     function advanceTurn() {
@@ -1082,7 +1298,7 @@
     const WIND_MAX = 25;
     function rollWind() { state.wind = (Math.random() * 2 - 1) * WIND_MAX; }
 
-    function randomPowerupKey() { return POWERUP_KEYS[Math.floor(Math.random() * POWERUP_KEYS.length)]; }
+    function randomPowerupKey() { const pool = activePowerupKeys(); return pool[Math.floor(Math.random() * pool.length)]; }
 
     function maybeSpawnCrate() {
         if (state.crates.length >= 2 || Math.random() >= 0.35) return;
@@ -1098,12 +1314,10 @@
     }
 
     function grantRoundStart() {
-        // Each player starts a round with two distinct random power-ups.
+        // Each player starts a round with the setup screen's configured
+        // quantity of each special weapon.
         for (const p of state.players) {
-            const pool = POWERUP_KEYS.slice();
-            for (let n = 0; n < 2 && pool.length; n++) {
-                p.inventory[pool.splice(Math.floor(Math.random() * pool.length), 1)[0]]++;
-            }
+            for (const key of POWERUP_KEYS) p.inventory[key] = state.config.weaponCounts[key] || 0;
         }
     }
 
@@ -1132,20 +1346,20 @@
         state.players.forEach((p, i) => {
             p.hp = 100; p.alive = true; p.deathProcessed = false;
             p.x = xs[i]; p.y = terrainAt(xs[i]); p.vy = 0; p.airborneStartY = null;
-            p.inventory = { twin: 0, triple: 0, big: 0, digger: 0, shrapnel: 0 };
+            p.inventory = { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 };
             p.selected = 'standard';
             p.angle = xs[i] < W / 2 ? 55 : 125;
             p.energy = ENERGY_MAX; p.shieldActive = false; p.shieldUsed = false; p.lastCharge = null;
         });
         grantRoundStart();
-        state.shells = []; state.particles = []; state.crates = [];
+        state.shells = []; state.particles = []; state.crates = []; state.rapidFire = null;
         rollWind();
         state.currentIdx = state.players.findIndex(p => p.alive);
         state.cpu = null;
         state.matchStarted = true;
+        setPhase('aiming');
         renderInventory();
         showBanner('ROUND ' + state.round, 1.2);
-        setPhase('aiming');
     }
 
     function updateResolving(dt) {
@@ -1235,7 +1449,7 @@
     }
 
     function selectWeaponByKey(k) {
-        const map = { '1': 'standard', '2': 'twin', '3': 'triple', '4': 'big', '5': 'digger', '6': 'shrapnel' };
+        const map = { '1': 'standard', '2': 'twin', '3': 'triple', '4': 'big', '5': 'shrapnel', '6': 'rapidfire', '7': 'spray', '8': 'mega', '9': 'heatseeker' };
         const key = map[k];
         if (!key || state.phase !== 'aiming') return;
         const p = currentPlayer();
@@ -1261,7 +1475,7 @@
         else if (k === 'd') { input.driveRight = true; ensureAudio(); }
         else if (k === 's') { ensureAudio(); activateShield(); }
         else if (e.key === ' ') { e.preventDefault(); ensureAudio(); if (!state.charging) startCharge(); }
-        else if (e.key >= '1' && e.key <= '6') { ensureAudio(); selectWeaponByKey(e.key); }
+        else if (e.key >= '1' && e.key <= '9') { ensureAudio(); selectWeaponByKey(e.key); }
         else if (e.key === 'Escape') { handleEscape(); }
     });
     document.addEventListener('keyup', (e) => {
@@ -1305,11 +1519,12 @@
 
     // --- Rendering ----------------------------------------------------------------
 
-    function fillPatternRect(g, x, y, w, h, idx) {
+    function fillPatternRect(g, x, y, w, h, idx, color) {
+        color = color || TANK_COLORS[idx % TANK_COLORS.length];
         g.save();
         g.beginPath(); g.rect(x, y, w, h); g.clip();
-        g.fillStyle = GREEN_MID; g.fillRect(x, y, w, h);
-        g.fillStyle = GREEN_BRIGHT;
+        g.fillStyle = color.mid; g.fillRect(x, y, w, h);
+        g.fillStyle = color.bright;
         if (idx === 0) { g.fillRect(x, y, w, h); }
         else if (idx === 1) { for (let yy = y; yy < y + h; yy += 3) g.fillRect(x, yy, w, 1.5); }
         else if (idx === 2) {
@@ -1324,28 +1539,35 @@
         g.restore();
     }
 
+    function tankColor(t) {
+        const slot = state.config.slots[t.idx];
+        return TANK_COLORS[(slot && slot.color) || 0] || TANK_COLORS[0];
+    }
+
     function drawTank(t) {
         if (!t.alive) return;
         const x = t.x, yBase = t.y, bodyTop = yBase - TANK_H;
+        const color = tankColor(t);
         // Shield bubble (pulsing) when raised.
         if (t.shieldActive) {
             const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 150);
-            ctx.strokeStyle = GREEN_BRIGHT; ctx.globalAlpha = pulse; ctx.lineWidth = 2;
+            ctx.strokeStyle = color.bright; ctx.globalAlpha = pulse; ctx.lineWidth = 2;
             ctx.setLineDash([4, 3]);
             ctx.beginPath(); ctx.arc(x, bodyTop - 1, TANK_W * 0.85, 0, Math.PI * 2); ctx.stroke();
             ctx.setLineDash([]); ctx.globalAlpha = 1;
         }
-        fillPatternRect(ctx, x - TANK_W / 2, bodyTop, TANK_W, TANK_H, t.idx);
-        ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 1;
+        fillPatternRect(ctx, x - TANK_W / 2, bodyTop, TANK_W, TANK_H, t.idx, color);
+        ctx.strokeStyle = color.bright; ctx.lineWidth = 1;
         ctx.strokeRect(x - TANK_W / 2, bodyTop, TANK_W, TANK_H);
         ctx.fillStyle = GREEN_DIM;
         ctx.fillRect(x - TANK_W / 2 - 2, yBase - 3, TANK_W + 4, 3);
         ctx.strokeRect(x - TANK_W / 2 - 2, yBase - 3, TANK_W + 4, 3);
-        ctx.beginPath(); ctx.arc(x, bodyTop, 5, Math.PI, 0);
-        ctx.fillStyle = GREEN_MID; ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = CANNON_GRAY;
+        ctx.beginPath(); ctx.arc(x, bodyTop, 6, Math.PI, 0);
+        ctx.fillStyle = CANNON_GRAY; ctx.fill(); ctx.stroke();
         const rad = t.angle * Math.PI / 180;
-        ctx.strokeStyle = GREEN_BRIGHT; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(x, bodyTop); ctx.lineTo(x + Math.cos(rad) * 16, bodyTop - Math.sin(rad) * 16); ctx.stroke();
+        ctx.strokeStyle = CANNON_GRAY; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, bodyTop); ctx.lineTo(x + Math.cos(rad) * BARREL_LEN, bodyTop - Math.sin(rad) * BARREL_LEN); ctx.stroke();
 
         const barW = 22, barX = x - barW / 2, barY = bodyTop - 12;
         ctx.fillStyle = GREEN_DIM; ctx.fillRect(barX, barY, barW, 3);
@@ -1388,23 +1610,89 @@
         }
     }
 
+    // While a human player has Heat Seeker selected and is aiming/charging,
+    // show the lock-on radius around every enemy tank.
+    function drawHeatseekerZones() {
+        if (state.phase !== 'aiming' && state.phase !== 'charging') return;
+        const p = currentPlayer();
+        if (!p || isCPU(p) || p.selected !== 'heatseeker') return;
+        ctx.strokeStyle = CANNON_GRAY; ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        for (const t of state.players) {
+            if (!t.alive || t.idx === p.idx) continue;
+            ctx.beginPath(); ctx.arc(t.x, t.y - TANK_H / 2, HEATSEEKER_RADIUS, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+    }
+
+    // Shows how big the selected weapon's explosion will be, right on the
+    // shooter's own tank, so kids can compare weapons by eye instead of by
+    // reading damage numbers.
+    function drawBlastPreview() {
+        if (state.phase !== 'aiming' && state.phase !== 'charging') return;
+        const p = currentPlayer();
+        if (!p || isCPU(p)) return;
+        const spec = WEAPONS[p.selected];
+        if (!spec) return;
+        const r = spec.dmgR * blastScale();
+        ctx.save();
+        for (const t of state.players) {
+            if (!t.alive || t.idx === p.idx) continue;
+            const cx = t.x, cy = t.y - TANK_H / 2;
+            ctx.globalAlpha = 0.16;
+            ctx.fillStyle = ORANGE;
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 0.55;
+            ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     function render(t) {
         ctx.clearRect(0, 0, W, H);
         ctx.drawImage(terrainCanvas, 0, 0);
         for (const c of state.crates) drawCrate(c);
+        drawBlastPreview();
+        drawHeatseekerZones();
         for (const p of state.players) drawTank(p);
         drawShells();
         drawParticles();
     }
 
+    // One chip per player, in player order — CSS space-between pins the
+    // first to the left edge and the last to the right (P1/P2 in the
+    // default 2-player game), with any 3rd/4th player filling the middle.
+    function renderHealthHUD() {
+        hudHealthEl.innerHTML = '';
+        state.players.forEach((p, i) => {
+            const span = document.createElement('span');
+            span.id = 'hp-' + i;
+            hudHealthEl.appendChild(span);
+        });
+        updateHealthHUD();
+    }
+
+    function updateHealthHUD() {
+        for (const p of state.players) {
+            const el = document.getElementById('hp-' + p.idx);
+            if (!el) continue;
+            el.textContent = nameOf(p) + ' ' + Math.max(0, Math.round(p.hp)) + '%';
+            el.style.color = p.alive ? tankColor(p).bright : GREEN_DIM;
+        }
+    }
+
     function updateHUD() {
         const p = state.players[state.currentIdx];
         if (p) {
-            hudPlayer.textContent = nameOf(p) + (isCPU(p) ? ' (CPU)' : '');
+            const burstLeft = (state.rapidFire && state.rapidFire.ownerIdx === p.idx) ? state.rapidFire.shotsLeft + 1 : 0;
+            hudPlayer.textContent = nameOf(p) + (isCPU(p) ? ' (CPU)' : '') + (burstLeft > 0 ? ' ⚡ RAPID FIRE x' + burstLeft : '');
             hudAngle.textContent = Math.round(p.angle) + '°';
         }
         hudWind.textContent = 'WIND ' + (state.wind >= 0 ? '▶' : '◀') + ' ' + Math.round(Math.abs(state.wind));
         hudScore.textContent = state.scores.join('-');
+        updateHealthHUD();
         if (state.charging) {
             powerMeter.classList.add('show');
             powerFill.style.height = (state.charge * 100) + '%';
@@ -1451,7 +1739,7 @@
             if (key !== 'standard' && !(count > 0)) continue;
             const btn = document.createElement('button');
             btn.className = 'inv-chip' + (p.selected === key ? ' sel' : '');
-            btn.textContent = spec.short + (count ? (' x' + count) : '');
+            btn.textContent = spec.short + ' ' + '💥'.repeat(powerTier(spec)) + (count ? (' x' + count) : '');
             btn.addEventListener('click', () => {
                 ensureAudio();
                 if (state.phase !== 'aiming') return;
@@ -1536,8 +1824,9 @@
     const playersVal = document.getElementById('players-val');
     const terrainOptsEl = document.getElementById('terrain-options');
     const roundsOptsEl = document.getElementById('rounds-options');
+    const weaponOptsEl = document.getElementById('weapon-options');
 
-    const TERRAIN_LABELS = [['hills', 'HILLS · EASY'], ['mountains', 'MOUNTAINS · MED'], ['canyon', 'CANYON · HARD'], ['skyisland', 'SKY ISLAND · EXPERT'], ['random', 'RANDOM']];
+    const TERRAIN_LABELS = [['hills', 'HILLS · EASY'], ['mountains', 'MOUNTAINS · MED'], ['canyon', 'CANYON · HARD'], ['skyisland', 'SKY ISLAND · EXPERT'], ['volcano', 'VOLCANO · HARD'], ['moonscape', 'MOONSCAPE · MED'], ['city', 'CITY · HARD'], ['random', 'RANDOM']];
     const ROUNDS_LABELS = [1, 2, 3, 5];
     const CPU_CYCLE = [{ type: 'human', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 2 }, { type: 'cpu', cpuLevel: 3 }];
     const CPU_LABELS = ['HUMAN', 'CPU · EASY', 'CPU · MED', 'CPU · HARD'];
@@ -1555,7 +1844,13 @@
             row.className = 'slot-row';
             const swatch = document.createElement('canvas');
             swatch.width = 18; swatch.height = 18; swatch.className = 'slot-swatch';
-            fillPatternRect(swatch.getContext('2d'), 0, 0, 18, 18, i);
+            swatch.title = 'Tap to change color';
+            fillPatternRect(swatch.getContext('2d'), 0, 0, 18, 18, i, TANK_COLORS[state.config.slots[i].color]);
+            swatch.addEventListener('click', () => {
+                ensureAudio(); sfx.select();
+                state.config.slots[i].color = (state.config.slots[i].color + 1) % TANK_COLORS.length;
+                renderSetup();
+            });
             const label = document.createElement('span');
             label.className = 'slot-label'; label.textContent = 'P' + (i + 1);
             const btn = document.createElement('button');
@@ -1565,7 +1860,7 @@
                 ensureAudio(); sfx.select();
                 const cur = CPU_CYCLE.findIndex(c => c.type === state.config.slots[i].type && c.cpuLevel === state.config.slots[i].cpuLevel);
                 const next = CPU_CYCLE[(Math.max(0, cur) + 1) % CPU_CYCLE.length];
-                state.config.slots[i] = { type: next.type, cpuLevel: next.cpuLevel };
+                state.config.slots[i] = { type: next.type, cpuLevel: next.cpuLevel, color: state.config.slots[i].color };
                 renderSetup();
             });
             row.appendChild(swatch); row.appendChild(label); row.appendChild(btn);
@@ -1588,6 +1883,36 @@
             b.textContent = 'BEST OF ' + (n * 2 - 1);
             b.addEventListener('click', () => { ensureAudio(); sfx.select(); state.config.roundsToWin = n; renderSetup(); });
             roundsOptsEl.appendChild(b);
+        }
+
+        weaponOptsEl.innerHTML = '';
+        for (const key of POWERUP_KEYS) {
+            const count = state.config.weaponCounts[key] || 0;
+            const row = document.createElement('div');
+            row.className = 'slot-row';
+            const label = document.createElement('span');
+            label.className = 'slot-label'; label.style.width = 'auto'; label.style.flex = '1';
+            label.textContent = WEAPONS[key].name;
+            const minus = document.createElement('button');
+            minus.className = 'stepper-btn'; minus.textContent = '-';
+            minus.addEventListener('click', () => {
+                ensureAudio(); sfx.select();
+                const totalOthers = POWERUP_KEYS.filter(k => k !== key).reduce((sum, k) => sum + (state.config.weaponCounts[k] || 0), 0);
+                if (count <= 0 || (count === 1 && totalOthers === 0)) return;   // keep at least one weapon in the pool
+                state.config.weaponCounts[key] = count - 1;
+                renderSetup();
+            });
+            const val = document.createElement('span');
+            val.textContent = count; val.style.minWidth = '18px'; val.style.textAlign = 'center';
+            const plus = document.createElement('button');
+            plus.className = 'stepper-btn'; plus.textContent = '+';
+            plus.addEventListener('click', () => {
+                ensureAudio(); sfx.select();
+                state.config.weaponCounts[key] = Math.min(weaponMax(key), count + 1);
+                renderSetup();
+            });
+            row.appendChild(label); row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+            weaponOptsEl.appendChild(row);
         }
     }
 
