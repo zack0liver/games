@@ -623,7 +623,8 @@
     };
 
     let terrain = new Float32Array(W);
-    let bgStars = [];   // populated once per round for Moonscape/Clouds
+    let bgStars = [];   // populated once per round for the Moonscape theme
+    let bgWisps = [];   // soft background cloud wisps, Clouds theme only
     const terrainCanvas = document.createElement('canvas');
     terrainCanvas.width = W; terrainCanvas.height = H;
 
@@ -730,12 +731,53 @@
 
     function applySkyIsland() { applyVoidBands(2, 3, 110, 180, 40, 90); }
 
-    // Wider, more forgiving platforms than Sky Island, drifting high in a
-    // pale sky; a few faint background wisps add depth to the void.
+    // Wider, more forgiving platforms than Sky Island, sculpted to read as
+    // puffy cumulus: scalloped rounded tops, tapered ends instead of sheer
+    // cliffs, and soft background wisps drifting behind them.
     function applyCloud() {
         applyVoidBands(2, 4, 150, 260, 50, 110);
-        bgStars = [];
-        for (let i = 0; i < 26; i++) bgStars.push({ x: Math.random() * W, y: Math.random() * H * 0.6 });
+        let bs = -1;
+        for (let x = 0; x <= W; x++) {
+            const solid = x < W && terrain[x] < H;
+            if (solid) { if (bs < 0) bs = x; }
+            else if (bs >= 0) { sculptCloudBand(bs, x - 1); bs = -1; }
+        }
+        bgWisps = [];
+        for (let i = 0; i < 10; i++) {
+            bgWisps.push({
+                x: Math.random() * W, y: 20 + Math.random() * H * 0.5,
+                rx: 30 + Math.random() * 60, ry: 4 + Math.random() * 7,
+                a: 0.05 + Math.random() * 0.08
+            });
+        }
+    }
+
+    // Reshapes one cloud platform: gentle smoothing keeps a little drift,
+    // a run of semicircular puffs scallops the top, and both ends sink
+    // into a rounded shoulder.
+    function sculptCloudBand(s, e) {
+        const len = e - s + 1;
+        if (len < 30) return;
+        for (let pass = 0; pass < 6; pass++) {
+            for (let x = s + 1; x < e; x++) terrain[x] = (terrain[x - 1] + terrain[x] + terrain[x + 1]) / 3;
+        }
+        const nPuffs = Math.max(2, Math.round(len / (36 + Math.random() * 14)));
+        for (let i = 0; i < nPuffs; i++) {
+            const px0 = s + (len * i) / nPuffs, px1 = s + (len * (i + 1)) / nPuffs;
+            const cx = (px0 + px1) / 2, hw = (px1 - px0) / 2;
+            const amp = 10 + Math.random() * 10;
+            for (let x = Math.ceil(px0); x <= Math.min(e, Math.floor(px1)); x++) {
+                const t = (x - cx) / hw;
+                terrain[x] -= amp * Math.sqrt(Math.max(0, 1 - t * t));
+            }
+        }
+        const T = Math.min(18, Math.floor(len / 4));
+        for (let i = 0; i < T; i++) {
+            const drop = 30 * Math.pow(1 - i / T, 2);
+            terrain[s + i] += drop;
+            terrain[e - i] += drop;
+        }
+        for (let x = s; x <= e; x++) terrain[x] = clamp(terrain[x], 40, H - 30);
     }
 
     // Narrow, densely-packed branches with tight gaps — the least forgiving
@@ -792,8 +834,10 @@
     const THEMES = ['hills', 'beach', 'mountains', 'canyon', 'skyisland', 'cloud', 'canopy', 'volcano', 'moonscape', 'city'];
 
     function generateTerrain(theme) {
+        state._terrainTheme = theme;   // resolved theme (config may say 'random')
         state._volcanoPeak = null;
         bgStars = [];
+        bgWisps = [];
         if (theme === 'city') { generateCityTerrain(); return; }
 
         const size = 1025;
@@ -825,7 +869,9 @@
     // Ground stays green-phosphor for the original four battlefields; every
     // theme added since gets its own accent so it reads as a distinct place.
     function terrainColor() {
-        const t = state.config ? state.config.terrain : 'hills';
+        // Prefer the resolved per-round theme so RANDOM rounds get the right
+        // accent colors instead of defaulting to green.
+        const t = state._terrainTheme || (state.config ? state.config.terrain : 'hills');
         if (t === 'volcano') return { mid: '#3a1c0c', bright: '#ff8a3d' };
         if (t === 'moonscape') return { mid: '#23282e', bright: '#cfd8e2' };
         if (t === 'city') return { mid: '#141c26', bright: '#8fb3d9' };
@@ -843,6 +889,10 @@
             g.fillStyle = 'rgba(255,255,255,0.8)';
             for (const s of bgStars) g.fillRect(s.x, s.y, 1, 1);
         }
+        for (const wsp of bgWisps) {
+            g.fillStyle = 'rgba(238,243,250,' + wsp.a + ')';
+            g.beginPath(); g.ellipse(wsp.x, wsp.y, wsp.rx, wsp.ry, 0, 0, Math.PI * 2); g.fill();
+        }
         g.fillStyle = tc.mid;
         for (let x = 0; x < W; x++) {
             const y = terrain[x];
@@ -854,6 +904,25 @@
         g.fillStyle = 'rgba(0,0,0,0.28)';
         for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
         g.restore();
+        // Clouds get a consistent floating thickness: each column dissolves
+        // into the sky ~45-125px below its own top edge instead of standing
+        // on a pillar. Purely visual — the full column is still solid to
+        // shells and tanks.
+        if (state._terrainTheme === 'cloud') {
+            g.save();
+            g.globalCompositeOperation = 'destination-out';
+            for (let x = 0; x < W; x++) {
+                const top = terrain[x];
+                if (top >= H) continue;
+                const fadeTop = top + 45;
+                const grad = g.createLinearGradient(0, fadeTop, 0, top + 125);
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(1, 'rgba(0,0,0,1)');
+                g.fillStyle = grad;
+                g.fillRect(x, fadeTop, 1, H - fadeTop);
+            }
+            g.restore();
+        }
         g.strokeStyle = tc.bright;
         g.lineWidth = 1.5;
         g.beginPath();
