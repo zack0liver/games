@@ -147,6 +147,24 @@
         }
         #power-meter.show #power-last.show { display: block; }
 
+        /* Move/energy meter — mirrors the power meter on the opposite edge,
+           showing how much of the per-round drive budget is left. */
+        #move-meter {
+            position: absolute;
+            right: 6px; top: 8%;
+            width: 14px; height: 84%;
+            border: 2px solid var(--orange);
+            border-radius: 4px;
+            display: none;
+            overflow: hidden;
+            background: rgba(0,20,0,0.6);
+        }
+        #move-meter.show { display: block; }
+        #move-fill {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            height: 0%; background: var(--orange);
+        }
+
         #inventory-row {
             position: absolute;
             bottom: 6px; left: 50%; transform: translateX(-50%);
@@ -379,6 +397,7 @@
         <canvas id="gameCanvas"></canvas>
         <div id="scanlines"></div>
         <div id="power-meter"><div id="power-fill"></div><div id="power-last"></div></div>
+        <div id="move-meter"><div id="move-fill"></div></div>
         <div id="inventory-row"></div>
         <div id="banner"></div>
         <div id="match-modal">
@@ -490,6 +509,12 @@
     // inventory row) adds to this on top of the free per-round allotment.
     const SHIELD_START = 1;
 
+    // Falling into a bottomless void (Sky Island today; future themes like
+    // Clouds and Tree Canopy will reuse the same terrain[] >= H+100 void
+    // convention) doesn't kill outright — it costs a flat health penalty and
+    // resets the tank to where it started the round.
+    const VOID_FALL_DAMAGE = 50;
+
     const GREEN_BRIGHT = '#66ff66', GREEN_MID = '#22cc22', GREEN_DIM = '#114411', ORANGE = '#ffa500';
     const CANNON_GRAY = '#d8d8d8';
     const BARREL_LEN = 20;   // rendered barrel length; shells also spawn from this tip
@@ -561,6 +586,8 @@
     const powerMeter = document.getElementById('power-meter');
     const powerFill = document.getElementById('power-fill');
     const powerLast = document.getElementById('power-last');
+    const moveMeter = document.getElementById('move-meter');
+    const moveFill = document.getElementById('move-fill');
     const shieldBtn = document.getElementById('btn-shield');
     const invRow = document.getElementById('inventory-row');
     const bannerEl = document.getElementById('banner');
@@ -838,7 +865,7 @@
         state.players = [];
         for (let i = 0; i < cfg.playerCount; i++) {
             state.players.push({
-                idx: i, x: 0, y: 0, vy: 0, airborneStartY: null,
+                idx: i, x: 0, y: 0, vy: 0, airborneStartY: null, spawnX: 0,
                 hp: 100, alive: true, deathProcessed: false,
                 angle: 55, inventory: { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 },
                 selected: 'standard',
@@ -937,7 +964,8 @@
         fanfare: () => [523, 523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.09)),
         drive: () => tone(70, 0.05, 'square', 0.02),
         shieldUp: () => { tone(400, 0.08, 'sine', 0.06, 950); tone(750, 0.1, 'sine', 0.05, 1250, 0.05); },
-        shieldPop: () => { tone(950, 0.12, 'sine', 0.08, 260); crunch(); }
+        shieldPop: () => { tone(950, 0.12, 'sine', 0.08, 260); crunch(); },
+        voidFall: () => { tone(500, 0.35, 'sine', 0.08, 90); crunch(); }
     };
 
     // --- Particles ---------------------------------------------------------------
@@ -1165,7 +1193,6 @@
             }
             if (removed) state.shells.splice(i, 1);
         }
-        updateTankPhysics(dt);
         if (state.shells.length === 0 && !state.rapidFire) setPhase('resolving');
     }
 
@@ -1386,7 +1413,7 @@
         const xs = computeSpawnXs(state.players.length);
         state.players.forEach((p, i) => {
             p.hp = 100; p.alive = true; p.deathProcessed = false;
-            p.x = xs[i]; p.y = terrainAt(xs[i]); p.vy = 0; p.airborneStartY = null;
+            p.x = xs[i]; p.y = terrainAt(xs[i]); p.vy = 0; p.airborneStartY = null; p.spawnX = xs[i];
             p.inventory = { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 };
             p.selected = 'standard';
             p.angle = xs[i] < W / 2 ? 55 : 125;
@@ -1403,11 +1430,11 @@
         showBanner('ROUND ' + state.round, 1.2);
     }
 
-    // Applies tank gravity/fall-damage/death for every tank whose ground may
-    // have shifted. Run every frame during both 'flight' and 'resolving' so a
-    // tank starts dropping the instant a shot (even an early shot mid-burst)
-    // craters the earth beneath it, instead of waiting for the whole volley
-    // to finish.
+    // Applies tank gravity/fall-damage/void-death for every tank whose ground
+    // may have shifted. Called unconditionally every frame (see update()) so
+    // a tank starts dropping the instant a shot craters the earth beneath it
+    // — even mid-burst, before the rest of a volley resolves — or the instant
+    // it drives off a ledge into a void.
     function updateTankPhysics(dt) {
         let anyAirborne = false, anyPendingDeath = false;
         for (const t of state.players) {
@@ -1427,7 +1454,17 @@
             } else if (t.y > groundY + 0.5) {
                 t.y = groundY; t.vy = 0; t.airborneStartY = null;
             } else { t.vy = 0; t.airborneStartY = null; }
-            if (t.y > H + 20) t.hp = 0;
+            if (t.y > H + 20) {
+                // Bottomless void: reset to the round-start spot instead of an
+                // instant kill, with a flat health penalty. A tank already low
+                // on health can still die from this — that plays out below.
+                t.x = t.spawnX;
+                t.y = terrainAt(t.spawnX);
+                t.vy = 0; t.airborneStartY = null;
+                t.hp = Math.max(0, t.hp - VOID_FALL_DAMAGE);
+                showBanner(nameOf(t) + ' FELL INTO THE ABYSS! -' + VOID_FALL_DAMAGE, 1.2);
+                sfx.voidFall();
+            }
         }
         for (const t of state.players) {
             if (t.alive && t.hp <= 0 && !t.deathProcessed) {
@@ -1438,11 +1475,6 @@
             }
         }
         return { anyAirborne, anyPendingDeath };
-    }
-
-    function updateResolving(dt) {
-        const { anyAirborne, anyPendingDeath } = updateTankPhysics(dt);
-        if (!anyAirborne && !anyPendingDeath) setPhase('awarding');
     }
 
     // --- Input -----------------------------------------------------------------
@@ -1463,19 +1495,22 @@
     }
 
     // Drive a tank along the terrain, spending its per-round energy budget.
-    // Uphill costs more (never impossible); driving into a void column or
-    // another tank is blocked; when energy runs out the treads give up.
+    // Uphill costs more (never impossible); driving into another tank is
+    // blocked; when energy runs out the treads give up. Driving onto a void
+    // column (Sky Island's gaps) is allowed — the tank steps off the ledge
+    // and gravity (updateTankPhysics, run every phase) carries it into a real
+    // fall rather than snapping it straight down.
     function driveTank(p, dir, dt) {
         if (p.energy <= 0) return;
         const nx = clamp(p.x + dir * MOVE_SPEED * dt, 20, W - 20);
         if (Math.abs(nx - p.x) < 0.01) return;
-        if (terrainAt(nx) >= H - 6) return;                       // don't drive off a sky island
         for (const o of state.players) if (o !== p && o.alive && Math.abs(o.x - nx) < TANK_W) return;
-        const climb = Math.max(0, terrainAt(p.x) - terrainAt(nx)); // uphill = ground rises (smaller y)
+        const overVoid = terrainAt(nx) >= H - 6;
+        const climb = overVoid ? 0 : Math.max(0, terrainAt(p.x) - terrainAt(nx)); // uphill = ground rises (smaller y)
         const cost = (Math.abs(nx - p.x) + climb * STEEP_SURCHARGE) * ENERGY_PER_PX;
         p.energy = Math.max(0, p.energy - cost);
         p.x = nx;
-        p.y = terrainAt(nx);
+        if (!overVoid) p.y = terrainAt(nx);
         state._driveSndAcc = (state._driveSndAcc || 0) + dt;
         if (state._driveSndAcc > 0.09) { state._driveSndAcc = 0; sfx.drive(); }
     }
@@ -1765,6 +1800,13 @@
             shieldBtn.classList.toggle('on', p.shieldActive);
             shieldBtn.textContent = p.shieldActive ? 'SHIELD ON' : ('SHIELD ×' + p.shields);
         }
+        // Move meter: how much of the current human tank's drive budget is left.
+        if (p && !isCPU(p) && (state.phase === 'aiming' || state.phase === 'charging')) {
+            moveMeter.classList.add('show');
+            moveFill.style.height = (clamp(p.energy / ENERGY_MAX, 0, 1) * 100) + '%';
+        } else {
+            moveMeter.classList.remove('show');
+        }
     }
 
     function showBanner(text, duration) {
@@ -1919,6 +1961,10 @@
     function update(dt) {
         updateParticles(dt);
         updateBanner(dt);
+        // Tank gravity/fall-into-void runs every phase (not just flight/
+        // resolving) so driving off a ledge during aiming falls for real
+        // instead of waiting for a shell to be in the air.
+        const physics = updateTankPhysics(dt);
         switch (state.phase) {
             case 'aiming':
                 if (isCPU(currentPlayer())) updateCPUAiming(dt); else updateHumanAiming(dt);
@@ -1928,7 +1974,9 @@
                 if (isCPU(currentPlayer())) checkCPURelease();
                 break;
             case 'flight': updateFlight(dt); break;
-            case 'resolving': updateResolving(dt); break;
+            case 'resolving':
+                if (!physics.anyAirborne && !physics.anyPendingDeath) setPhase('awarding');
+                break;
             case 'roundEnd':
                 if (state._matchTimer != null) {
                     state._matchTimer -= dt;
