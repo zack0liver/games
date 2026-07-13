@@ -567,7 +567,8 @@
     function blastScale() {
         const t = state.config ? state.config.terrain : 'hills';
         return t === 'hills' ? 1.2 : t === 'mountains' ? 1.05 : t === 'canyon' ? 0.98 : t === 'skyisland' ? 0.9
-            : t === 'moonscape' ? 1.1 : t === 'city' ? 0.95 : t === 'volcano' ? 1.0 : 1.0;
+            : t === 'moonscape' ? 1.1 : t === 'city' ? 0.95 : t === 'volcano' ? 1.0 : t === 'beach' ? 1.15
+            : t === 'cloud' ? 0.95 : t === 'canopy' ? 0.9 : 1.0;
     }
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -622,7 +623,7 @@
     };
 
     let terrain = new Float32Array(W);
-    let bgStars = [];   // populated once per round for the Moonscape theme
+    let bgStars = [];   // populated once per round for Moonscape/Clouds
     const terrainCanvas = document.createElement('canvas');
     terrainCanvas.width = W; terrainCanvas.height = H;
 
@@ -706,13 +707,17 @@
         }
     }
 
-    function applySkyIsland() {
+    // Shared by any theme built from floating platforms over a bottomless
+    // void (Sky Island, Clouds, Tree Canopy) — every gap becomes void
+    // terrain, which the fall-physics/drive code treats identically no
+    // matter which theme it came from.
+    function applyVoidBands(minBands, maxBands, minWidth, maxWidth, minGap, maxGap) {
         const bands = [];
-        const count = 2 + Math.floor(Math.random() * 2);
+        const count = minBands + Math.floor(Math.random() * (maxBands - minBands + 1));
         let cursor = 50;
         for (let i = 0; i < count; i++) {
-            const w = 110 + Math.random() * 70;
-            const gap = 40 + Math.random() * 50;
+            const w = minWidth + Math.random() * (maxWidth - minWidth);
+            const gap = minGap + Math.random() * (maxGap - minGap);
             if (cursor + w > W - 50) break;
             bands.push([cursor, cursor + w]);
             cursor += w + gap;
@@ -722,6 +727,20 @@
             if (!bands.some(([s, e]) => x >= s && x <= e)) terrain[x] = VOID_Y;
         }
     }
+
+    function applySkyIsland() { applyVoidBands(2, 3, 110, 180, 40, 90); }
+
+    // Wider, more forgiving platforms than Sky Island, drifting high in a
+    // pale sky; a few faint background wisps add depth to the void.
+    function applyCloud() {
+        applyVoidBands(2, 4, 150, 260, 50, 110);
+        bgStars = [];
+        for (let i = 0; i < 26; i++) bgStars.push({ x: Math.random() * W, y: Math.random() * H * 0.6 });
+    }
+
+    // Narrow, densely-packed branches with tight gaps — the least forgiving
+    // of the void themes.
+    function applyCanopy() { applyVoidBands(3, 5, 70, 130, 30, 70); }
 
     // One wide, dominant cone rising out of the rolling base terrain, with an
     // actual carved bowl (not just a decoration) at the summit.
@@ -770,7 +789,7 @@
         }
     }
 
-    const THEMES = ['hills', 'mountains', 'canyon', 'skyisland', 'volcano', 'moonscape', 'city'];
+    const THEMES = ['hills', 'beach', 'mountains', 'canyon', 'skyisland', 'cloud', 'canopy', 'volcano', 'moonscape', 'city'];
 
     function generateTerrain(theme) {
         state._volcanoPeak = null;
@@ -783,8 +802,11 @@
         if (theme === 'mountains') { roughness = 0.62; amplitude = 150; baseline = H * 0.5; smoothPasses = 1; }
         else if (theme === 'canyon') { roughness = 0.5; amplitude = 90; baseline = H * 0.45; smoothPasses = 2; }
         else if (theme === 'skyisland') { roughness = 0.6; amplitude = 140; baseline = H * 0.45; smoothPasses = 1; }
+        else if (theme === 'cloud') { roughness = 0.55; amplitude = 90; baseline = H * 0.38; smoothPasses = 2; }
+        else if (theme === 'canopy') { roughness = 0.68; amplitude = 110; baseline = H * 0.42; smoothPasses = 0; }
         else if (theme === 'volcano') { roughness = 0.5; amplitude = 20; baseline = H * 0.68; smoothPasses = 2; }
         else if (theme === 'moonscape') { roughness = 0.4; amplitude = 16; baseline = H * 0.68; smoothPasses = 3; }
+        else if (theme === 'beach') { roughness = 0.4; amplitude = 40; baseline = H * 0.72; smoothPasses = 4; }
         else { roughness = 0.45; amplitude = 70; baseline = H * 0.55; smoothPasses = 3; }
         midpointDisplace(heights, roughness, amplitude, baseline);
         for (let s = 0; s < smoothPasses; s++) smoothHeights(heights);
@@ -794,17 +816,22 @@
         }
         if (theme === 'canyon') applyCanyon();
         if (theme === 'skyisland') applySkyIsland();
+        if (theme === 'cloud') applyCloud();
+        if (theme === 'canopy') applyCanopy();
         if (theme === 'volcano') applyVolcano();
         if (theme === 'moonscape') applyMoonscape();
     }
 
-    // Ground stays green-phosphor for the original four battlefields; the
-    // newer themes get their own accent so they read as distinct places.
+    // Ground stays green-phosphor for the original four battlefields; every
+    // theme added since gets its own accent so it reads as a distinct place.
     function terrainColor() {
         const t = state.config ? state.config.terrain : 'hills';
         if (t === 'volcano') return { mid: '#3a1c0c', bright: '#ff8a3d' };
         if (t === 'moonscape') return { mid: '#23282e', bright: '#cfd8e2' };
         if (t === 'city') return { mid: '#141c26', bright: '#8fb3d9' };
+        if (t === 'beach') return { mid: '#8a6a2e', bright: '#f2d383' };
+        if (t === 'cloud') return { mid: '#3c4a63', bright: '#eef3fa' };
+        if (t === 'canopy') return { mid: '#234d1a', bright: '#a6e35a' };
         return { mid: GREEN_MID, bright: GREEN_BRIGHT };
     }
 
@@ -2039,7 +2066,7 @@
     const roundsOptsEl = document.getElementById('rounds-options');
     const weaponOptsEl = document.getElementById('weapon-options');
 
-    const TERRAIN_LABELS = [['hills', 'HILLS · EASY'], ['mountains', 'MOUNTAINS · MED'], ['canyon', 'CANYON · HARD'], ['skyisland', 'SKY ISLAND · EXPERT'], ['volcano', 'VOLCANO · HARD'], ['moonscape', 'MOONSCAPE · MED'], ['city', 'CITY · HARD'], ['random', 'RANDOM']];
+    const TERRAIN_LABELS = [['hills', 'HILLS · EASY'], ['beach', 'BEACH · EASY'], ['mountains', 'MOUNTAINS · MED'], ['canyon', 'CANYON · HARD'], ['skyisland', 'SKY ISLAND · EXPERT'], ['cloud', 'CLOUDS · MED'], ['canopy', 'TREE CANOPY · EXPERT'], ['volcano', 'VOLCANO · HARD'], ['moonscape', 'MOONSCAPE · MED'], ['city', 'CITY · HARD'], ['random', 'RANDOM']];
     const ROUNDS_LABELS = [1, 2, 3, 5];
     const CPU_CYCLE = [{ type: 'human', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 1 }, { type: 'cpu', cpuLevel: 2 }, { type: 'cpu', cpuLevel: 3 }];
     const CPU_LABELS = ['HUMAN', 'CPU · EASY', 'CPU · MED', 'CPU · HARD'];

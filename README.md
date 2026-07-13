@@ -50,11 +50,14 @@ Drag a cartridge into the console (or tap one) to play.
    device and CPU opponents at three difficulties), rendered in a monochrome
    green-phosphor CRT style. Set your turret angle with the arrows, hold fire
    to charge a power meter, and let go to lob a shell across destructible
-   terrain that craters on impact — four battlefields (Hills, Mountains,
-   Canyon, Sky Island) escalate the danger, with Sky Island's void dropping
-   tanks who wander off its floating plateaus. Wind pushes every shot off
-   course, and captures are earned three ways: two power-ups granted per
-   player each round, a bonus for landing a perfect direct hit with the
+   terrain that craters on impact — ten battlefields (Hills, Beach, Mountains,
+   Canyon, Sky Island, Clouds, Tree Canopy, Volcano, Moonscape, City) each
+   have their own shape and look, with Sky Island, Clouds, and Tree Canopy
+   built from floating platforms over a bottomless void: drive off the edge
+   or get blasted through the ground and you're knocked back to your spawn
+   point and lose half your health, rather than dying outright. Wind pushes
+   every shot off course, and captures are earned three ways: two power-ups
+   granted per player each round, a bonus for landing a perfect direct hit with the
    standard shell, and crates scattered across the map that arm whoever
    shoots them. Twin Turret, Triple Shot, Big Blast, Digger and Shrapnel
    (which bursts into a fan of fragments) shells add variety on top of the
