@@ -95,6 +95,13 @@ Drag a cartridge into the console (or tap one) to play.
 
 ## Planned Enhancements
 
+### Tank Wars
+
+- **Void battlefields need more iteration**: Clouds, Tree Canopy, and Sky
+  Island got a first sculpting pass (puffy cumulus shapes for Clouds,
+  rounded treetop crowns for Canopy, full-width platform spread for all
+  three) but the look and layout still need work.
+
 ### Galaga
 
 - **Per-stage enemy themes**: each stage gets its own enemy color scheme and
