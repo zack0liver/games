@@ -164,6 +164,32 @@
             touch-action: manipulation;
         }
         .inv-chip.sel { color: var(--g-bright); border-color: var(--g-bright); box-shadow: 0 0 6px var(--g-bright); }
+        .inv-chip.trade-chip { border-color: var(--orange); color: var(--orange); }
+
+        /* --- Weapon illustration modal (double-click a weapon chip) --- */
+        #weapon-illo {
+            position: fixed; inset: 0; z-index: 900;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(1, 6, 1, 0.88);
+            padding: 16px; box-sizing: border-box;
+        }
+        #weapon-illo.open { display: flex; }
+        #weapon-illo-box {
+            width: 100%; max-width: 300px;
+            border: 2px solid var(--g-bright);
+            border-radius: 10px;
+            padding: 14px;
+            box-sizing: border-box;
+            text-align: center;
+            background: rgba(0, 12, 0, 0.97);
+            box-shadow: 0 0 20px rgba(102,255,102,0.35);
+        }
+        #weapon-illo-title {
+            font-size: 0.65rem; color: var(--g-bright); text-shadow: 0 0 8px var(--g-bright);
+            margin: 0 0 10px;
+        }
+        #weapon-illo-canvas { background: var(--g-bg); border: 1px solid var(--g-dim); border-radius: 4px; max-width: 100%; }
+        #weapon-illo-desc { font-size: 0.5rem; line-height: 1.7; color: var(--g-mid); margin: 10px 0 4px; }
 
         #banner {
             position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
@@ -361,7 +387,7 @@
             <button class="tw-btn alt" id="match-setup-btn">SETUP</button>
         </div>
     </div>
-    <div id="kb-hint">&#9668;&#9658; AIM &middot; &#9650;&#9660; FINE &middot; A/D DRIVE &middot; SPACE HOLD=FIRE &middot; S SHIELD &middot; 1-9 WEAPON</div>
+    <div id="kb-hint">&#9668;&#9658; AIM &middot; &#9650;&#9660; FINE &middot; A/D DRIVE &middot; SPACE HOLD=FIRE &middot; S SHIELD &middot; 1-9 WEAPON &middot; DBL-CLICK WEAPON: INFO</div>
     <div id="mobile-controls">
         <div class="mc-row">
             <button id="btn-aim-left" class="mc-aim">AIM &#9668;</button>
@@ -373,6 +399,15 @@
             <button id="btn-shield">SHIELD</button>
             <button id="btn-fire">HOLD TO FIRE</button>
         </div>
+    </div>
+</div>
+
+<div id="weapon-illo">
+    <div id="weapon-illo-box">
+        <h1 id="weapon-illo-title"></h1>
+        <canvas id="weapon-illo-canvas" width="240" height="160"></canvas>
+        <p id="weapon-illo-desc"></p>
+        <button class="tw-btn alt" id="weapon-illo-close">CLOSE</button>
     </div>
 </div>
 
@@ -451,6 +486,10 @@
     const STEEP_SURCHARGE = 2.2;                 // extra cost per px of uphill climb
     const MOVE_SPEED = 72;                        // px/s while driving
 
+    // Shields raised per round; trading a Mega Cannon Bomb for one (see the
+    // inventory row) adds to this on top of the free per-round allotment.
+    const SHIELD_START = 1;
+
     const GREEN_BRIGHT = '#66ff66', GREEN_MID = '#22cc22', GREEN_DIM = '#114411', ORANGE = '#ffa500';
     const CANNON_GRAY = '#d8d8d8';
     const BARREL_LEN = 20;   // rendered barrel length; shells also spawn from this tip
@@ -477,13 +516,6 @@
     };
     const TANKBLAST = { carveR: 35, dmgR: 35, dmg: 30 };
 
-    // Kid-friendly power rating: 1-3 booms per weapon based on how hard a
-    // single shot from it hits, shown on the weapon chips.
-    function powerTier(spec) {
-        if (spec.dmg >= 60) return 3;
-        if (spec.dmg >= 20) return 2;
-        return 1;
-    }
     const RAPID_FIRE_SHOTS = 10;
     const RAPID_FIRE_SECONDS = 5;
     const RAPID_FIRE_INTERVAL = RAPID_FIRE_SECONDS / (RAPID_FIRE_SHOTS - 1);
@@ -534,6 +566,11 @@
     const bannerEl = document.getElementById('banner');
     const matchModal = document.getElementById('match-modal');
     const matchContent = document.getElementById('match-content');
+    const weaponIlloEl = document.getElementById('weapon-illo');
+    const weaponIlloTitle = document.getElementById('weapon-illo-title');
+    const weaponIlloDesc = document.getElementById('weapon-illo-desc');
+    const weaponIlloCanvas = document.getElementById('weapon-illo-canvas');
+    const weaponIlloCtx = weaponIlloCanvas.getContext('2d');
 
     // --- Persisted preferences ---------------------------------------------
     const LS = { muted: 'tw_muted', config: 'tw_config' };
@@ -805,7 +842,7 @@
                 hp: 100, alive: true, deathProcessed: false,
                 angle: 55, inventory: { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 },
                 selected: 'standard',
-                energy: ENERGY_MAX, shieldActive: false, shieldUsed: false, lastCharge: null
+                energy: ENERGY_MAX, shieldActive: false, shields: SHIELD_START, lastCharge: null
             });
         }
         state.scores = new Array(cfg.playerCount).fill(0);
@@ -1353,7 +1390,7 @@
             p.inventory = { twin: 0, triple: 0, big: 0, shrapnel: 0, rapidfire: 0, spray: 0, mega: 0, heatseeker: 0 };
             p.selected = 'standard';
             p.angle = xs[i] < W / 2 ? 55 : 125;
-            p.energy = ENERGY_MAX; p.shieldActive = false; p.shieldUsed = false; p.lastCharge = null;
+            p.energy = ENERGY_MAX; p.shieldActive = false; p.shields = SHIELD_START; p.lastCharge = null;
         });
         grantRoundStart();
         state.shells = []; state.particles = []; state.crates = []; state.rapidFire = null;
@@ -1446,8 +1483,8 @@
     function activateShield() {
         if (state.phase !== 'aiming') return;
         const p = currentPlayer();
-        if (isCPU(p) || p.shieldUsed || p.shieldActive) { sfx.deny(); return; }
-        p.shieldActive = true; p.shieldUsed = true;
+        if (isCPU(p) || p.shields <= 0 || p.shieldActive) { sfx.deny(); return; }
+        p.shieldActive = true; p.shields--;
         showBanner(nameOf(p) + ' SHIELD UP', 1.0);
         sfx.shieldUp();
     }
@@ -1475,6 +1512,7 @@
     }
 
     function handleEscape() {
+        if (weaponIlloEl.classList.contains('open')) { closeWeaponIllo(); return; }
         if (document.getElementById('setup').classList.contains('open') && state.matchStarted) { closeSetup(); return; }
         window.location.href = 'index.html';
     }
@@ -1692,7 +1730,7 @@
         for (const p of state.players) {
             const el = document.getElementById('hp-' + p.idx);
             if (!el) continue;
-            el.textContent = nameOf(p) + ' ' + Math.max(0, Math.round(p.hp)) + '%';
+            el.textContent = nameOf(p) + ' ' + Math.max(0, Math.round(p.hp)) + '%' + (p.alive ? ' 🛡×' + p.shields : '');
             el.style.color = p.alive ? tankColor(p).bright : GREEN_DIM;
         }
     }
@@ -1723,9 +1761,9 @@
         }
         // Mobile shield button reflects the current player's shield state.
         if (p) {
-            shieldBtn.classList.toggle('used', p.shieldUsed && !p.shieldActive);
+            shieldBtn.classList.toggle('used', p.shields <= 0 && !p.shieldActive);
             shieldBtn.classList.toggle('on', p.shieldActive);
-            shieldBtn.textContent = p.shieldActive ? 'SHIELD ON' : 'SHIELD';
+            shieldBtn.textContent = p.shieldActive ? 'SHIELD ON' : ('SHIELD ×' + p.shields);
         }
     }
 
@@ -1753,15 +1791,128 @@
             if (key !== 'standard' && !(count > 0)) continue;
             const btn = document.createElement('button');
             btn.className = 'inv-chip' + (p.selected === key ? ' sel' : '');
-            btn.textContent = spec.short + ' ' + '💥'.repeat(powerTier(spec)) + (count ? (' x' + count) : '');
+            btn.textContent = spec.short + (count ? (' x' + count) : '');
             btn.addEventListener('click', () => {
                 ensureAudio();
                 if (state.phase !== 'aiming') return;
                 p.selected = key; sfx.select(); renderInventory();
             });
+            // Double-click/double-tap a weapon chip to see a basic illustration
+            // of its blast pattern instead of guessing from the name/count.
+            btn.addEventListener('dblclick', (e) => { e.stopPropagation(); showWeaponIllo(key); });
             invRow.appendChild(btn);
+            if (key === 'mega' && count > 0) {
+                const tradeBtn = document.createElement('button');
+                tradeBtn.className = 'inv-chip trade-chip';
+                tradeBtn.textContent = '⇄ 🛡';
+                tradeBtn.title = 'Trade 1 Mega for 1 Shield';
+                tradeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    ensureAudio();
+                    if (state.phase !== 'aiming' || p.inventory.mega <= 0) return;
+                    p.inventory.mega--;
+                    p.shields++;
+                    if (p.selected === 'mega' && p.inventory.mega <= 0) p.selected = 'standard';
+                    sfx.shieldUp();
+                    showBanner(nameOf(p) + ' TRADED MEGA FOR SHIELD', 1.0);
+                    renderInventory();
+                });
+                invRow.appendChild(tradeBtn);
+            }
         }
     }
+
+    // --- Weapon illustration modal ----------------------------------------------
+    // A basic static diagram of a weapon's shot spread and blast size, shown on
+    // double-click/double-tap of its inventory chip. Purely illustrative — the
+    // reference aim angle and trail length are fixed, not tied to live physics.
+    const ILLO_SCALE = 0.5;   // canvas px per game-world blast-radius unit
+    const ILLO_ANGLE = 55;    // degrees; matches a tank's default aim angle
+    const ILLO_TRAIL = 78;    // px each illustrated shot travels from the turret
+
+    function closeWeaponIllo() { weaponIlloEl.classList.remove('open'); }
+
+    function showWeaponIllo(key) {
+        const spec = WEAPONS[key];
+        if (!spec) return;
+        weaponIlloTitle.textContent = spec.name;
+        weaponIlloDesc.textContent = weaponIlloDescription(key, spec);
+        drawWeaponIllo(spec);
+        weaponIlloEl.classList.add('open');
+    }
+
+    function weaponIlloDescription(key, spec) {
+        const bits = ['DMG ' + spec.dmg + ' · BLAST R' + spec.dmgR];
+        if (spec.shots.length > 1) bits.push(spec.shots.length + ' shells per shot');
+        if (spec.infinite) bits.push('Unlimited ammo — a direct hit also scores a PERFECT SHOT bonus');
+        if (spec.burst) bits.push('Auto-fires ' + RAPID_FIRE_SHOTS + ' shots over ~' + RAPID_FIRE_SECONDS + 's at the angle/power of the first shot');
+        if (spec.shrapnel) bits.push('Bursts into ' + spec.shrapnel + ' fragment shells on impact');
+        if (spec.homing) bits.push('Curves to lock onto the nearest enemy tank once close');
+        if (WEAPON_MAX_OVERRIDE[key]) bits.push('Limited to ' + WEAPON_MAX_OVERRIDE[key] + ' per player');
+        return bits.join('. ') + '.';
+    }
+
+    function drawWeaponIllo(spec) {
+        const c = weaponIlloCtx, w = weaponIlloCanvas.width, h = weaponIlloCanvas.height;
+        c.clearRect(0, 0, w, h);
+        c.fillStyle = '#020a02'; c.fillRect(0, 0, w, h);
+
+        const groundY = h - 26, turretX = 54, turretY = groundY - 14;
+        c.strokeStyle = GREEN_DIM; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(0, groundY); c.lineTo(w, groundY); c.stroke();
+        c.fillStyle = GREEN_MID; c.fillRect(turretX - 10, turretY, 20, 8);
+
+        const endpoints = spec.shots.map(off => {
+            const rad = (ILLO_ANGLE + off) * Math.PI / 180;
+            return { x: turretX + Math.cos(rad) * ILLO_TRAIL, y: turretY - Math.sin(rad) * ILLO_TRAIL };
+        });
+        c.strokeStyle = GREEN_BRIGHT; c.lineWidth = 1.5; c.setLineDash([3, 3]);
+        for (const pt of endpoints) { c.beginPath(); c.moveTo(turretX, turretY); c.lineTo(pt.x, pt.y); c.stroke(); }
+        c.setLineDash([]);
+
+        for (const pt of endpoints) {
+            const innerR = spec.dmgR * ILLO_SCALE, outerR = innerR * OUTER_MULT;
+            c.globalAlpha = 0.5; c.strokeStyle = ORANGE; c.lineWidth = 1; c.setLineDash([3, 3]);
+            c.beginPath(); c.arc(pt.x, pt.y, outerR, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
+            c.globalAlpha = 0.3; c.fillStyle = ORANGE;
+            c.beginPath(); c.arc(pt.x, pt.y, Math.max(spec.carveR * ILLO_SCALE, innerR), 0, Math.PI * 2); c.fill();
+            c.globalAlpha = 1;
+        }
+
+        // Shrapnel bursts throw fragments in a fan from the single blast center.
+        if (spec.shrapnel) {
+            const ctr = endpoints[0];
+            c.strokeStyle = GREEN_MID; c.lineWidth = 1;
+            for (let i = 0; i < spec.shrapnel; i++) {
+                const ang = (20 + i * (140 / (spec.shrapnel - 1))) * Math.PI / 180;
+                c.beginPath(); c.moveTo(ctr.x, ctr.y);
+                c.lineTo(ctr.x + Math.cos(ang) * 26, ctr.y - Math.sin(ang) * 26);
+                c.stroke();
+            }
+        }
+
+        // Rapid Fire auto-fires several more shots near the first landing spot.
+        if (spec.burst) {
+            const ctr = endpoints[0];
+            c.globalAlpha = 0.5; c.fillStyle = GREEN_MID;
+            [-22, -11, 11, 22].forEach(dx => {
+                c.beginPath(); c.arc(ctr.x + dx, ctr.y + Math.abs(dx) / 3, spec.dmgR * ILLO_SCALE * 0.6, 0, Math.PI * 2); c.fill();
+            });
+            c.globalAlpha = 1;
+        }
+
+        // Heat Seeker locks onto anything inside its dashed radius.
+        if (spec.homing) {
+            const ex = turretX + 140, ey = groundY - 8;
+            c.fillStyle = GREEN_DIM; c.fillRect(ex - 9, ey, 18, 7);
+            c.strokeStyle = CANNON_GRAY; c.lineWidth = 1.5; c.setLineDash([4, 4]);
+            c.beginPath(); c.arc(ex, ey, HEATSEEKER_RADIUS * ILLO_SCALE, 0, Math.PI * 2); c.stroke();
+            c.setLineDash([]);
+        }
+    }
+
+    document.getElementById('weapon-illo-close').addEventListener('click', closeWeaponIllo);
+    weaponIlloEl.addEventListener('click', (e) => { if (e.target === weaponIlloEl) closeWeaponIllo(); });
 
     // --- Main update loop ------------------------------------------------------------
 
