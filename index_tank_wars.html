@@ -1128,6 +1128,7 @@
             }
             if (removed) state.shells.splice(i, 1);
         }
+        updateTankPhysics(dt);
         if (state.shells.length === 0 && !state.rapidFire) setPhase('resolving');
     }
 
@@ -1365,7 +1366,12 @@
         showBanner('ROUND ' + state.round, 1.2);
     }
 
-    function updateResolving(dt) {
+    // Applies tank gravity/fall-damage/death for every tank whose ground may
+    // have shifted. Run every frame during both 'flight' and 'resolving' so a
+    // tank starts dropping the instant a shot (even an early shot mid-burst)
+    // craters the earth beneath it, instead of waiting for the whole volley
+    // to finish.
+    function updateTankPhysics(dt) {
         let anyAirborne = false, anyPendingDeath = false;
         for (const t of state.players) {
             if (!t.alive) continue;
@@ -1394,6 +1400,11 @@
                 anyPendingDeath = true;
             }
         }
+        return { anyAirborne, anyPendingDeath };
+    }
+
+    function updateResolving(dt) {
+        const { anyAirborne, anyPendingDeath } = updateTankPhysics(dt);
         if (!anyAirborne && !anyPendingDeath) setPhase('awarding');
     }
 
