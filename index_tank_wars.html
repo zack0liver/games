@@ -711,19 +711,31 @@
     // Shared by any theme built from floating platforms over a bottomless
     // void (Sky Island, Clouds, Tree Canopy) — every gap becomes void
     // terrain, which the fall-physics/drive code treats identically no
-    // matter which theme it came from.
+    // matter which theme it came from. Leftover space is spread into the
+    // gaps (which may stretch a little past their authored max) and the
+    // cluster is centered, so one side of the map never ends up all void.
     function applyVoidBands(minBands, maxBands, minWidth, maxWidth, minGap, maxGap) {
-        const bands = [];
+        const margin = 50, usable = W - margin * 2;
         const count = minBands + Math.floor(Math.random() * (maxBands - minBands + 1));
-        let cursor = 50;
-        for (let i = 0; i < count; i++) {
-            const w = minWidth + Math.random() * (maxWidth - minWidth);
-            const gap = minGap + Math.random() * (maxGap - minGap);
-            if (cursor + w > W - 50) break;
-            bands.push([cursor, cursor + w]);
-            cursor += w + gap;
+        const widths = [], gaps = [];
+        for (let i = 0; i < count; i++) widths.push(minWidth + Math.random() * (maxWidth - minWidth));
+        for (let i = 0; i < count - 1; i++) gaps.push(minGap + Math.random() * (maxGap - minGap));
+        let total = widths.reduce((a, b) => a + b, 0) + gaps.reduce((a, b) => a + b, 0);
+        while (widths.length > 1 && total > usable) { total -= widths.pop(); total -= gaps.pop(); }
+        let extra = Math.max(0, usable - total);
+        if (gaps.length) {
+            const share = extra / gaps.length;
+            for (let i = 0; i < gaps.length; i++) {
+                const boost = Math.max(0, Math.min(share, maxGap * 1.6 - gaps[i]));
+                gaps[i] += boost; extra -= boost;
+            }
         }
-        if (bands.length === 0) bands.push([W * 0.3, W * 0.7]);
+        const bands = [];
+        let cursor = margin + extra / 2;
+        for (let i = 0; i < widths.length; i++) {
+            bands.push([cursor, cursor + widths[i]]);
+            cursor += widths[i] + (gaps[i] || 0);
+        }
         for (let x = 0; x < W; x++) {
             if (!bands.some(([s, e]) => x >= s && x <= e)) terrain[x] = VOID_Y;
         }
@@ -780,9 +792,48 @@
         for (let x = s; x <= e; x++) terrain[x] = clamp(terrain[x], 40, H - 30);
     }
 
-    // Narrow, densely-packed branches with tight gaps — the least forgiving
-    // of the void themes.
-    function applyCanopy() { applyVoidBands(3, 5, 70, 130, 30, 70); }
+    // Narrow, densely-packed treetops with tight gaps — the least forgiving
+    // of the void themes. Same solid look as the other battlefields: each
+    // platform is sculpted into a rounded leafy crown, drawn as a complete
+    // filled shape with no shading tricks.
+    function applyCanopy() {
+        applyVoidBands(3, 5, 70, 130, 30, 70);
+        let bs = -1;
+        for (let x = 0; x <= W; x++) {
+            const solid = x < W && terrain[x] < H;
+            if (solid) { if (bs < 0) bs = x; }
+            else if (bs >= 0) { sculptCanopyBand(bs, x - 1); bs = -1; }
+        }
+    }
+
+    // Reshapes one canopy platform into a treetop: a broad dome silhouette
+    // (keeping a touch of the underlying noise so crowns stay irregular)
+    // topped with a run of small leafy scallops.
+    function sculptCanopyBand(s, e) {
+        const len = e - s + 1;
+        if (len < 20) return;
+        let avg = 0;
+        for (let x = s; x <= e; x++) avg += terrain[x];
+        avg /= len;
+        const cx = (s + e) / 2, hw = len / 2;
+        const crown = 30 + Math.random() * 30;
+        for (let x = s; x <= e; x++) {
+            const t = (x - cx) / hw;
+            const domeY = avg + crown * 0.5 - crown * Math.sqrt(Math.max(0, 1 - t * t));
+            terrain[x] = domeY + (terrain[x] - avg) * 0.25;
+        }
+        const nLumps = Math.max(3, Math.round(len / (12 + Math.random() * 8)));
+        for (let i = 0; i < nLumps; i++) {
+            const px0 = s + (len * i) / nLumps, px1 = s + (len * (i + 1)) / nLumps;
+            const lcx = (px0 + px1) / 2, lhw = (px1 - px0) / 2;
+            const amp = 5 + Math.random() * 8;
+            for (let x = Math.ceil(px0); x <= Math.min(e, Math.floor(px1)); x++) {
+                const t = (x - lcx) / lhw;
+                terrain[x] -= amp * Math.sqrt(Math.max(0, 1 - t * t));
+            }
+        }
+        for (let x = s; x <= e; x++) terrain[x] = clamp(terrain[x], 40, H - 30);
+    }
 
     // One wide, dominant cone rising out of the rolling base terrain, with an
     // actual carved bowl (not just a decoration) at the summit.
@@ -972,19 +1023,25 @@
         renderHealthHUD();
     }
 
+    // Solid ground is a hard requirement (a void spawn would insta-kill the
+    // tank at round start); tank-to-tank spacing relaxes progressively when
+    // the map can't satisfy it — e.g. 4 players on Tree Canopy's narrow
+    // crowns, where 110px apart is sometimes impossible.
     function computeSpawnXs(n) {
         const margin = 70, usable = W - 2 * margin;
         const xs = [];
         for (let i = 0; i < n; i++) {
             const target = Math.round(margin + (n === 1 ? usable / 2 : usable * i / (n - 1)));
-            let x = clamp(target, margin, W - margin);
-            let tries = 0;
-            while (tries < 300 && (terrain[x] >= H - 20 || xs.some(o => Math.abs(o - x) < 110))) {
-                tries++;
-                const dir = tries % 2 === 0 ? 1 : -1;
-                x = clamp(target + dir * Math.ceil(tries / 2) * 3, margin, W - margin);
+            let x = null;
+            for (const minDist of [110, 60, 30, 0]) {
+                for (let tries = 0; tries <= 300 && x == null; tries++) {
+                    const dir = tries % 2 === 0 ? 1 : -1;
+                    const cand = clamp(target + dir * Math.ceil(tries / 2) * 3, margin, W - margin);
+                    if (terrain[cand] < H - 20 && !xs.some(o => Math.abs(o - cand) < minDist)) x = cand;
+                }
+                if (x != null) break;
             }
-            xs.push(x);
+            xs.push(x != null ? x : clamp(target, margin, W - margin));
         }
         return xs;
     }
