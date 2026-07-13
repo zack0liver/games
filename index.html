@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Hayes and Will's Arcade Party — Insert Cartridge to Play</title>
+    <title>Hayes and Will's Arcade Party — Select Your Game</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
         html, body {
             height: 100%;
@@ -13,635 +13,404 @@
 
         body {
             margin: 0;
-            height: 100dvh;
-            min-height: 100vh;
-            overflow: hidden;
+            min-height: 100dvh;
             box-sizing: border-box;
-            padding: 12px;
-            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a12 100%);
+            background: radial-gradient(ellipse 120% 100% at 50% 0%, #1a1626 0%, #0a0a12 55%, #050508 100%);
             color: #eee;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: none;
-            overscroll-behavior: none;
-            -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        #hub {
+            font-family: 'VT323', monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: clamp(10px, 2.2vh, 22px);
-            width: 100%;
-            max-width: 720px;
+            padding: clamp(28px, 6vh, 56px) 24px 40px;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         #site-title {
             font-family: 'Press Start 2P', monospace;
-            font-size: clamp(0.85rem, 3.4vw, 1.5rem);
-            color: #eee;
-            text-shadow: 2px 2px 0 #c0392b, 4px 4px 0 rgba(0, 0, 0, 0.4);
-            margin: 0;
+            font-size: clamp(20px, 5vw, 34px);
+            color: #fff;
+            text-shadow: 0 0 6px #ff3b6b, 0 0 18px #ff3b6b88, 3px 3px 0 #ff3b6b;
+            letter-spacing: 2px;
+            margin: 0 0 clamp(24px, 5vh, 44px);
             text-align: center;
-            letter-spacing: 0.05em;
-            line-height: 1.5;
-            max-width: 90vw;
+            line-height: 1.6;
         }
 
-        /* ---- NES-style console ---- */
-        #console {
+        /* ---- Cabinet ---- */
+        #cabinet {
             position: relative;
-            width: min(360px, 82vw);
-            height: clamp(140px, 24vh, 190px);
-            background: linear-gradient(180deg, #f2f2f2 0%, #d8d8d8 45%, #c9c9c9 55%, #e6e6e6 100%);
-            border-radius: 10px 10px 4px 4px;
-            border: 1px solid #b5b5b5;
-            box-shadow:
-                0 14px 30px rgba(0, 0, 0, 0.5),
-                inset 0 2px 0 rgba(255, 255, 255, 0.9),
-                inset 0 -4px 8px rgba(0, 0, 0, 0.15);
+            width: 900px;
+            max-width: 100%;
         }
 
-        #console-seam {
-            position: absolute;
-            left: 6%;
-            right: 6%;
-            top: 58%;
-            height: 2px;
-            background: #aaa;
-            box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
-        }
-
-        #vents {
-            position: absolute;
-            left: 8%;
-            top: 12%;
-            width: 16%;
-            height: 8%;
-            background: repeating-linear-gradient(90deg, #bbb 0 2px, transparent 2px 6px);
-            opacity: 0.7;
-        }
-
-        /* Front-loading slot: an angled trapezoid (not a plain rectangle) with
-           a raised lighter lip around it, so it reads as a beveled opening. */
-        #slot-assembly {
-            position: absolute;
-            top: 22%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 62%;
-            height: 20%;
-        }
-
-        #slot-lip {
-            position: absolute;
-            inset: -7px -12px;
-            background: linear-gradient(180deg, #ececec, #c0c0c0);
-            clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%);
-            border-radius: 4px;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 3px rgba(0, 0, 0, 0.25);
-        }
-
-        #slot {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, #1a1a1a, #000);
-            clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
-            border-radius: 3px;
-            box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.9), inset 0 0 10px #000;
-            transition: box-shadow 0.15s ease;
-        }
-
-        #slot.slot-hot {
-            box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.9), inset 0 0 10px #000,
-                0 0 14px 3px rgba(255, 70, 70, 0.7);
-        }
-
-        #red-accent {
-            position: absolute;
-            right: 9%;
-            bottom: 15%;
-            width: 20%;
-            height: 11%;
-            background: linear-gradient(180deg, #e0453f, #b5211d);
-            border-radius: 3px;
-            border: 1px solid #8f1a17;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 3px rgba(0, 0, 0, 0.3);
-        }
-
-        #power-led {
-            position: absolute;
-            left: 9%;
-            bottom: 18%;
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #ff8a80, #d0242a 60%, #7a0e0e 100%);
-            box-shadow: 0 0 7px 2px rgba(255, 40, 40, 0.7);
-        }
-
-        #hint {
-            font-size: clamp(0.7rem, 2.2vw, 0.9rem);
-            color: #aaa;
-            margin: 0;
+        #marquee {
+            background: linear-gradient(180deg, #2a2140, #1c1730);
+            border: 3px solid #4a3f6b;
+            border-bottom: none;
+            border-radius: 18px 18px 0 0;
+            padding: 14px 20px;
             text-align: center;
-        }
-
-        /* ---- Cartridge tray ---- */
-        #tray {
-            display: flex;
-            flex-wrap: wrap;
-            gap: clamp(12px, 3vw, 24px);
-            justify-content: center;
-            max-width: min(600px, 92vw);
-        }
-
-        .cartridge {
-            position: relative;
-            width: clamp(96px, 26vw, 140px);
-            height: clamp(72px, 18vw, 96px);
+            box-shadow: 0 0 30px #ff3b6b33 inset;
             box-sizing: border-box;
-            padding: 6px;
-            background: linear-gradient(180deg, #222 0%, #0d0d0d 100%);
-            border: 2px solid var(--cart-color, #0f0);
-            border-radius: 8px 8px 3px 3px;
-            /* Diagonal cut on the bottom-left corner mimics the notch that
-               enforces correct cartridge orientation on real hardware. */
-            clip-path: polygon(0 0, 100% 0, 100% 100%, 22% 100%, 0 78%);
-            box-shadow:
-                0 0 10px var(--cart-color, #0f0),
-                inset 0 0 8px rgba(0, 0, 0, 0.6),
-                0 6px 10px rgba(0, 0, 0, 0.5);
-            cursor: grab;
-            touch-action: none;
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: box-shadow 0.15s ease;
         }
 
-        .cartridge:active {
-            cursor: grabbing;
-        }
-
-        .cartridge.dragging {
-            transition: none;
-            z-index: 200;
-            box-shadow: 0 0 18px var(--cart-color, #0f0), 0 10px 20px rgba(0, 0, 0, 0.6);
-        }
-
-        .cartridge:focus-visible {
-            outline: 2px dashed var(--cart-color, #0f0);
-            outline-offset: 3px;
-        }
-
-        /* Fully interactive like any other cartridge, just visually marked
-           as "not fully installed yet" via a dashed border. */
-        .cartridge.coming-soon {
-            border-style: dashed;
-        }
-
-        .cart-connector {
-            position: absolute;
-            top: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 46%;
-            height: 8px;
-            border-radius: 2px;
-            background: repeating-linear-gradient(90deg, var(--cart-color, #0f0) 0 3px, #000 3px 5px);
-            opacity: 0.9;
-        }
-
-        .cart-title {
-            color: var(--cart-color, #0f0);
-            text-shadow: 0 0 6px var(--cart-color, #0f0);
-            font-size: clamp(0.55rem, 2.2vw, 0.75rem);
-            text-align: center;
-            line-height: 1.25;
-        }
-
-        .cart-subtitle {
-            color: var(--cart-accent, #0f0);
-            font-size: clamp(0.45rem, 1.7vw, 0.6rem);
-            margin-top: 4px;
-            opacity: 0.85;
-        }
-
-        /* ---- Power-on transition overlay ---- */
-        #poweron-overlay {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 1000;
-            transition: opacity 0.15s ease;
-        }
-
-        #poweron-overlay.active {
-            opacity: 1;
-            pointer-events: all;
-            animation: crtFlicker 0.5s steps(2, end) 2;
-        }
-
-        #poweron-text {
+        #marquee span {
             font-family: 'Press Start 2P', monospace;
-            font-size: clamp(0.75rem, 3vw, 1.2rem);
-            letter-spacing: 0.1em;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
-            text-align: center;
-            padding: 0 20px;
-            max-width: 420px;
+            font-size: clamp(10px, 2.5vw, 15px);
+            color: #7de8ff;
+            text-shadow: 0 0 8px #7de8ff;
+            letter-spacing: 3px;
         }
 
-        /* The joke punchline reads better in a plain monospace font than the
-           pixel font, which is better suited to the short "LOADING..." line. */
-        .joke-line {
-            font-family: 'Courier New', Courier, monospace;
-            letter-spacing: normal;
-            font-size: 0.8em;
-            line-height: 1.5;
-            display: inline-block;
+        #cabinet-body {
+            background: linear-gradient(180deg, #4a4650 0%, #38343e 6%, #2a2731 100%);
+            border: 3px solid #4a3f6b;
+            border-top: none;
+            padding: clamp(18px, 3.5vw, 34px) clamp(16px, 4vw, 40px) clamp(22px, 4vw, 40px);
+            box-sizing: border-box;
+            box-shadow: 0 30px 60px #000000aa;
         }
 
-        .soon-tag {
-            display: inline-block;
-            margin-top: 10px;
-            color: #ffaa00;
-            text-shadow: 0 0 8px #ffaa00;
-            font-size: 0.65em;
-            letter-spacing: 0.1em;
+        #bezel {
+            background: #17141f;
+            border-radius: 14px;
+            padding: clamp(12px, 2.5vw, 22px);
+            box-shadow: inset 0 0 0 3px #060508, 0 6px 0 #6a627f;
+            box-sizing: border-box;
         }
 
-        /* Loading bar: only shown while a real game is loading (6s), not
-           during the coming-soon joke flow. */
-        #loading-bar-track {
-            width: min(260px, 70vw);
-            height: 16px;
-            border: 2px solid #0f0;
-            border-radius: 3px;
-            background: #001a00;
+        #screen {
+            position: relative;
+            background: #030a06;
+            border-radius: 4px;
             overflow: hidden;
+            box-shadow: inset 0 0 60px #000, inset 0 0 20px #00ff8833;
         }
 
-        #loading-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: #0f0;
-            box-shadow: 0 0 10px currentColor;
+        #screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+            background: repeating-linear-gradient(0deg, #00000055 0px, #00000055 1px, transparent 1px, transparent 3px);
+            animation: scanline 6s linear infinite;
         }
 
-        #loading-bar-pct {
+        #screen::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+            box-shadow: inset 0 0 90px #000c;
+            border-radius: 4px;
+        }
+
+        @keyframes scanline {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 400px; }
+        }
+
+        #screen-content {
+            position: relative;
+            z-index: 2;
+            padding: 26px clamp(16px, 3vw, 30px) 30px;
+        }
+
+        #screen-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #0f4a2c;
+        }
+
+        #screen-header .label {
             font-family: 'Press Start 2P', monospace;
-            font-size: 0.7rem;
-            color: #0f0;
-            text-shadow: 0 0 6px #0f0;
+            font-size: clamp(9px, 2vw, 12px);
+            color: #00ff88;
+            text-shadow: 0 0 8px #00ff88;
         }
 
-        @keyframes crtFlicker {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        #screen-header .counter {
+            font-size: 20px;
+            color: #00ff88aa;
         }
 
-        @media (max-width: 420px) {
-            #site-title { letter-spacing: 0.02em; }
-            .cart-title { font-size: 0.55rem; }
+        #game-list {
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .game-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            margin: 0 -10px 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            background: transparent;
+            border-left: 3px solid transparent;
+        }
+
+        .game-row.selected {
+            background: #00ff8822;
+            border-left-color: #00ff88;
+        }
+
+        .game-row .cursor,
+        .game-row .arrow {
+            color: #00ff88;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .game-row .cursor {
+            width: 16px;
+        }
+
+        .game-row .arrow {
+            width: 14px;
+            text-align: right;
+        }
+
+        .game-row .name {
+            font-size: 19px;
+            color: #00cc6e;
+            flex: 1;
+            letter-spacing: 0.5px;
+        }
+
+        .game-row.selected .name {
+            color: #e8fff2;
+            text-shadow: 0 0 8px #00ff88;
+        }
+
+        .game-row .tag {
+            font-size: 15px;
+            color: #00994d88;
+        }
+
+        .game-row.selected .tag {
+            color: #00ff88cc;
+        }
+
+        #screen-footer {
+            margin-top: 20px;
+            padding-top: 14px;
+            border-top: 2px solid #0f4a2c;
+            display: flex;
+            justify-content: space-between;
+            font-size: 17px;
+            color: #00ff8899;
+        }
+
+        /* ---- Controls ---- */
+        #controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: clamp(20px, 4vh, 40px);
+            padding: 0 clamp(4px, 2vw, 20px);
+        }
+
+        #joystick {
+            position: relative;
+            width: clamp(80px, 14vw, 130px);
+            height: clamp(80px, 14vw, 130px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #333, #111 75%);
+            box-shadow: 0 6px 14px #0008, inset 0 2px 4px #ffffff22;
+        }
+
+        #joystick-stick {
+            position: absolute;
+            width: 14%;
+            height: 43%;
+            background: linear-gradient(180deg, #999, #555);
+            border-radius: 9px;
+            bottom: 52%;
+            box-shadow: 0 4px 8px #0006;
+        }
+
+        #joystick-ball {
+            position: absolute;
+            width: 35%;
+            height: 35%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #ff5577, #b8123f 75%);
+            box-shadow: 0 4px 10px #0009, inset 0 2px 4px #ffffff55;
+            top: 4%;
+        }
+
+        #buttons {
+            display: flex;
+            gap: 26px;
+        }
+
+        .btn {
+            width: clamp(40px, 8vw, 56px);
+            height: clamp(40px, 8vw, 56px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(10px, 2vw, 14px);
+            color: #ffffffcc;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 6px 0 #0006, inset 0 2px 4px #ffffff55;
+        }
+
+        .btn.pressed {
+            box-shadow: inset 0 2px 6px #0009;
+            transform: translateY(4px);
+        }
+
+        #btn-a {
+            background: radial-gradient(circle at 35% 30%, #ff3b6b, #ff3b6bcc 70%);
+        }
+
+        #btn-b {
+            background: radial-gradient(circle at 35% 30%, #ffb454, #ffb454cc 70%);
+        }
+
+        #base-shadow {
+            height: 26px;
+            background: linear-gradient(180deg, #6a627f, #4a3f6b);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 20px 40px #000a;
+        }
+
+        #caption {
+            color: #ffffff66;
+            font-size: 19px;
+            margin-top: 28px;
+            letter-spacing: 1px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <div id="hub">
-        <h1 id="site-title">HAYES AND WILL'S ARCADE PARTY</h1>
+    <h1 id="site-title">HAYES AND WILL'S<br>ARCADE PARTY</h1>
 
-        <div id="console">
-            <div id="console-seam"></div>
-            <div id="vents"></div>
-            <div id="slot-assembly">
-                <div id="slot-lip"></div>
-                <div id="slot"></div>
+    <div id="cabinet">
+        <div id="marquee"><span>SELECT YOUR GAME</span></div>
+
+        <div id="cabinet-body">
+            <div id="bezel">
+                <div id="screen">
+                    <div id="screen-content">
+                        <div id="screen-header">
+                            <span class="label">GAME SELECT</span>
+                            <span class="counter" id="counter">01 / 07</span>
+                        </div>
+
+                        <div id="game-list"></div>
+
+                        <div id="screen-footer">
+                            <span>&uarr;&darr; MOVE</span>
+                            <span>ENTER SELECT</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div id="red-accent"></div>
-            <div id="power-led"></div>
+
+            <div id="controls">
+                <div id="joystick">
+                    <div id="joystick-base"></div>
+                    <div id="joystick-stick"></div>
+                    <div id="joystick-ball"></div>
+                </div>
+                <div id="buttons">
+                    <div class="btn" id="btn-a">A</div>
+                    <div class="btn" id="btn-b">B</div>
+                </div>
+            </div>
         </div>
 
-        <p id="hint">Drag a cartridge into the slot — or just tap one — to play.</p>
-
-        <div id="tray"></div>
+        <div id="base-shadow"></div>
     </div>
 
-    <div id="poweron-overlay">
-        <div id="poweron-text"></div>
-        <div id="loading-bar-track"><div id="loading-bar-fill"></div></div>
-        <div id="loading-bar-pct"></div>
-    </div>
+    <p id="caption">Click a game, or use &uarr;&darr; and ENTER</p>
 
     <script>
-        // --- Game Catalog (data-driven: add a game by adding one entry here) ---
         const GAMES = [
-            {
-                id: 'asteroids',
-                title: 'ASTEROIDS: JUNGLE ACES',
-                subtitle: 'SPACE SHOOTER',
-                file: 'index_asteroids_monkeys.html',
-                color: '#23a0ff',
-                accent: '#ff55aa'
-            },
-            {
-                id: 'galaga',
-                title: 'GALAGA VECTOR',
-                subtitle: 'ARCADE SHOOTER',
-                file: 'index_galaga_v1.html',
-                color: '#0F0',
-                accent: '#FF0'
-            },
-            {
-                id: 'asteroids-maze',
-                title: 'ASTEROIDS: MAZE EDITION',
-                subtitle: 'MAZE RUNNER',
-                file: 'index_asteroids_maze.html',
-                color: '#b26bff',
-                accent: '#7dd3fc'
-            },
-            {
-                id: 'candy-checkers',
-                title: 'CANDY CHECKERS',
-                subtitle: '2P SUGAR STRATEGY',
-                file: 'index_candy_checkers.html',
-                color: '#ff4d6d',
-                accent: '#ffd166'
-            },
-            {
-                id: 'tank-wars',
-                title: 'TANK WARS',
-                subtitle: 'ARTILLERY DUEL 2-4P',
-                file: 'index_tank_wars.html',
-                color: '#8a9a5b',
-                accent: '#ffa500'
-            },
-            {
-                id: 'snake-duel',
-                title: 'SNAKE DUEL',
-                subtitle: '2P GROW & TRAP',
-                file: 'index_snake_duel.html',
-                color: '#33ff66',
-                accent: '#ff3caa'
-            },
-            {
-                id: 'neon-breakout',
-                title: 'NEON BREAKOUT',
-                subtitle: 'BRICK BREAKER',
-                file: 'index_neon_breakout.html',
-                color: '#38e8ff',
-                accent: '#ff4d9d'
-            }
+            { name: 'ASTEROIDS: JUNGLE ACES', tag: 'SPACE SHOOTER', file: 'index_asteroids_monkeys.html' },
+            { name: 'GALAGA VECTOR', tag: 'ARCADE SHOOTER', file: 'index_galaga_v1.html' },
+            { name: 'ASTEROIDS: MAZE EDITION', tag: 'MAZE RUNNER', file: 'index_asteroids_maze.html' },
+            { name: 'CANDY CHECKERS', tag: '2P SUGAR STRATEGY', file: 'index_candy_checkers.html' },
+            { name: 'TANK WARS', tag: 'ARTILLERY DUEL 2-4P', file: 'index_tank_wars.html' },
+            { name: 'SNAKE DUEL', tag: '2P GROW & TRAP', file: 'index_snake_duel.html' },
+            { name: 'NEON BREAKOUT', tag: 'BRICK BREAKER', file: 'index_neon_breakout.html' }
         ];
 
-        const tray = document.getElementById('tray');
-        const slot = document.getElementById('slot');
-        const overlay = document.getElementById('poweron-overlay');
-        const overlayText = document.getElementById('poweron-text');
-        const loadingBarTrack = document.getElementById('loading-bar-track');
-        const loadingBarFill = document.getElementById('loading-bar-fill');
-        const loadingBarPct = document.getElementById('loading-bar-pct');
+        const listEl = document.getElementById('game-list');
+        const counterEl = document.getElementById('counter');
+        const btnA = document.getElementById('btn-a');
 
-        // Animates the loading bar from 0-100% over `durationMs`, themed to
-        // the game's own color, then calls onComplete. Only used for real
-        // games (see launchGame) — the coming-soon joke flow stays quick.
-        function startLoadingBar(color, durationMs, onComplete) {
-            loadingBarTrack.style.display = '';
-            loadingBarPct.style.display = '';
-            loadingBarTrack.style.borderColor = color;
-            loadingBarFill.style.background = color;
-            loadingBarFill.style.color = color; // for box-shadow: 0 0 10px currentColor
-            loadingBarFill.style.width = '0%';
-            loadingBarPct.textContent = '0%';
+        let selected = 0;
 
-            const start = performance.now();
-            let rafId;
-            function tick(now) {
-                const frac = Math.min(1, (now - start) / durationMs);
-                loadingBarFill.style.width = (frac * 100) + '%';
-                loadingBarPct.textContent = Math.floor(frac * 100) + '%';
-                if (frac < 1) {
-                    rafId = requestAnimationFrame(tick);
-                }
-            }
-            rafId = requestAnimationFrame(tick);
-
-            // Completion is driven by a real timer, not the rAF loop above:
-            // rAF can be throttled when a tab is backgrounded/inactive, which
-            // would otherwise delay the load past durationMs. The timer
-            // guarantees it always finishes on schedule; the bar is snapped
-            // to 100% here in case rAF fell behind while backgrounded.
-            setTimeout(() => {
-                cancelAnimationFrame(rafId);
-                loadingBarFill.style.width = '100%';
-                loadingBarPct.textContent = '100%';
-                onComplete();
-            }, durationMs);
+        function pad(n) {
+            return String(n).padStart(2, '0');
         }
 
-        function renderCartridges() {
-            tray.innerHTML = '';
-            GAMES.forEach(game => {
-                const cart = document.createElement('div');
-                cart.className = 'cartridge';
-                cart.classList.toggle('coming-soon', !!game.comingSoon);
-                cart.dataset.gameId = game.id;
-                cart.tabIndex = 0;
-                cart.setAttribute('role', 'button');
-                cart.setAttribute('aria-label', `Insert ${game.title} cartridge to play`);
-                cart.style.setProperty('--cart-color', game.color);
-                cart.style.setProperty('--cart-accent', game.accent);
-                cart.innerHTML = `
-                    <div class="cart-connector"></div>
-                    <div class="cart-title">${game.title}</div>
-                    <div class="cart-subtitle">${game.subtitle}</div>
+        function render() {
+            listEl.innerHTML = '';
+            GAMES.forEach((game, i) => {
+                const active = i === selected;
+                const row = document.createElement('div');
+                row.className = 'game-row' + (active ? ' selected' : '');
+                row.innerHTML = `
+                    <span class="cursor">${active ? '&#9656;' : ''}</span>
+                    <span class="name">${game.name}</span>
+                    <span class="tag">${game.tag}</span>
+                    <span class="arrow">${active ? '&rarr;' : ''}</span>
                 `;
-                attachCartridgeHandlers(cart, game);
-                tray.appendChild(cart);
+                row.addEventListener('click', () => launch(i));
+                listEl.appendChild(row);
+                if (active) row.scrollIntoView({ block: 'nearest' });
             });
+            counterEl.textContent = `${pad(selected + 1)} / ${pad(GAMES.length)}`;
         }
 
-        // --- Drag state (one drag at a time, mirroring the pointer-tracking
-        // convention used in both games this session) ---
-        let dragEl = null;
-        let dragGame = null;
-        let dragPointerId = null;
-        let dragOffset = { x: 0, y: 0 };
-        let dragStart = { x: 0, y: 0 };
-        let dragMoved = 0;
-        let homeRect = null;
-
-        function isOverSlot(el) {
-            const cartRect = el.getBoundingClientRect();
-            const slotRect = slot.getBoundingClientRect();
-            const cx = cartRect.left + cartRect.width / 2;
-            const cy = cartRect.top + cartRect.height / 2;
-            const sx = slotRect.left + slotRect.width / 2;
-            const sy = slotRect.top + slotRect.height / 2;
-            const dist = Math.hypot(cx - sx, cy - sy);
-            const threshold = Math.max(slotRect.width, slotRect.height) * 0.9;
-            return dist < threshold;
+        function move(delta) {
+            selected = (selected + delta + GAMES.length) % GAMES.length;
+            render();
         }
 
-        function attachCartridgeHandlers(cart, game) {
-            cart.addEventListener('pointerdown', (e) => {
-                if (dragPointerId !== null) return;
-                e.preventDefault();
-                dragPointerId = e.pointerId;
-                dragEl = cart;
-                dragGame = game;
-                dragMoved = 0;
-                dragStart = { x: e.clientX, y: e.clientY };
-
-                const r = cart.getBoundingClientRect();
-                homeRect = r;
-                dragOffset = { x: e.clientX - r.left, y: e.clientY - r.top };
-
-                cart.classList.add('dragging');
-                cart.style.position = 'fixed';
-                cart.style.left = r.left + 'px';
-                cart.style.top = r.top + 'px';
-                cart.style.width = r.width + 'px';
-                cart.style.height = r.height + 'px';
-                document.body.appendChild(cart);
-                try { cart.setPointerCapture(e.pointerId); } catch (err) {}
-            });
-
-            // No separate click listener: pointerdown/pointerup already fire
-            // for mouse clicks too, and endDrag()'s movement threshold below
-            // treats a near-stationary press-release as a tap.
-            cart.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    launchGame(game, cart);
-                }
-            });
+        function launch(i) {
+            selected = i;
+            render();
+            btnA.classList.add('pressed');
+            setTimeout(() => btnA.classList.remove('pressed'), 180);
+            setTimeout(() => {
+                window.location.href = GAMES[i].file;
+            }, 180);
         }
 
-        window.addEventListener('pointermove', (e) => {
-            if (e.pointerId !== dragPointerId || !dragEl) return;
-            e.preventDefault();
-            dragEl.style.left = (e.clientX - dragOffset.x) + 'px';
-            dragEl.style.top = (e.clientY - dragOffset.y) + 'px';
-            dragMoved = Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y);
-            slot.classList.toggle('slot-hot', isOverSlot(dragEl));
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+            else if (e.key === 'Enter') { launch(selected); }
         });
 
-        function endDrag(e) {
-            if (e.pointerId !== dragPointerId || !dragEl) return;
-            const el = dragEl;
-            const game = dragGame;
-            const moved = dragMoved;
-            const home = homeRect;
-            dragPointerId = null;
-            dragEl = null;
-            dragGame = null;
-            slot.classList.remove('slot-hot');
-
-            if (moved < 6) {
-                // Barely moved: treat as a tap-to-insert rather than a drag.
-                restoreToTray(el);
-                launchGame(game, el);
-            } else if (isOverSlot(el)) {
-                launchGame(game, el);
-            } else {
-                springBack(el, home);
-            }
-        }
-        window.addEventListener('pointerup', endDrag);
-        window.addEventListener('pointercancel', endDrag);
-
-        function restoreToTray(el) {
-            el.style.position = '';
-            el.style.left = '';
-            el.style.top = '';
-            el.style.width = '';
-            el.style.height = '';
-            el.classList.remove('dragging');
-            tray.appendChild(el);
-        }
-
-        function springBack(el, home) {
-            el.style.transition = 'left 0.25s ease, top 0.25s ease';
-            el.style.left = home.left + 'px';
-            el.style.top = home.top + 'px';
-            el.addEventListener('transitionend', function done() {
-                el.removeEventListener('transitionend', done);
-                el.style.transition = '';
-                restoreToTray(el);
-            }, { once: true });
-        }
-
-        function launchGame(game, el) {
-            const rect = el.getBoundingClientRect();
-            const slotRect = slot.getBoundingClientRect();
-
-            el.style.transition = '';
-            el.style.position = 'fixed';
-            el.style.left = rect.left + 'px';
-            el.style.top = rect.top + 'px';
-            el.style.width = rect.width + 'px';
-            el.style.height = rect.height + 'px';
-            document.body.appendChild(el);
-            void el.offsetWidth; // force layout so the transition below animates from this rect
-
-            el.style.transition = 'left 0.22s ease, top 0.22s ease, transform 0.22s ease, opacity 0.22s ease 0.12s';
-            el.style.left = (slotRect.left + slotRect.width / 2 - rect.width / 2) + 'px';
-            el.style.top = (slotRect.top - rect.height * 0.3) + 'px';
-            el.style.transform = 'scale(0.8)';
-            el.style.opacity = '0.15';
-
-            setTimeout(() => {
-                overlayText.textContent = `LOADING ${game.title}…`;
-                overlay.classList.add('active');
-
-                if (game.comingSoon) {
-                    // Punch line instead of a real load: no loading bar here,
-                    // just swap the text after a beat, hold it, then reset
-                    // the tray so the cartridge can be tried again.
-                    loadingBarTrack.style.display = 'none';
-                    loadingBarPct.style.display = 'none';
-                    setTimeout(() => {
-                        overlayText.innerHTML =
-                            `<span class="joke-line">${game.joke}</span><br>` +
-                            `<span class="soon-tag">COMING SOON</span>`;
-                    }, 700);
-                    setTimeout(() => {
-                        overlay.classList.remove('active');
-                        // el was reparented to <body> for the slide-in
-                        // animation, so it's outside #tray and wouldn't be
-                        // cleared by renderCartridges()'s tray.innerHTML reset.
-                        el.remove();
-                        renderCartridges();
-                    }, 3000);
-                } else {
-                    // Real game: a proper 6-second loading bar before it opens.
-                    startLoadingBar(game.color, 3000, () => {
-                        window.location.href = game.file;
-                    });
-                }
-            }, 240);
-        }
-
-        renderCartridges();
+        render();
     </script>
 </body>
 </html>
