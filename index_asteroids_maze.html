@@ -272,27 +272,8 @@
     <button id="restart-button">RESTART</button>
 </div>
 
-
+<script src="highscores.js"></script>
 <script type="module">
-    // --- Firebase Setup ---
-    // Loaded lazily via dynamic import() (see initFirebase) rather than static
-    // top-level imports. A static import of an unreachable CDN (ad blockers,
-    // corporate firewalls, flaky mobile networks) is a fatal module error that
-    // would take the ENTIRE game down with it. Dynamic import keeps the core
-    // 2D arcade game playable offline/without Firebase; only the online
-    // leaderboard degrades gracefully.
-    let initializeApp, getAuth, signInAnonymously, signInWithCustomToken,
-        getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp;
-
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-    let app;
-    let db;
-    let auth;
-    let userId;
-    let isFirebaseAvailable = false; // Flag to track successful Firebase initialization
-
     // --- Configuration and Utilities ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -315,11 +296,10 @@
     const WALL_H = 16;
 
     let game;
-    let highScore = parseInt(localStorage.getItem('asteroidsMazeHighScore') || '0', 10);
+    let highScore = HS.getBoard('asteroids-maze', 'asteroidsMazeHighScore').personalBest.score;
 
     const rand = (min, max) => Math.random() * (max - min) + min;
     const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
-    const formatUserId = (uid) => uid.substring(0, 4) + '...' + uid.substring(uid.length - 4);
 
     // Fixed starfield (generated once) instead of re-randomizing every frame,
     // so the background reads as actual stars rather than flickering noise.
@@ -669,75 +649,6 @@
             ctx.lineTo(-15 - rand(0, 5), 0);
             ctx.lineTo(-10, -5);
             ctx.stroke();
-        }
-    }
-
-    // --- Firebase Score Logic ---
-
-    async function ensureAuth() {
-        if (!isFirebaseAvailable) return false;
-        if (auth && auth.currentUser) { userId = auth.currentUser.uid; return true; }
-        try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                userId = userCredential.user.uid;
-            } else {
-                const userCredential = await signInAnonymously(auth);
-                userId = userCredential.user.uid;
-            }
-            console.log("Firebase Auth successful. User ID:", userId);
-            return true;
-        } catch (error) {
-            console.error("Firebase Auth failed:", error);
-            return false;
-        }
-    }
-
-    async function saveScore(score, userName) {
-        if (!isFirebaseAvailable || !userId) {
-            console.error("Cannot save score: Firebase unavailable or user not authenticated.");
-            return;
-        }
-        try {
-            const scoresRef = collection(db, `artifacts/${appId}/public/data/maze_highscores`);
-            await addDoc(scoresRef, {
-                score: score,
-                userId: userId,
-                userName: userName || formatUserId(userId),
-                timestamp: Timestamp.now()
-            });
-            console.log("Score saved successfully.");
-        } catch (e) {
-            console.error("Error adding document: ", e);
-        }
-    }
-
-    async function loadHighScores() {
-        if (!isFirebaseAvailable || !userId) {
-            return '<li style="color: #ffaa00;">High scores unavailable.</li>';
-        }
-        try {
-            const scoresRef = collection(db, `artifacts/${appId}/public/data/maze_highscores`);
-            const q = query(scoresRef, orderBy("score", "desc"), limit(10));
-            const querySnapshot = await getDocs(q);
-            let scoreHtml = '';
-            if (querySnapshot.empty) {
-                return '<li style="color: #ffaa00;">No scores recorded yet.</li>';
-            }
-            querySnapshot.forEach((doc, index) => {
-                const data = doc.data();
-                const isCurrentPlayer = data.userId === userId && data.score === game.finalScore;
-                const displayName = data.userName || formatUserId(data.userId);
-                const nameStyle = isCurrentPlayer ? 'style="color: #ffaa00; font-weight: 700;"' : 'style="font-style: italic;"';
-                const scoreStyle = isCurrentPlayer ? 'style="color: #b26bff;"' : 'style="color: #00ffaa;"';
-                const userText = `<span ${nameStyle}>${displayName}</span>`;
-                const scoreText = `<span class="score-value" ${scoreStyle}>${data.score}</span>`;
-                scoreHtml += `<li><span>#${index + 1}: ${userText}</span> ${scoreText}</li>`;
-            });
-            return scoreHtml;
-        } catch (e) {
-            console.error("Error loading scores: ", e);
-            return '<li style="color: #ffaa00;">Error loading scores. Check console for details.</li>';
         }
     }
 
@@ -1942,35 +1853,14 @@
             ctx.shadowBlur = 0;
         }
 
-        showSubmissionForm(score) {
-            this.finalScore = score;
+        displayFinalScores(score) {
+            const board = HS.getBoard('asteroids-maze');
+            const scoreListHtml = board.top10.length
+                ? board.top10.map((r, i) => `<li><span>#${i + 1}: <span style="font-style: italic;">${r.name}</span></span> <span class="score-value" style="color: #00ffaa;">${r.score}</span></li>`).join('')
+                : '<li style="color: #ffaa00;">No scores recorded yet.</li>';
             modalContentContainer.innerHTML = `
                 <h1>GAME OVER</h1>
                 <p>Score: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
-                <form id="name-form">
-                    <label for="player-name-input" style="color: #00ffaa;">Enter your name/initials (max 8):</label>
-                    <input type="text" id="player-name-input" maxlength="8" placeholder="PLAYER" value="${localStorage.getItem('lastUserName') || ''}">
-                    <button type="submit" id="submit-score-button">SUBMIT SCORE</button>
-                </form>
-            `;
-            messageBox.style.display = 'block';
-            document.getElementById('restart-button').style.display = 'none';
-            document.getElementById('name-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const nameInput = document.getElementById('player-name-input');
-                const userName = nameInput.value.trim().substring(0, 8) || 'PLAYER';
-                localStorage.setItem('lastUserName', userName);
-                this.displayFinalScores(this.finalScore, userName);
-            });
-        }
-
-        async displayFinalScores(score, userName) {
-            modalContentContainer.innerHTML = `<h1>SAVING SCORE...</h1><p>Fetching Top 10...</p>`;
-            if (isFirebaseAvailable) await saveScore(score, userName);
-            const scoreListHtml = await loadHighScores();
-            modalContentContainer.innerHTML = `
-                <h1>GAME OVER</h1>
-                <p>Score Saved: <span style="color: #ffaa00; font-weight: 700;">${score}</span></p>
                 <div id="game-over-scores-container">
                     <h2>TOP 10 — MAZE EDITION</h2>
                     <ul id="game-over-scores-list">
@@ -1978,17 +1868,27 @@
                     </ul>
                 </div>
             `;
+            messageBox.style.display = 'block';
             document.getElementById('restart-button').style.display = 'block';
         }
 
         gameOver() {
             this.isRunning = false;
             this.state = 'gameover';
-            if (this.score > highScore) {
-                highScore = this.score;
-                localStorage.setItem('asteroidsMazeHighScore', String(highScore));
+            const finalScore = this.score;
+            const isBest = finalScore > highScore;
+            const qualifies = HS.checkQualifies('asteroids-maze', finalScore, 'asteroidsMazeHighScore');
+
+            const finish = () => {
+                if (isBest) highScore = finalScore;
+                this.displayFinalScores(finalScore);
+            };
+
+            if (qualifies) {
+                HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('asteroids-maze', name, finalScore); finish(); } });
+            } else {
+                finish();
             }
-            this.showSubmissionForm(this.score);
         }
 
         gameLoop(currentTime) {
@@ -2100,34 +2000,7 @@
         canvas.addEventListener('pointercancel', endMove);
     }
 
-    // --- Game Initialization & Firebase Setup ---
-
-    async function initFirebase() {
-        try {
-            if (Object.keys(firebaseConfig).length > 0 && typeof firebaseConfig.apiKey === 'string') {
-                const [appMod, authMod, firestoreMod] = await Promise.all([
-                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
-                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
-                    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
-                ]);
-                ({ initializeApp } = appMod);
-                ({ getAuth, signInAnonymously, signInWithCustomToken } = authMod);
-                ({ getFirestore, collection, addDoc, query, orderBy, limit, getDocs, Timestamp } = firestoreMod);
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                isFirebaseAvailable = true;
-                console.log("Firebase initialized successfully. Attempting authentication...");
-                await ensureAuth();
-            } else {
-                console.warn("Firebase configuration incomplete. Running game without high score support.");
-                isFirebaseAvailable = false;
-            }
-        } catch (e) {
-            console.error("Critical error during Firebase setup. Running game without high score support.", e);
-            isFirebaseAvailable = false;
-        }
-    }
+    // --- Game Initialization ---
 
     function resizeCanvas() {
         const rect = canvasWrap.getBoundingClientRect();
@@ -2182,8 +2055,6 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') window.location.href = 'index.html';
         });
-
-        await initFirebase();
 
         modalContentContainer.innerHTML = `
             <h1>ASTEROIDS: MAZE</h1>
