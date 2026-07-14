@@ -90,6 +90,7 @@
     </div>
 </div>
 
+<script src="highscores.js"></script>
 <script>
     'use strict';
     // =====================================================================
@@ -146,7 +147,7 @@
         lasers: [],
         particles: [],
         score: 0,
-        high: parseInt(localStorage.getItem(LS.high) || '0', 10),
+        high: HS.getBoard('neon-breakout', LS.high).personalBest.score,
         lives: 3,
         level: 1,
         time: 0,
@@ -232,13 +233,23 @@
     function gameOver() {
         state.phase = 'gameOver';
         const isBest = state.score > state.high;
-        if (isBest) { state.high = state.score; localStorage.setItem(LS.high, String(state.high)); }
-        modalContent.innerHTML = '<h1>GAME OVER</h1><p>SCORE ' + state.score + '<br>LEVEL ' + state.level + '</p><p style="color:' + MG + '">' +
-            (isBest ? 'NEW HIGH SCORE!' : 'HI ' + state.high) + '</p><button class="nb-btn" id="again-btn">PLAY AGAIN</button>';
-        modal.style.display = 'block';
-        document.getElementById('again-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startGame(); });
+        const qualifies = HS.checkQualifies('neon-breakout', state.score, LS.high);
+
+        function finish() {
+            if (isBest) state.high = state.score;
+            modalContent.innerHTML = '<h1>GAME OVER</h1><p>SCORE ' + state.score + '<br>LEVEL ' + state.level + '</p><p style="color:' + MG + '">' +
+                (isBest ? 'NEW HIGH SCORE!' : 'HI ' + state.high) + '</p><button class="nb-btn" id="again-btn">PLAY AGAIN</button>';
+            modal.style.display = 'block';
+            document.getElementById('again-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startGame(); });
+            updateHUD();
+        }
+
+        if (qualifies) {
+            HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('neon-breakout', name, state.score); finish(); } });
+        } else {
+            finish();
+        }
         sfx.gameOver();
-        updateHUD();
     }
 
     function levelClear() {
