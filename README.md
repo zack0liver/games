@@ -93,6 +93,24 @@ Drag a cartridge into the console (or tap one) to play.
    arrow keys (drag on touch), Space to launch and to fire the laser. Three
    lives, three difficulties, and a saved high score to chase.
 
+8. **Grandpappy is Unhappy**  
+   Direct link: [https://zack0liver.github.io/games/index_grandpappy_unhappy.html](https://zack0liver.github.io/games/index_grandpappy_unhappy.html)  
+   A Frogger/Crossy-Road-style hopper. Grandpappy is grumpy because he's lost
+   his glasses, his cane, and his molasses — hop him across four lanes of
+   danger, one item per level, to cheer him up. **Grocery Store** (dodge
+   runaway shopping carts, rolling melons and a forklift for his glasses),
+   **Main Street** (classic road-crossing traffic, from motorcycles to a
+   school bus, for his cane), **Mountain Trail** (boulders and a wandering
+   bear on the rocks, then hop logs and canoes across the river for his
+   molasses), and the surprise finale, **Grandpappy's Dream** (flying
+   dentures, bouncing alarm clocks and UFO beams, then a river of floating
+   pillows and sheep back to bed). Move with the arrows/WASD or the on-screen
+   D-pad, grab a bonus pickup crossing each median, and beat the clock on
+   every crossing. Clear all four levels and a giant pixel face flashes
+   **GRANDPAPPY IS HAPPY!** Three lives, a saved high score, and cosmetic
+   items he keeps wearing (glasses, cane, jug of molasses) once you fetch
+   them.
+
 ## Planned Enhancements
 
 ### Tank Wars
