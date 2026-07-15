@@ -208,6 +208,59 @@ function mirrorCircles(list) {
     return list.concat(list.map(c => ({ ...c, xFrac: 1 - c.xFrac })));
 }
 
+// CORRIDORS: serpentine weave. Tall vertical baffle columns whose gaps sit in
+// distinct vertical bands so no straight horizontal line clears two adjacent
+// columns — you must weave. A few small breakable stubs add branch routes.
+function genCorridors() {
+    const bands = [[0.14, 0.34], [0.66, 0.86], [0.40, 0.60]];
+    for (let i = bands.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bands[i], bands[j]] = [bands[j], bands[i]];
+    }
+    const xs = [0.20, 0.34, 0.46];
+    const gapH = 0.26, w = 0.018;
+    const cols = [];
+    xs.forEach((x0, i) => {
+        const x = x0 + rand(-0.02, 0.02);
+        const band = bands[i];
+        const gapCenter = clamp(rand(band[0], band[1]), gapH / 2 + 0.03, 1 - gapH / 2 - 0.03);
+        const gapTop = gapCenter - gapH / 2, gapBot = gapCenter + gapH / 2;
+        const breakable = Math.random() < 0.4;
+        cols.push({ xFrac: x, yFrac: 0, wFrac: w, hFrac: gapTop, type: breakable ? 'crack' : 'solid', hp: 3 });
+        cols.push({ xFrac: x, yFrac: gapBot, wFrac: w, hFrac: 1 - gapBot, type: 'solid' });
+    });
+    const stubs = [];
+    const stubCount = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < stubCount; i++) {
+        stubs.push({ xFrac: rand(0.24, 0.42), yFrac: rand(0.2, 0.7), wFrac: rand(0.05, 0.09), hFrac: 0.02, type: 'crack', hp: 2 });
+    }
+    return { walls: [], blocks: mirrorBlocks(cols.concat(stubs)), circles: [], tunnels: [] };
+}
+
+// SCRAPYARD: dense randomized junkyard. Scattered mixed-size solid/breakable
+// scrap plus a few barrel circles, some drifting, concentrated mid-field with
+// the spawn lanes (xFrac < 0.14) kept clear.
+function genScrapyard() {
+    const pieces = [], circles = [], placed = [];
+    const count = 5 + Math.floor(Math.random() * 2);
+    let tries = 0;
+    const drift = () => Math.random() < 0.4
+        ? { amp: 0.04, speed: rand(0.4, 0.8), phase: rand(0, PI * 2), axis: Math.random() < 0.5 ? 'x' : 'y' }
+        : null;
+    while (pieces.length + circles.length < count && tries < 200) {
+        tries++;
+        const x = rand(0.14, 0.46), y = rand(0.12, 0.88);
+        if (placed.some(p => Math.hypot((p.x - x) * W, (p.y - y) * H) < 90)) continue;
+        placed.push({ x, y });
+        if (Math.random() < 0.25) {
+            circles.push({ xFrac: x, yFrac: y, rFrac: rand(0.03, 0.055), type: Math.random() < 0.4 ? 'crack' : 'solid', hp: 4, osc: drift() });
+        } else {
+            pieces.push({ xFrac: x, yFrac: y, wFrac: rand(0.04, 0.10), hFrac: rand(0.04, 0.14), type: Math.random() < 0.45 ? 'crack' : 'solid', hp: 3, osc: drift() });
+        }
+    }
+    return { walls: [], blocks: mirrorBlocks(pieces), circles: mirrorCircles(circles), tunnels: [] };
+}
+
 const ARENAS = [
     // 0: OPEN FIELD — sparse circle pillars.
     {
@@ -218,41 +271,31 @@ const ARENAS = [
             { xFrac: 0.40, yFrac: 0.50, rFrac: 0.035 }
         ])
     },
-    // 1: CORRIDORS — horizontal lane walls with gaps.
-    {
-        blocks: [], circles: [], tunnels: [],
-        walls: [
-            { yFrac: 0.32, cells: [{ w: 0.28, type: 'solid' }, { w: 0.16, type: 'gap' }, { w: 0.12, type: 'crack', hp: 4 }, { w: 0.16, type: 'gap' }, { w: 0.28, type: 'solid' }] },
-            { yFrac: 0.68, cells: [{ w: 0.28, type: 'solid' }, { w: 0.16, type: 'gap' }, { w: 0.12, type: 'crack', hp: 4 }, { w: 0.16, type: 'gap' }, { w: 0.28, type: 'solid' }] }
-        ]
-    },
-    // 2: FORTRESS — cracked destructible shells around each base.
+    // 1: CORRIDORS — serpentine weave, randomized each match.
+    { generate: genCorridors },
+    // 2: FORTRESS — cracked destructible shell facing the enemy, with a
+    // central doorway so each player can still sortie toward mid-field.
     {
         walls: [], circles: [], tunnels: [],
         blocks: mirrorBlocks([
-            { xFrac: 10 / 1200, yFrac: 220 / 675, wFrac: 140 / 1200, hFrac: 16 / 675, type: 'crack', hp: 5 },
-            { xFrac: 10 / 1200, yFrac: 440 / 675, wFrac: 140 / 1200, hFrac: 16 / 675, type: 'crack', hp: 5 },
-            { xFrac: 10 / 1200, yFrac: 220 / 675, wFrac: 16 / 1200, hFrac: 236 / 675, type: 'crack', hp: 5 }
+            { xFrac: 10 / 1200, yFrac: 220 / 675, wFrac: 156 / 1200, hFrac: 16 / 675, type: 'crack', hp: 5 },   // top arm
+            { xFrac: 10 / 1200, yFrac: 440 / 675, wFrac: 156 / 1200, hFrac: 16 / 675, type: 'crack', hp: 5 },   // bottom arm
+            { xFrac: 150 / 1200, yFrac: 220 / 675, wFrac: 16 / 1200, hFrac: 80 / 675, type: 'crack', hp: 5 },   // front wall upper
+            { xFrac: 150 / 1200, yFrac: 376 / 675, wFrac: 16 / 1200, hFrac: 80 / 675, type: 'crack', hp: 5 }    // front wall lower
         ])
     },
-    // 3: THE RING — central tunnel-ring with shootable plug + orbit circles.
+    // 3: THE RING — central ring of 4 breakable arcs (open gaps between them)
+    // spinning slowly; hollow center you can shelter in. Plus orbit circles.
     {
         walls: [], blocks: [],
-        tunnels: [{ xFrac: 0.5, yFrac: 0.5, outerRFrac: 0.09, innerRFrac: 0.04, tunnelAngle: PI / 2, tunnelArc: 0.34, hp: 5 }],
+        tunnels: [{ xFrac: 0.5, yFrac: 0.5, outerRFrac: 0.10, innerRFrac: 0.05, spinRate: 0.25, segCount: 4, segHalf: 0.45, hp: 4 }],
         circles: mirrorCircles([
-            { xFrac: 0.30, yFrac: 0.30, rFrac: 0.05, osc: { amp: 0.05, speed: 0.5, phase: 0.0, axis: 'x' } },
-            { xFrac: 0.30, yFrac: 0.70, rFrac: 0.05, osc: { amp: 0.05, speed: 0.6, phase: 1.5, axis: 'x' } }
+            { xFrac: 0.30, yFrac: 0.30, rFrac: 0.05 },
+            { xFrac: 0.30, yFrac: 0.70, rFrac: 0.05 }
         ])
     },
-    // 4: SCRAPYARD — scattered blocks, some oscillating.
-    {
-        walls: [], circles: [], tunnels: [],
-        blocks: mirrorBlocks([
-            { xFrac: 0.14, yFrac: 0.20, wFrac: 0.10, hFrac: 0.035, type: 'solid' },
-            { xFrac: 0.20, yFrac: 0.55, wFrac: 0.08, hFrac: 0.14, type: 'solid', osc: { amp: 0.04, speed: 0.6, phase: 0.5, axis: 'x' } },
-            { xFrac: 0.10, yFrac: 0.80, wFrac: 0.12, hFrac: 0.035, type: 'solid' }
-        ])
-    }
+    // 4: SCRAPYARD — dense randomized junkyard, re-rolled each match.
+    { generate: genScrapyard }
 ];
 
 // --- Drawing helpers -------------------------------------------------------
@@ -546,25 +589,34 @@ let currentSettings = loadSettings();
 
 function loadArena(index) {
     const def = ARENAS[index];
-    G.obstacles.walls = def.walls.map(w => ({
+    const src = def.generate ? def.generate() : def;
+    G.obstacles.walls = (src.walls || []).map(w => ({
         yFrac: w.yFrac,
         cells: w.cells.map(c => ({ w: c.w, type: c.type, hp: c.type === 'crack' ? (c.hp || 3) : 0, destroyed: false }))
     }));
-    G.obstacles.blocks = def.blocks.map(b => ({
+    G.obstacles.blocks = (src.blocks || []).map(b => ({
         xFrac: b.xFrac, yFrac: b.yFrac, wFrac: b.wFrac, hFrac: b.hFrac, type: b.type,
         hp: b.type === 'crack' ? (b.hp || 3) : 0, destroyed: false,
         osc: b.osc ? { ...b.osc } : null
     }));
-    G.obstacles.circles = def.circles.map(c => ({
+    G.obstacles.circles = (src.circles || []).map(c => ({
         xFrac: c.xFrac, yFrac: c.yFrac, rFrac: c.rFrac, type: c.type || 'solid',
         hp: c.type === 'crack' ? (c.hp || 4) : 0, destroyed: false, spin: rand(0, PI * 2),
         osc: c.osc ? { ...c.osc } : null
     }));
-    G.obstacles.tunnels = def.tunnels.map(t => ({
-        xFrac: t.xFrac, yFrac: t.yFrac, outerRFrac: t.outerRFrac, innerRFrac: t.innerRFrac,
-        tunnelAngle: t.tunnelAngle, tunnelArc: t.tunnelArc, hp: t.hp || 4, destroyed: false,
-        spin: rand(0, PI * 2), osc: t.osc ? { ...t.osc } : null
-    }));
+    G.obstacles.tunnels = (src.tunnels || []).map(t => {
+        const segCount = t.segCount || 4;
+        const half = t.segHalf || 0.45;
+        const hp = t.hp || 4;
+        const segments = [];
+        for (let i = 0; i < segCount; i++) {
+            segments.push({ center0: i * (PI * 2 / segCount), half, hp, maxHp: hp, destroyed: false });
+        }
+        return {
+            xFrac: t.xFrac, yFrac: t.yFrac, outerRFrac: t.outerRFrac, innerRFrac: t.innerRFrac,
+            spinRate: t.spinRate || 0, spin0: rand(0, PI * 2), segments
+        };
+    });
 }
 
 function wallCells(wall) {
@@ -603,14 +655,8 @@ function circleGeom(c) {
 }
 
 function tunnelGeom(t) {
-    let x = t.xFrac * W;
-    let y = t.yFrac * H;
-    if (t.osc) {
-        const span = (t.osc.axis === 'y') ? H : W;
-        const o = t.osc.amp * span * Math.sin(performance.now() / 1000 * t.osc.speed + t.osc.phase);
-        if (t.osc.axis === 'y') y += o; else x += o;
-    }
-    return { ref: t, x, y, outerR: t.outerRFrac * W, innerR: t.innerRFrac * W, angle: t.tunnelAngle, arc: t.tunnelArc };
+    const spin = t.spin0 + performance.now() / 1000 * t.spinRate;
+    return { ref: t, x: t.xFrac * W, y: t.yFrac * H, outerR: t.outerRFrac * W, innerR: t.innerRFrac * W, spin, segments: t.segments };
 }
 
 function obstacleRects() {
@@ -676,7 +722,13 @@ function resolveTunnelObstacle(obj, tg) {
     const outer = tg.outerR + obj.radius;
     const inner = Math.max(0, tg.innerR - obj.radius);
     if (d >= outer || d <= inner) return false;
-    if (tg.ref.destroyed && Math.abs(angleDiff(Math.atan2(dy, dx), tg.angle)) < tg.arc) return false;
+    const theta = Math.atan2(dy, dx);
+    let inSolid = false;
+    for (const seg of tg.segments) {
+        if (seg.destroyed) continue;
+        if (Math.abs(angleDiff(theta, tg.spin + seg.center0)) < seg.half) { inSolid = true; break; }
+    }
+    if (!inSolid) return false; // in a gap or a shot-open segment: pass through
     const nx = d > 0.0001 ? dx / d : 0, ny = d > 0.0001 ? dy / d : -1;
     const targetD = (outer - d) < (d - inner) ? outer : inner;
     obj.x = tg.x + nx * targetD; obj.y = tg.y + ny * targetD;
@@ -763,15 +815,16 @@ function handleObstacleHit(obj, isBullet) {
     for (const tg of tuns) {
         const bd = dist(obj.x, obj.y, tg.x, tg.y);
         if (bd > tg.outerR + obj.radius || bd < tg.innerR - obj.radius) continue;
-        const inGap = Math.abs(angleDiff(Math.atan2(obj.y - tg.y, obj.x - tg.x), tg.angle)) < tg.arc;
-        if (inGap && tg.ref.destroyed) continue;
-        if (inGap && !tg.ref.destroyed) {
-            tg.ref.hp--;
-            spark(obj.x, obj.y, '#ffbb33', 6);
-            if (tg.ref.hp <= 0) { tg.ref.destroyed = true; spark(obj.x, obj.y, '#ffbb33', 24); }
-        } else {
-            spark(obj.x, obj.y, '#b26bff', 4);
+        const theta = Math.atan2(obj.y - tg.y, obj.x - tg.x);
+        let segHit = null;
+        for (const seg of tg.segments) {
+            if (seg.destroyed) continue;
+            if (Math.abs(angleDiff(theta, tg.spin + seg.center0)) < seg.half) { segHit = seg; break; }
         }
+        if (!segHit) continue; // gap or shot-open segment: bullet flies through
+        segHit.hp--;
+        spark(obj.x, obj.y, '#ffbb33', 6);
+        if (segHit.hp <= 0) { segHit.destroyed = true; spark(obj.x, obj.y, '#ffbb33', 24); }
         return true;
     }
     return false;
@@ -1195,29 +1248,26 @@ function drawCircleObstacle(c) {
 }
 
 function drawTunnelObstacle(tg) {
-    const t = tg.ref;
-    const gapStart = tg.angle - tg.arc, gapEnd = tg.angle + tg.arc;
     ctx.save();
     ctx.translate(tg.x, tg.y);
-    ctx.beginPath();
-    ctx.arc(0, 0, tg.outerR, gapEnd, gapStart, false);
-    ctx.arc(0, 0, tg.innerR, gapStart, gapEnd, true);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(178, 107, 255, 0.18)';
-    ctx.fill();
-    ctx.strokeStyle = '#b26bff'; ctx.lineWidth = 2.5;
-    ctx.shadowColor = '#b26bff'; ctx.shadowBlur = 10;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    if (!t.destroyed) {
+    for (const seg of tg.segments) {
+        if (seg.destroyed) continue;
+        const c = tg.spin + seg.center0;
+        const a0 = c - seg.half, a1 = c + seg.half;
         ctx.beginPath();
-        ctx.arc(0, 0, tg.outerR, gapStart, gapEnd, false);
-        ctx.arc(0, 0, tg.innerR, gapEnd, gapStart, true);
+        ctx.arc(0, 0, tg.outerR, a0, a1, false);
+        ctx.arc(0, 0, tg.innerR, a1, a0, true);
         ctx.closePath();
         ctx.fillStyle = '#2a1710';
         ctx.fill();
-        ctx.strokeStyle = '#ffbb33'; ctx.lineWidth = 2.5;
+        // Fade the outline as the segment takes damage.
+        const wear = seg.hp / seg.maxHp;
+        ctx.strokeStyle = `rgba(255, 187, 51, ${(0.5 + 0.5 * wear).toFixed(2)})`;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#ffbb33';
+        ctx.shadowBlur = 8;
         ctx.stroke();
+        ctx.shadowBlur = 0;
     }
     ctx.restore();
 }
