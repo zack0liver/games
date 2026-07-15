@@ -660,7 +660,11 @@
         if (e.repeat) return;
         const d = KEY_DIRS[e.key];
         if (d) { e.preventDefault(); ensureAudio(); attemptMove(d[0], d[1]); }
-        else if (e.key === 'Escape') { window.location.href = 'index.html'; }
+        else if (e.key === 'Escape') {
+            // First ESC returns to the start screen; ESC from there → arcade.
+            if (state.phase === 'start') window.location.href = 'index.html';
+            else showStart();
+        }
     });
 
     function wireDpad(id, dc, dr) {

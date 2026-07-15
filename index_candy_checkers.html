@@ -1216,11 +1216,12 @@
         messageBox.style.display = 'block';
     }
 
-    // Escape returns to the arcade (unless the shop is open — then it closes it).
+    // The candy shop is this game's start screen. First ESC returns to it;
+    // ESC from the shop → arcade.
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (shopEl.classList.contains('open') && state.board) { closeShop(); return; }
-        window.location.href = 'index.html';
+        if (shopEl.classList.contains('open')) window.location.href = 'index.html';
+        else openShop();
     });
 
     // --- Candy shop -------------------------------------------------------------

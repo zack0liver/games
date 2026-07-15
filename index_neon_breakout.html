@@ -381,7 +381,11 @@
         if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') { keys.left = true; pointerX = null; }
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') { keys.right = true; pointerX = null; }
         else if (e.key === ' ') { e.preventDefault(); primaryAction(); }
-        else if (e.key === 'Escape') { window.location.href = 'index.html'; }
+        else if (e.key === 'Escape') {
+            // First ESC returns to the start screen; ESC from there → arcade.
+            if (state.phase === 'start') window.location.href = 'index.html';
+            else showStart();
+        }
     });
     document.addEventListener('keyup', (e) => {
         if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;

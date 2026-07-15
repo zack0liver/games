@@ -172,18 +172,25 @@
             }
         }
 
+        // Cleanup for the currently-showing showModal (game over, etc.), so the
+        // start-screen path can tear it down without leaving a dangling listener.
+        let dismissActiveModal = null;
         function showModal(text, callback) {
             messageBox.textContent = text;
             messageBox.style.display = 'block';
             cancelAnimationFrame(animationFrameId);
 
-            function dismiss() {
+            function teardown() {
                 window.removeEventListener('keydown', keyHandler);
                 messageBox.removeEventListener('pointerdown', dismiss);
+                dismissActiveModal = null;
+            }
+            function dismiss() {
+                teardown();
                 messageBox.style.display = 'none';
                 callback();
                 lastFrameTime = performance.now();
-                gameLoop(lastFrameTime);
+                animationFrameId = requestAnimationFrame(gameLoop);
             }
 
             function keyHandler(e) {
@@ -191,8 +198,10 @@
                 // when the modal appeared (e.g. still holding a movement key
                 // at the moment of death), so it can't instantly dismiss this.
                 if (e.repeat) return;
+                if (e.key === 'Escape') return; // let the global ESC handler route it
                 dismiss();
             }
+            dismissActiveModal = teardown;
             window.addEventListener('keydown', keyHandler);
             // Tapping anywhere on the message box restarts on touch devices,
             // which have no keyboard to press.
@@ -752,6 +761,25 @@
             lastTouchPos = null;
         }
 
+        // Galaga has no built-in title screen; give it one so ESC has a
+        // consistent place to land (first ESC → here, ESC again → arcade).
+        let atStartScreen = false;
+        function showStartScreen() {
+            if (dismissActiveModal) dismissActiveModal(); // tear down any game-over modal
+            atStartScreen = true;
+            cancelAnimationFrame(animationFrameId);
+            resetGame();
+            messageBox.innerHTML = 'GALAGA VECTOR<br><br>Arrows / WASD to move &middot; SPACE to fire<br><br>Press any key or tap to start';
+            messageBox.style.display = 'block';
+        }
+        function startFromStartScreen() {
+            if (!atStartScreen) return;
+            atStartScreen = false;
+            messageBox.style.display = 'none';
+            lastFrameTime = performance.now();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
         function advanceLevel() {
             gameLevel++;
             showMessage(`STAGE ${gameLevel}!`, 1500);
@@ -809,13 +837,17 @@
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
 
-        // Escape always returns to the arcade landing page, regardless of
-        // whether a game is actively running or a modal (game over, etc.) is showing.
+        // First ESC returns to the start screen; ESC from there → arcade.
+        // Any other key at the start screen begins the game.
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                window.location.href = 'index.html';
+                if (atStartScreen) window.location.href = 'index.html';
+                else showStartScreen();
+                return;
             }
+            if (atStartScreen) startFromStartScreen();
         });
+        messageBox.addEventListener('pointerdown', () => { if (atStartScreen) startFromStartScreen(); });
 
         // --- Touch Drag Controls ---
         // Press anywhere on the canvas and drag; the ship moves by the same
@@ -1085,7 +1117,7 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 cancelAnimationFrame(animationFrameId);
-            } else if (lives > 0) {
+            } else if (lives > 0 && !atStartScreen) {
                 lastFrameTime = performance.now();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
@@ -1102,11 +1134,8 @@
             window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
 
             buildSpriteCache(PALETTES);
-            resetGame();
             setupTouchDragControls();
-            showMessage("Touch: hold & drag to move and fire. Keyboard: Arrows/WASD move, SPACE fires.", 3500);
-            lastFrameTime = performance.now();
-            gameLoop(lastFrameTime);
+            showStartScreen();
         }
 
     </script>

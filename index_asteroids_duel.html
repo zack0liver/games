@@ -1188,7 +1188,12 @@ const PREVENT_CODES = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'
 const fireKeysDown = [new Set(), new Set()];
 
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape') { window.location.href = 'index.html'; return; }
+    if (e.code === 'Escape') {
+        // First ESC returns to this game's start screen; ESC from there → arcade.
+        if (G.phase === 'settings') window.location.href = 'index.html';
+        else showSettings();
+        return;
+    }
     if (PREVENT_CODES.has(e.code)) e.preventDefault();
     if (G.players.length < 2) return;
     ensureAudio();

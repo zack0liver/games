@@ -2025,6 +2025,36 @@
         requestAnimationFrame(game.gameLoop.bind(game));
     }
 
+    // Show this game's start/title screen (also used as the first ESC target).
+    function showStartScreen() {
+        if (game) game.isRunning = false;
+        game = null;
+        window.game = null;
+        modalContentContainer.innerHTML = `
+            <h1>ASTEROIDS: MAZE</h1>
+            <p>Fly from START up to the FINISH gate through 7 growing levels.
+               Bounce off hard purple walls and space obstacles, blast the
+               cracked orange ones, and dodge the drifting rocks (watch the
+               edge arrows for incoming).</p>
+            <p style="font-size: 0.85rem; color: #7dd3fc;">
+                Your hull takes 3 wall bumps per life — grab a ◇ shield for
+                5–10s of invulnerability. A crash into a rock costs a whole life.
+            </p>
+            <p style="font-size: 0.85rem; color: #ffd700;">
+                Some rings hide a sealed tunnel — shoot the orange arc open and
+                fly in for a permanent ship upgrade (◆).
+            </p>
+            <p style="font-size: 0.9rem; color: #ffaa00;">
+                PC: WASD/Arrows to fly, SPACE to shoot.<br>
+                Mobile: Drag to steer, tap with a 2nd finger to fire.
+            </p>
+        `;
+        messageBox.style.display = 'block';
+        const rb = document.getElementById('restart-button');
+        rb.textContent = 'START GAME';
+        rb.style.display = 'block';
+    }
+
     document.getElementById('restart-button').addEventListener('click', startGame);
 
     document.addEventListener('visibilitychange', () => {
@@ -2053,31 +2083,13 @@
         setupTouchGestureControls();
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') window.location.href = 'index.html';
+            if (e.key !== 'Escape') return;
+            // First ESC returns to the start screen; ESC from a menu → arcade.
+            if (messageBox.style.display !== 'none') window.location.href = 'index.html';
+            else showStartScreen();
         });
 
-        modalContentContainer.innerHTML = `
-            <h1>ASTEROIDS: MAZE</h1>
-            <p>Fly from START up to the FINISH gate through 7 growing levels.
-               Bounce off hard purple walls and space obstacles, blast the
-               cracked orange ones, and dodge the drifting rocks (watch the
-               edge arrows for incoming).</p>
-            <p style="font-size: 0.85rem; color: #7dd3fc;">
-                Your hull takes 3 wall bumps per life — grab a ◇ shield for
-                5–10s of invulnerability. A crash into a rock costs a whole life.
-            </p>
-            <p style="font-size: 0.85rem; color: #ffd700;">
-                Some rings hide a sealed tunnel — shoot the orange arc open and
-                fly in for a permanent ship upgrade (◆).
-            </p>
-            <p style="font-size: 0.9rem; color: #ffaa00;">
-                PC: WASD/Arrows to fly, SPACE to shoot.<br>
-                Mobile: Drag to steer, tap with a 2nd finger to fire.
-            </p>
-        `;
-        messageBox.style.display = 'block';
-        document.getElementById('restart-button').textContent = 'START GAME';
-        document.getElementById('restart-button').style.display = 'block';
+        showStartScreen();
     }
 </script>
 </body>
