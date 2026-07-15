@@ -1701,8 +1701,10 @@
 
     function handleEscape() {
         if (weaponIlloEl.classList.contains('open')) { closeWeaponIllo(); return; }
-        if (document.getElementById('setup').classList.contains('open') && state.matchStarted) { closeSetup(); return; }
-        window.location.href = 'index.html';
+        // The setup panel is this game's start screen. ESC from it → arcade;
+        // ESC during a match → back to the setup screen.
+        if (document.getElementById('setup').classList.contains('open')) { window.location.href = 'index.html'; return; }
+        openSetup();
     }
 
     document.addEventListener('keydown', (e) => {

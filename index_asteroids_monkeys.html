@@ -1075,6 +1075,27 @@
         requestAnimationFrame(game.gameLoop.bind(game));
     }
 
+    // Show this game's start/title screen (also the first ESC target).
+    function showStartScreen() {
+        if (game) game.isRunning = false;
+        game = null;
+        modalContentContainer.innerHTML = `
+            <h1>ARCADE ASTEROIDS</h1>
+            <p>Destroy the cosmic monkeys and bananas!</p>
+            <p style="font-size: 0.9rem; color: #ffaa00;">
+                PC: WASD/Arrows to move/rotate, SPACE to shoot.<br>
+                Mobile: Drag anywhere to steer, tap with a 2nd finger to fire.
+            </p>
+            <p style="font-size: 0.85rem; color: #7dd3fc;">
+                Grab a &#9671; SHIELD for a few seconds of invincibility &mdash; fly straight through rocks and monkeys to smash them!
+            </p>
+        `;
+        messageBox.style.display = 'block';
+        const rb = document.getElementById('restart-button');
+        rb.textContent = 'START GAME';
+        rb.style.display = 'block';
+    }
+
     document.getElementById('restart-button').addEventListener('click', startGame);
 
     // Auto-pause when the tab/app is backgrounded so mobile users don't come
@@ -1106,29 +1127,15 @@
         document.addEventListener('keyup', handleKeyUp);
         setupTouchGestureControls();
 
-        // Escape always returns to the arcade landing page, regardless of
-        // whether a game is actively running, paused, or on a modal screen.
+        // First ESC returns to this game's start screen; ESC from a menu → arcade.
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                window.location.href = 'index.html';
-            }
+            if (e.key !== 'Escape') return;
+            if (messageBox.style.display !== 'none') window.location.href = 'index.html';
+            else showStartScreen();
         });
 
         // 4. Set up the initial instruction screen
-        modalContentContainer.innerHTML = `
-            <h1>ARCADE ASTEROIDS</h1>
-            <p>Destroy the cosmic monkeys and bananas!</p>
-            <p style="font-size: 0.9rem; color: #ffaa00;">
-                PC: WASD/Arrows to move/rotate, SPACE to shoot.<br>
-                Mobile: Drag anywhere to steer, tap with a 2nd finger to fire.
-            </p>
-            <p style="font-size: 0.85rem; color: #7dd3fc;">
-                Grab a &#9671; SHIELD for a few seconds of invincibility &mdash; fly straight through rocks and monkeys to smash them!
-            </p>
-        `;
-        messageBox.style.display = 'block';
-        document.getElementById('restart-button').textContent = 'START GAME';
-        document.getElementById('restart-button').style.display = 'block';
+        showStartScreen();
 
         // The game officially starts when the user clicks 'START GAME'
     }

@@ -318,6 +318,115 @@ function drawShip(color, accelerating, flameColor) {
     }
 }
 
+// Pictographic powerup icon, centered at the current origin, half-extent ~s px.
+function drawPowerupIcon(type, s, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1.25, s * 0.16);
+    ctx.lineJoin = 'round';
+    switch (type) {
+        case 'S': { // shield — heraldic crest
+            ctx.beginPath();
+            ctx.moveTo(-s, -s);
+            ctx.lineTo(s, -s);
+            ctx.lineTo(s, s * 0.15);
+            ctx.lineTo(0, s);
+            ctx.lineTo(-s, s * 0.15);
+            ctx.closePath();
+            ctx.globalAlpha = 0.2; ctx.fill();
+            ctx.globalAlpha = 1; ctx.stroke();
+            break;
+        }
+        case 'B': { // bazooka — starburst / explosion
+            const pts = 8;
+            ctx.beginPath();
+            for (let i = 0; i < pts * 2; i++) {
+                const r = (i % 2 === 0) ? s : s * 0.45;
+                const a = (i / (pts * 2)) * PI * 2 - PI / 2;
+                const px = Math.cos(a) * r, py = Math.sin(a) * r;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.globalAlpha = 0.25; ctx.fill();
+            ctx.globalAlpha = 1; ctx.stroke();
+            break;
+        }
+        case 'G': { // ghost — pac-style, zig-zag base + two eyes
+            const top = -s, bot = s * 0.55;
+            ctx.beginPath();
+            ctx.moveTo(-s, bot);
+            ctx.lineTo(-s, top + s * 0.5);
+            ctx.quadraticCurveTo(-s, top, 0, top);
+            ctx.quadraticCurveTo(s, top, s, top + s * 0.5);
+            ctx.lineTo(s, bot);
+            // zig-zag fringe (3 downward points)
+            ctx.lineTo(s * 0.5, bot + s * 0.35);
+            ctx.lineTo(s * 0.17, bot);
+            ctx.lineTo(-s * 0.17, bot + s * 0.35);
+            ctx.lineTo(-s * 0.5, bot);
+            ctx.lineTo(-s, bot + s * 0.35);
+            ctx.closePath();
+            ctx.globalAlpha = 0.2; ctx.fill();
+            ctx.globalAlpha = 1; ctx.stroke();
+            // eyes
+            ctx.beginPath();
+            ctx.arc(-s * 0.38, -s * 0.15, s * 0.2, 0, PI * 2);
+            ctx.arc(s * 0.38, -s * 0.15, s * 0.2, 0, PI * 2);
+            ctx.fill();
+            break;
+        }
+        case 'R': { // rapid fire — three right-pointing darts
+            const w = s * 0.55;
+            for (let i = -1; i <= 1; i++) {
+                const cx = i * s * 0.72;
+                ctx.beginPath();
+                ctx.moveTo(cx - w * 0.45, -s * 0.75);
+                ctx.lineTo(cx + w * 0.55, 0);
+                ctx.lineTo(cx - w * 0.45, s * 0.75);
+                ctx.closePath();
+                ctx.fill();
+            }
+            break;
+        }
+        case '+': { // health — heart
+            ctx.beginPath();
+            ctx.moveTo(0, s * 0.9);
+            ctx.bezierCurveTo(-s * 1.3, -s * 0.1, -s * 0.5, -s, 0, -s * 0.35);
+            ctx.bezierCurveTo(s * 0.5, -s, s * 1.3, -s * 0.1, 0, s * 0.9);
+            ctx.closePath();
+            ctx.globalAlpha = 0.25; ctx.fill();
+            ctx.globalAlpha = 1; ctx.stroke();
+            break;
+        }
+        case '>': { // speed — arrowhead + trailing motion lines
+            ctx.beginPath();
+            ctx.moveTo(s * 0.1, -s * 0.75);
+            ctx.lineTo(s, 0);
+            ctx.lineTo(s * 0.1, s * 0.75);
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1, s * 0.14);
+            for (let i = 0; i < 2; i++) {
+                const ly = (i === 0 ? -1 : 1) * s * 0.35;
+                ctx.beginPath();
+                ctx.moveTo(-s, ly);
+                ctx.lineTo(-s * 0.15, ly);
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.moveTo(-s, 0);
+            ctx.lineTo(-s * 0.05, 0);
+            ctx.stroke();
+            break;
+        }
+        default:
+            ctx.font = `bold ${Math.round(s * 1.8)}px monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(type, 0, 1);
+    }
+    ctx.restore();
+}
+
 // --- Classes -----------------------------------------------------------
 
 class Bullet {
@@ -543,10 +652,7 @@ class Powerup {
         ctx.shadowBlur = 10 + p * 6;
         ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.stroke();
         ctx.shadowBlur = 0;
-        ctx.fillStyle = info.color;
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(this.type, 0, 1);
+        drawPowerupIcon(this.type, 9, info.color);
         ctx.restore();
     }
 }
@@ -1135,7 +1241,12 @@ const PREVENT_CODES = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'
 const fireKeysDown = [new Set(), new Set()];
 
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape') { window.location.href = 'index.html'; return; }
+    if (e.code === 'Escape') {
+        // First ESC returns to this game's start screen; ESC from there → arcade.
+        if (G.phase === 'settings') window.location.href = 'index.html';
+        else showSettings();
+        return;
+    }
     if (PREVENT_CODES.has(e.code)) e.preventDefault();
     if (G.players.length < 2) return;
     ensureAudio();
@@ -1335,12 +1446,30 @@ function drawHUD() {
         if (p.ghost) icons.push(['G', '#b8bcc4', p.ghostTimer]);
         if (p.overheated) icons.push(['OVERHEAT', '#ff3b3b', p.overheatTimer]);
         ctx.font = '12px monospace';
+        const iconR = 6;
         icons.forEach((icon, idx) => {
             const [label, color, timer] = icon;
-            const text = timer != null ? `${label} ${timer.toFixed(1)}s` : label;
             const ty = y + barH + 22 + idx * 16;
             ctx.fillStyle = color;
-            ctx.fillText(text, i === 0 ? x + 4 : x + barW - 4, ty);
+            if (POWERUP_INFO[label]) {
+                // Mini icon + remaining seconds (icon conveys which powerup).
+                const secs = timer != null ? `${timer.toFixed(1)}s` : '';
+                const cy = ty + 6;
+                if (i === 0) {
+                    ctx.save(); ctx.translate(x + 4 + iconR, cy); drawPowerupIcon(label, iconR, color); ctx.restore();
+                    if (secs) { ctx.textAlign = 'left'; ctx.fillText(secs, x + 4 + iconR * 2 + 4, ty); }
+                } else {
+                    ctx.textAlign = 'right';
+                    if (secs) ctx.fillText(secs, x + barW - 4, ty);
+                    const tw = secs ? ctx.measureText(secs).width + 4 : 0;
+                    ctx.save(); ctx.translate(x + barW - 4 - tw - iconR, cy); drawPowerupIcon(label, iconR, color); ctx.restore();
+                }
+            } else {
+                // Status word (e.g. OVERHEAT) stays as text.
+                const text = timer != null ? `${label} ${timer.toFixed(1)}s` : label;
+                ctx.textAlign = i === 0 ? 'left' : 'right';
+                ctx.fillText(text, i === 0 ? x + 4 : x + barW - 4, ty);
+            }
         });
     }
 

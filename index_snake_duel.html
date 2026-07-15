@@ -547,8 +547,11 @@
     canvas.addEventListener('pointercancel', (e) => pointers.delete(e.pointerId));
 
     function handleEscape() {
-        if (document.getElementById('setup').classList.contains('open') && state.phase !== 'setup') { closeSetup(); return; }
-        window.location.href = 'index.html';
+        // The setup panel is this game's start screen. ESC from it → arcade;
+        // ESC during a match → back to the setup screen (halting the tick loop).
+        if (document.getElementById('setup').classList.contains('open')) { window.location.href = 'index.html'; return; }
+        state.phase = 'setup';
+        openSetup();
     }
 
     // --- Audio --------------------------------------------------------------
