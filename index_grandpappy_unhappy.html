@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Grandpappy is Unhappy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+          media="print" onload="this.media='all'">
+    <style>
+        :root { --amber: #ffb454; --amber-dim: #7a5a2f; --bg: #100c08; }
+        html, body { height: 100%; }
+        body {
+            background: radial-gradient(ellipse at center, #241a10 0%, #0a0704 100%);
+            color: #f5e6c8; font-family: 'Press Start 2P', 'Courier New', monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100dvh; min-height: 100vh; margin: 0; overflow: hidden; padding: 8px; box-sizing: border-box;
+            touch-action: none; overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+        }
+        #game-container {
+            position: relative; width: 100%; max-width: min(560px, 96vw); height: 100%; max-height: min(920px, 96vh);
+            display: flex; flex-direction: column; align-items: center;
+            border: 3px solid var(--amber); border-radius: 10px;
+            box-shadow: 0 0 20px var(--amber), inset 0 0 18px rgba(255,180,84,0.2);
+            background: #04040c; padding: 6px; box-sizing: border-box;
+        }
+        #hud {
+            width: 100%; flex-shrink: 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+            gap: 6px; padding: 6px 8px; box-sizing: border-box; font-size: 0.5rem;
+        }
+        #hud .grp { display: flex; gap: 8px; align-items: center; }
+        #hud-score { color: var(--amber); text-shadow: 0 0 6px var(--amber); }
+        #hud-high { color: #ff8fbf; }
+        #hud-level { color: #7de8ff; }
+        #hud-lives { color: #ff6b6b; letter-spacing: 2px; }
+        .pill-btn { background: transparent; color: #f5e6c8; border: 2px solid var(--amber); border-radius: 999px;
+            padding: 5px 10px; font-family: inherit; font-size: 0.5rem; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        .pill-btn:active { background: var(--amber); color: #04040c; }
+        #timer-wrap { width: 100%; height: 6px; background: #2a2015; border-radius: 3px; overflow: hidden; margin: 0 8px 4px; box-sizing: border-box; }
+        #timer-bar { height: 100%; width: 100%; background: #6fd67a; transition: background 0.2s; }
+        #timer-wrap.urgent { animation: urgentPulse 0.5s infinite; }
+        @keyframes urgentPulse { 0%,100% { box-shadow: 0 0 0 rgba(255,84,112,0); } 50% { box-shadow: 0 0 10px rgba(255,84,112,0.9); } }
+        #canvas-wrap { position: relative; width: 100%; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+        #gameCanvas { display: block; background: transparent; touch-action: none; }
+        #banner { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); padding: 8px 16px;
+            border: 2px solid var(--amber); border-radius: 6px; background: rgba(16,12,8,0.9); color: #f5e6c8; font-size: 0.62rem;
+            text-align: center; box-shadow: 0 0 14px var(--amber); opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 40; line-height: 1.7; }
+        #banner.show { opacity: 1; }
+        #back-to-arcade { position: fixed; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); z-index: 500;
+            padding: 6px 12px; font-family: inherit; font-size: 0.55rem; color: var(--amber); background: rgba(0,0,0,0.7);
+            border: 1px solid var(--amber); border-radius: 6px; text-decoration: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        #back-to-arcade:active { background: rgba(255,180,84,0.25); }
+
+        #modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(16,12,8,0.97);
+            border: 3px solid var(--amber); padding: 18px 22px; border-radius: 10px; text-align: center; box-shadow: 0 0 26px var(--amber);
+            z-index: 100; display: none; max-width: 92vw; width: 360px; box-sizing: border-box; max-height: 92%; overflow-y: auto; }
+        #modal h1 { font-size: 0.85rem; line-height: 1.7; margin: 0 0 10px; color: var(--amber); text-shadow: 0 0 10px var(--amber); }
+        #modal p { font-size: 0.52rem; line-height: 1.9; margin: 0 0 8px; color: #d8c8a8; }
+        #modal .legend { font-size: 0.44rem; line-height: 2.1; color: #b8a888; text-align: left; margin: 10px 0; }
+        .setup-row { margin: 10px 0; }
+        .setup-label { display: block; font-size: 0.5rem; color: #b8a888; margin-bottom: 6px; }
+        .opt-group { display: flex; gap: 6px; justify-content: center; }
+        .opt-btn { background: transparent; color: #b8a888; border: 2px solid #5a4a30; border-radius: 4px; padding: 8px 10px;
+            font-family: inherit; font-size: 0.5rem; cursor: pointer; touch-action: manipulation; }
+        .opt-btn.sel { color: #f5e6c8; border-color: var(--amber); box-shadow: 0 0 6px var(--amber); }
+        .gp-btn { background: var(--amber); color: #100c08; border: none; padding: 12px 20px; border-radius: 8px; margin: 8px 4px 0;
+            cursor: pointer; font-family: inherit; font-size: 0.65rem; box-shadow: 0 4px #7a5a2f; touch-action: manipulation; }
+        .gp-btn:active { transform: translateY(4px); box-shadow: none; }
+
+        #dpad { display: grid; grid-template-columns: 46px 46px 46px; grid-template-rows: 46px 46px 46px; gap: 4px; flex-shrink: 0; }
+        .dp-btn { background: linear-gradient(180deg,#3a2f20,#221a10); border: 2px solid var(--amber); border-radius: 6px;
+            color: var(--amber); font-size: 16px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .dp-btn:active, .dp-btn.pressed { background: var(--amber); color: #100c08; }
+        #dp-up { grid-column: 2; grid-row: 1; }
+        #dp-left { grid-column: 1; grid-row: 2; }
+        #dp-center { grid-column: 2; grid-row: 2; border-color: transparent; cursor: default; }
+        #dp-right { grid-column: 3; grid-row: 2; }
+        #dp-down { grid-column: 2; grid-row: 3; }
+        #controls-row { width: 100%; display: flex; justify-content: center; align-items: center; padding: 8px 0 4px; flex-shrink: 0; }
+        #hint { text-align: center; font-size: 0.4rem; color: #7a6a50; margin-top: 4px; }
+    </style>
+</head>
+<body>
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
+<div id="game-container">
+    <div id="hud">
+        <div class="grp"><span id="hud-score">0</span><span id="hud-high">HI 0</span></div>
+        <div class="grp"><span id="hud-level">LV 1&middot;1</span><span id="hud-lives">●●●</span>
+            <button class="pill-btn" id="mute-btn">&#128266;</button></div>
+    </div>
+    <div id="timer-wrap"><div id="timer-bar"></div></div>
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="banner"></div>
+        <div id="modal"><div id="modal-content"></div></div>
+    </div>
+    <div id="controls-row">
+        <div id="dpad">
+            <div class="dp-btn" id="dp-up">&#9650;</div>
+            <div class="dp-btn" id="dp-left">&#9664;</div>
+            <div class="dp-btn" id="dp-center">&#128064;</div>
+            <div class="dp-btn" id="dp-right">&#9654;</div>
+            <div class="dp-btn" id="dp-down">&#9660;</div>
+        </div>
+    </div>
+    <div id="hint">ARROWS / WASD &middot; OR THE PAD &middot; HOP TO THE TOP</div>
+</div>
+
+<script src="highscores.js"></script>
+<script>
+    'use strict';
+    // =====================================================================
+    // Grandpappy is Unhappy — a Frogger/Crossy-Road-style hopper. Grandpappy
+    // is grumpy: he's lost his glasses, cane, molasses, prune juice, and his
+    // way back to bed. Five levels x three randomized crossings each, one
+    // signature twist per level. Beat them all and Grandpappy is happy.
+    // =====================================================================
+
+    const COLS = 9, ROWS = 9, TILE = 60;
+    const W = COLS * TILE, H = ROWS * TILE;
+    const START_ROW = 8, GOAL_ROW = 0, MEDIAN_ROW = 4;
+    const PW = TILE * 0.62, PH = TILE * 0.78;
+    const HOP_DUR = 0.11, SLIDE_DUR = 0.085, HOP_HEIGHT = 13;
+    const CROSSINGS = 3;
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const mod = (a, b) => ((a % b) + b) % b;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const smooth = (t) => t * t * (3 - 2 * t);
+    const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    // --- Obstacle definitions ------------------------------------------------
+    const OBST = {
+        cart:     { w: 44, h: 34, family: 'vehicle', color: '#9fd3ff' },
+        melon:    { w: 32, h: 32, family: 'round',   color: '#3fae4a' },
+        forklift: { w: 80, h: 38, family: 'vehicle', color: '#ffb454' },
+        cart2:    { w: 40, h: 32, family: 'vehicle', color: '#cfd6dc' },
+        mop:      { w: 64, h: 34, family: 'vehicle', color: '#7fdca0' },
+        can:      { w: 22, h: 22, family: 'round',   color: '#e8534f' },
+
+        car:        { w: 48, h: 30, family: 'vehicle', color: '#ff5470' },
+        truck:      { w: 86, h: 36, family: 'vehicle', color: '#5aa9ff' },
+        motorcycle: { w: 26, h: 22, family: 'vehicle', color: '#ffd166' },
+        bus:        { w: 96, h: 40, family: 'vehicle', color: '#ffe15a' },
+        car2:       { w: 48, h: 30, family: 'vehicle', color: '#c084fc' },
+        sportscar:  { w: 50, h: 26, family: 'vehicle', color: '#ff3b6b' },
+
+        boulder: { w: 36, h: 32, family: 'round', color: '#9a9a9a' },
+        bear:    { w: 46, h: 36, family: 'blob',  color: '#7a4a2f' },
+        pebble:  { w: 18, h: 18, family: 'round', color: '#b5b5b5' },
+
+        log:   { w: 84, h: 30, family: 'platform', color: '#8a5a2f' },
+        canoe: { w: 94, h: 32, family: 'platform', color: '#c9822f' },
+        log2:  { w: 60, h: 28, family: 'platform', color: '#8a5a2f' },
+
+        scooter:    { w: 52, h: 34, family: 'vehicle', color: '#e8534f' },
+        wheelchair: { w: 40, h: 34, family: 'vehicle', color: '#8a94a8' },
+        jelloCart:  { w: 64, h: 36, family: 'vehicle', color: '#6fd67a' },
+        walker:     { w: 34, h: 34, family: 'blob',    color: '#d8c8e8' },
+        bingo:      { w: 30, h: 30, family: 'round',   color: '#ffe15a' },
+
+        denture: { w: 34, h: 22, family: 'special', color: '#f4f4f4' },
+        clock:   { w: 34, h: 34, family: 'round',   color: '#ff5470' },
+        gnome:   { w: 30, h: 36, family: 'blob',    color: '#5a8ace' },
+
+        pillow:  { w: 70, h: 32, family: 'platform', color: '#c9a6ff' },
+        sheep:   { w: 48, h: 34, family: 'platform', color: '#f4f4f4' },
+        pillow2: { w: 54, h: 28, family: 'platform', color: '#a6d8ff' }
+    };
+
+    const HIT_MSG = {
+        cart: 'BONK! RUNAWAY CART!', melon: 'SPLAT! ROLLING MELON!', forklift: 'CRUNCH! FORKLIFT!',
+        cart2: 'BONK! LOOSE CART!', mop: 'SLIP! MOP ATTACK!', can: 'CLATTER! CANNED GOODS!',
+        car: 'HONK! HIT BY A CAR!', truck: 'CRASH! BIG TRUCK!', motorcycle: 'VROOM! MOTORCYCLE!',
+        bus: 'SCHOOL BUS! WATCH OUT!', car2: 'HONK! ANOTHER CAR!', sportscar: 'ZOOM! TOO FAST!',
+        boulder: 'ROCKSLIDE! BOULDER!', bear: 'GRRR! A BEAR!', pebble: 'OW! FLYING PEBBLES!',
+        scooter: 'BEEP BEEP! SCOOTER STAMPEDE!', wheelchair: 'RUNAWAY WHEELCHAIR!',
+        jelloCart: 'SPLAT! JELLO EVERYWHERE!', walker: 'BUMPED BY A WALKER!', bingo: 'B-12! BINGO\'D!',
+        denture: 'CHOMP! FLYING DENTURES!', clock: 'BONG! ALARM CLOCK!', gnome: 'GNOME\'D!'
+    };
+    const SPLASH_MSG = {
+        log: 'SPLASH! MISSED THE LOG!', canoe: 'SPLASH! TIPPED THE CANOE!', log2: 'SPLASH! INTO THE RIVER!',
+        pillow: 'FLOP! FELL THROUGH THE CLOUDS!', sheep: 'BAA! LOST YOUR FOOTING!', pillow2: 'FLOP! MISSED THE PILLOW!'
+    };
+
+    // --- Level data ------------------------------------------------------------
+    const LEVELS = [
+        {
+            key: 'grocery', name: 'GROCERY STORE', item: 'GLASSES', itemKey: 'glasses',
+            intro: 'GET GRANDPAPPY\'S GLASSES!', timeLimit: 34, twist: 'wetfloor',
+            bg: { safe: '#241a10', a: '#d9c08a', median: '#f0e2b0', b: '#c9a86a' },
+            hazardPool: ['cart', 'melon', 'forklift', 'cart2', 'mop', 'can'], riverPool: null,
+            pickup: { label: 'C', color: '#ffd166', name: 'COUPON' }
+        },
+        {
+            key: 'roads', name: 'MAIN STREET', item: 'CANE', itemKey: 'cane',
+            intro: 'GET GRANDPAPPY\'S CANE!', timeLimit: 32, twist: 'honk',
+            bg: { safe: '#2a2a2a', a: '#4a4a4a', median: '#3f6b3f', b: '#4a4a4a' },
+            hazardPool: ['car', 'truck', 'motorcycle', 'bus', 'car2', 'sportscar'], riverPool: null,
+            pickup: { label: 'N', color: '#e8e8e8', name: 'NEWSPAPER' }
+        },
+        {
+            key: 'mountains', name: 'MOUNTAIN TRAIL', item: 'MOLASSES', itemKey: 'molasses',
+            intro: 'GET GRANDPAPPY\'S MOLASSES!', timeLimit: 32, twist: 'sinking',
+            bg: { safe: '#2f3a2a', a: '#5a7a4a', median: '#7a6a4a', b: '#2f6ba0' },
+            hazardPool: ['boulder', 'bear', 'pebble'], riverPool: ['log', 'canoe', 'log2'],
+            pickup: { label: 'B', color: '#c9366f', name: 'BERRIES' }
+        },
+        {
+            key: 'retirement', name: 'RETIREMENT HOME', item: 'PRUNE JUICE', itemKey: 'prunes',
+            intro: 'GET GRANDPAPPY\'S PRUNE JUICE!', timeLimit: 30, twist: 'bingo',
+            bg: { safe: '#241a20', a: '#cfc8b8', median: '#e0d4be', b: '#bcb4a4' },
+            hazardPool: ['scooter', 'wheelchair', 'jelloCart', 'walker'], riverPool: null,
+            pickup: { label: 'D', color: '#c084fc', name: 'BINGO DAUBER' }
+        },
+        {
+            key: 'dream', name: 'GRANDPAPPY\'S DREAM', item: 'BED', itemKey: 'bed',
+            intro: 'FIND YOUR WAY BACK TO BED!', timeLimit: 30, twist: 'ufo',
+            bg: { safe: '#161233', a: '#241a4a', median: '#3a2a6a', b: '#141033' },
+            hazardPool: ['denture', 'clock', 'gnome'], riverPool: ['pillow', 'sheep', 'pillow2'],
+            pickup: { label: '*', color: '#ffe15a', name: 'STAR' }
+        }
+    ];
+
+    const DIFF = {
+        casual: { speed: 0.8, density: 0.85, timer: 8, scoreMul: 0.75 },
+        normal: { speed: 1.0, density: 1.0, timer: 0, scoreMul: 1 },
+        hard:   { speed: 1.2, density: 1.15, timer: -4, scoreMul: 1.5 }
+    };
+
+    // --- DOM refs --------------------------------------------------------------
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    const bannerEl = document.getElementById('banner');
+    const modal = document.getElementById('modal');
+    const modalContent = document.getElementById('modal-content');
+    const hudScore = document.getElementById('hud-score');
+    const hudHigh = document.getElementById('hud-high');
+    const hudLevel = document.getElementById('hud-level');
+    const hudLives = document.getElementById('hud-lives');
+    const timerBar = document.getElementById('timer-bar');
+    const timerWrap = document.getElementById('timer-wrap');
+
+    const LS = { muted: 'gp_muted', high: 'gp_high', diff: 'gp_diff' };
+    let muted = localStorage.getItem(LS.muted) === '1';
+
+    // --- State -------------------------------------------------------------
+    const state = {
+        phase: 'start',   // start | levelIntro | playing | hit | crossingClear | levelClear | gameOver | win
+        difficulty: localStorage.getItem(LS.diff) || 'normal',
+        levelIndex: 0,
+        crossing: 1,
+        lives: 3,
+        score: 0,
+        high: HS.getBoard('grandpappy', LS.high).personalBest.score,
+        time: 0,
+        timer: 0,
+        timeLimit: 30,
+        bestRow: START_ROW,
+        rowStates: {},          // rowIndex -> { cfg:{type,dir,speed,obstType,honk}, def, obs, loopLen, offset }
+        wetTiles: new Set(),    // 'col,row' strings (grocery twist)
+        ufo: null,              // { nextAt, sweep:{row,x,dir,warnT} } (dream twist)
+        pickup: null,
+        items: { glasses: false, cane: false, molasses: false, prunes: false, bed: false },
+        deathsThisLevel: 0,
+        player: {
+            col: 4, row: START_ROW, x: 4 * TILE + TILE / 2,
+            hop: null,          // { fromX, toX, fromRow, toRow, t, dur, slide, dc, dr }
+            queued: null,       // [dc, dr]
+            facing: 1,
+            landSquash: 0,
+            justSlid: false,
+            mood: 'unhappy'
+        },
+        deathPos: null,
+        invulnUntil: 0,
+        lastInputAt: 0,
+        lastTickSec: -1,
+        rowWarn: null,          // { row, side, until } (honk twist)
+        particles: [],
+        popups: [],
+        stars: [],
+        banner: { timer: 0 },
+        phaseTimer: 0,
+        winT: 0,
+        shake: 0
+    };
+
+    function diff() { return DIFF[state.difficulty] || DIFF.normal; }
+    function rowY(r) { return r * TILE; }
+    function addScore(base) { state.score += Math.round(base * diff().scoreMul); }
+
+    // --- Crossing generation -----------------------------------------------
+    // Obstacles live on a virtual wrap-loop longer than the screen; jittered
+    // gaps with a solvability floor (gapMin) that scales with row speed.
+    function makeRowObstacles(def, speed, isRiver, gapScale) {
+        const loopLen = W + (isRiver ? 140 : 180);
+        let gapMin, gapMax;
+        if (isRiver) {
+            gapMin = 26;
+            gapMax = Math.max(gapMin + 20, Math.min(TILE * 1.9, 118) * gapScale);
+        } else {
+            gapMin = PW * 1.35 + speed * 0.35;
+            gapMax = gapMin + 230 * gapScale;
+        }
+        const obs = [{ loopPos: 0 }];
+        let pos = 0;
+        while (true) {
+            const next = pos + def.w + gapMin + Math.random() * (gapMax - gapMin);
+            if (next + def.w + gapMin > loopLen) break;
+            obs.push({ loopPos: next });
+            pos = next;
+        }
+        return { obs, loopLen };
+    }
+
+    function buildCrossing(levelIdx, crossing) {
+        const lvl = LEVELS[levelIdx];
+        const d = diff();
+        const speedMul = d.speed * (1 + (crossing - 1) * 0.12);
+        const gapScale = 1 / (d.density * (1 + (crossing - 1) * 0.08));
+
+        // which rows are river (topmost active rows) vs hazard
+        const activeRows = [1, 2, 3, 5, 6, 7];
+        let riverRows = [];
+        if (lvl.riverPool) {
+            const n = 2 + (Math.random() < 0.5 ? 1 : 0);
+            riverRows = activeRows.slice(0, n);
+        }
+
+        // shuffle pools so adjacent rows differ run to run
+        const shuffledHaz = [...lvl.hazardPool].sort(() => Math.random() - 0.5);
+        const shuffledRiv = lvl.riverPool ? [...lvl.riverPool].sort(() => Math.random() - 0.5) : [];
+
+        // bingo twist: 1-2 hazard rows become bouncing bingo-ball lanes
+        const bingoRows = new Set();
+        if (lvl.twist === 'bingo') {
+            const hazRows = activeRows.filter(r => !riverRows.includes(r));
+            bingoRows.add(pick(hazRows));
+            if (Math.random() < 0.5) bingoRows.add(pick(hazRows.filter(r => !bingoRows.has(r))));
+        }
+
+        state.rowStates = {};
+        let hi = 0, ri = 0, fastest = null;
+        for (const r of activeRows) {
+            const isRiver = riverRows.includes(r);
+            let obstType, speed;
+            if (isRiver) {
+                obstType = shuffledRiv[ri++ % shuffledRiv.length];
+                speed = rand(45, 100) * speedMul;
+            } else if (bingoRows.has(r)) {
+                obstType = 'bingo';
+                speed = rand(70, 110) * speedMul;
+            } else {
+                obstType = shuffledHaz[hi++ % shuffledHaz.length];
+                speed = rand(65, 150) * speedMul;
+            }
+            const def = OBST[obstType];
+            const { obs, loopLen } = makeRowObstacles(def, speed, isRiver, gapScale);
+            for (const o of obs) {
+                o.nearArm = false;
+                o.warned = false;
+                if (lvl.twist === 'sinking' && isRiver && (obstType === 'log' || obstType === 'log2') && Math.random() < 0.4) {
+                    o.sinkPhase = Math.random() * 7.1;   // surfaced 4.5s → bubbling 1s → sunk 1.6s
+                }
+                if (obstType === 'bingo') o.bouncePhase = Math.random() * Math.PI * 2;
+            }
+            const rs = {
+                cfg: { type: isRiver ? 'river' : 'hazard', dir: Math.random() < 0.5 ? 1 : -1, speed, obstType },
+                def, obs, loopLen, offset: Math.random() * loopLen
+            };
+            state.rowStates[r] = rs;
+            if (!isRiver && (!fastest || speed > fastest.cfg.speed)) fastest = rs;
+        }
+        if (lvl.twist === 'honk' && fastest) fastest.cfg.honk = true;
+
+        // wet-floor tiles (grocery twist): shiny tiles that slide you one extra hop
+        state.wetTiles = new Set();
+        if (lvl.twist === 'wetfloor') {
+            let tries = 0;
+            while (state.wetTiles.size < 5 && tries++ < 60) {
+                const r = 1 + Math.floor(Math.random() * 7);
+                const c = 1 + Math.floor(Math.random() * (COLS - 2));
+                state.wetTiles.add(c + ',' + r);
+            }
+        }
+
+        // ufo twist state
+        state.ufo = lvl.twist === 'ufo' ? { nextAt: state.time + rand(3.5, 6), sweep: null } : null;
+
+        state.rowWarn = null;
+
+        // median pickup
+        const pcol = 1 + Math.floor(Math.random() * (COLS - 2));
+        state.wetTiles.delete(pcol + ',' + MEDIAN_ROW);
+        state.pickup = { x: pcol * TILE + TILE / 2, y: rowY(MEDIAN_ROW) + TILE / 2, collected: false, def: lvl.pickup };
+
+        // decorative starfield for dream safe rows
+        if (lvl.key === 'dream' && state.stars.length === 0) {
+            for (let i = 0; i < 40; i++) state.stars.push({ x: Math.random() * W, y: Math.random() * H, s: 1 + Math.random() * 2 });
+        }
+    }
+
+    function obstacleRect(rowIndex, rs, i) {
+        const def = rs.def, o = rs.obs[i];
+        const x = mod(o.loopPos + rs.offset, rs.loopLen) - (rs.loopLen - W) / 2 - def.w / 2;
+        return { x, y: rowY(rowIndex) + (TILE - def.h) / 2, w: def.w, h: def.h, key: rs.cfg.obstType, o };
+    }
+
+    // sinking-log lifecycle: 'up' | 'bubbling' | 'sunk'
+    function sinkState(o) {
+        if (o.sinkPhase === undefined) return 'up';
+        const t = mod(state.time + o.sinkPhase, 7.1);
+        return t < 4.5 ? 'up' : t < 5.5 ? 'bubbling' : 'sunk';
+    }
+
+    // bingo bounce height in px (0 = grounded); dangerous only when low
+    function bounceHeight(o) {
+        if (o.bouncePhase === undefined) return 0;
+        return Math.abs(Math.sin(state.time * 3.2 + o.bouncePhase)) * 46;
+    }
+
+    function resetPlayerToStart() {
+        const p = state.player;
+        p.col = 4; p.row = START_ROW; p.x = 4 * TILE + TILE / 2;
+        p.hop = null; p.queued = null; p.landSquash = 0; p.justSlid = false;
+        state.bestRow = START_ROW;
+    }
+
+    function startCrossing(levelIdx, crossing, withIntro) {
+        state.levelIndex = levelIdx;
+        state.crossing = crossing;
+        const lvl = LEVELS[levelIdx];
+        state.timeLimit = Math.max(12, lvl.timeLimit + diff().timer);
+        state.timer = state.timeLimit;
+        buildCrossing(levelIdx, crossing);
+        resetPlayerToStart();
+        if (withIntro) {
+            state.phase = 'levelIntro';
+            state.phaseTimer = 1.8;
+            showBanner(lvl.name + '\n' + lvl.intro, 1.7);
+        } else {
+            state.phase = 'playing';
+        }
+        updateHUD();
+    }
+
+    function startGame() {
+        state.score = 0; state.lives = 3;
+        state.items = { glasses: false, cane: false, molasses: false, prunes: false, bed: false };
+        state.deathsThisLevel = 0;
+        state.player.mood = 'unhappy';
+        state.stars = [];
+        modal.style.display = 'none';
+        startCrossing(0, 1, true);
+    }
+
+    // --- Life / level flow -----------------------------------------------------
+    function loseLife(reason) {
+        if (state.phase !== 'playing') return;
+        state.lives--;
+        state.deathsThisLevel++;
+        state.shake = 0.4;
+        state.deathPos = { x: getVisX(), row: state.player.row };
+        spawnHitDust(state.deathPos.x, rowY(state.deathPos.row) + TILE / 2);
+        sfx.hit();
+        if (state.lives <= 0) { gameOver(); return; }
+        state.phase = 'hit';
+        state.phaseTimer = 1.1;
+        showBanner(reason, 1.0);
+        updateHUD();
+    }
+
+    function reachGoal() {
+        const lvl = LEVELS[state.levelIndex];
+        const timeBonus = 50 + Math.round(state.timer * 2);
+        addScore(timeBonus);
+        addPopup(state.player.x, rowY(GOAL_ROW) + TILE / 2, '+' + Math.round(timeBonus * diff().scoreMul), '#6fd67a');
+        if (state.crossing < CROSSINGS) {
+            state.phase = 'crossingClear';
+            state.phaseTimer = 1.0;
+            showBanner('KEEP GOING!', 0.9);
+            sfx.crossing();
+        } else {
+            state.items[lvl.itemKey] = true;
+            addScore(200);
+            if (state.deathsThisLevel === 0) {
+                addScore(100);
+                showBanner('GOT THE ' + lvl.item + '!\nSPRY BONUS +' + Math.round(100 * diff().scoreMul) + '!', 2.0);
+            } else {
+                showBanner('GOT THE ' + lvl.item + '!', 2.0);
+            }
+            sfx.levelClear();
+            state.phase = 'levelClear';
+            state.phaseTimer = 2.2;
+        }
+        updateHUD();
+    }
+
+    function advanceAfterClear() {
+        if (state.phase === 'crossingClear') {
+            startCrossing(state.levelIndex, state.crossing + 1, false);
+        } else if (state.levelIndex >= LEVELS.length - 1) {
+            winSequence();
+        } else {
+            state.deathsThisLevel = 0;
+            startCrossing(state.levelIndex + 1, 1, true);
+        }
+    }
+
+    function gameOver() {
+        state.phase = 'gameOver';
+        hideBanner();
+        const isBest = state.score > state.high;
+        const qualifies = HS.checkQualifies('grandpappy', state.score, LS.high);
+
+        function finish() {
+            if (isBest) state.high = state.score;
+            modalContent.innerHTML = '<h1>GRANDPAPPY<br>GIVES UP</h1><p>SCORE ' + state.score + '<br>MADE IT TO ' + LEVELS[state.levelIndex].name +
+                '<br>CROSSING ' + state.crossing + '/' + CROSSINGS + '</p><p style="color:#ff8fbf">' +
+                (isBest ? 'NEW HIGH SCORE!' : 'HI ' + state.high) + '</p><button class="gp-btn" id="again-btn">TRY AGAIN</button>';
+            modal.style.display = 'block';
+            document.getElementById('again-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startGame(); });
+            updateHUD();
+        }
+
+        if (qualifies) {
+            HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('grandpappy', name, state.score); finish(); } });
+        } else {
+            finish();
+        }
+        sfx.gameOver();
+    }
+
+    function winSequence() {
+        state.phase = 'win';
+        state.winT = 0;
+        hideBanner();
+        state.player.mood = 'happy';
+        if (state.stars.length === 0) {
+            for (let i = 0; i < 40; i++) state.stars.push({ x: Math.random() * W, y: Math.random() * H, s: 1 + Math.random() * 2 });
+        }
+        sfx.fanfare();
+        for (let i = 0; i < 60; i++) spawnConfetti();
+        const isBest = state.score > state.high;
+        const qualifies = HS.checkQualifies('grandpappy', state.score, LS.high);
+        function finish() {
+            if (isBest) state.high = state.score;
+            modalContent.innerHTML = '<h1 style="color:#6fd67a;text-shadow:0 0 10px #6fd67a">GRANDPAPPY<br>IS HAPPY!</h1><p>FINAL SCORE ' + state.score + '</p><p style="color:#ff8fbf">' +
+                (isBest ? 'NEW HIGH SCORE!' : 'HI ' + state.high) + '</p><button class="gp-btn" id="again-btn">PLAY AGAIN</button>';
+            modal.style.display = 'block';
+            document.getElementById('again-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startGame(); });
+            updateHUD();
+        }
+        if (qualifies) {
+            HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('grandpappy', name, state.score); finish(); } });
+        } else {
+            finish();
+        }
+    }
+
+    // --- Movement: tweened hops with input buffering ----------------------------
+    function getVisX() {
+        const p = state.player;
+        if (!p.hop) return p.x;
+        return lerp(p.hop.fromX, p.hop.toX, smooth(p.hop.t / p.hop.dur));
+    }
+    function getVisRow() {
+        const p = state.player;
+        if (!p.hop) return p.row;
+        return lerp(p.hop.fromRow, p.hop.toRow, smooth(p.hop.t / p.hop.dur));
+    }
+
+    function attemptMove(dc, dr) {
+        if (state.phase !== 'playing') return;
+        state.lastInputAt = state.time;
+        const p = state.player;
+        if (p.hop) { p.queued = [dc, dr]; return; }
+        beginHop(dc, dr, false);
+    }
+
+    function beginHop(dc, dr, isSlide) {
+        const p = state.player;
+        const curCol = Math.round((p.x - TILE / 2) / TILE);
+        const toCol = clamp(curCol + dc, 0, COLS - 1);
+        const toRow = clamp(p.row + dr, GOAL_ROW, START_ROW);
+        const toX = dc !== 0 ? toCol * TILE + TILE / 2 : p.x;
+        if (toRow === p.row && Math.abs(toX - p.x) < 1) return;   // clamped into a no-op
+        if (dc !== 0) p.facing = dc > 0 ? 1 : -1;
+        p.hop = {
+            fromX: p.x, toX, fromRow: p.row, toRow,
+            t: 0, dur: isSlide ? SLIDE_DUR : HOP_DUR, slide: isSlide, dc, dr
+        };
+        // logical row switches at hop start: collisions run on the destination row
+        p.row = toRow;
+        p.col = toCol;
+        if (!isSlide) sfx.hop();
+        if (toRow < state.bestRow) {
+            addScore(10);
+            state.bestRow = toRow;
+        }
+    }
+
+    function finishHop() {
+        const p = state.player;
+        const wasSlide = p.hop.slide;
+        const dc = p.hop.dc, dr = p.hop.dr;
+        p.x = p.hop.toX;
+        p.hop = null;
+        p.landSquash = 1;
+        spawnLandDust(p.x, rowY(p.row) + TILE - 10);
+
+        if (p.row === GOAL_ROW) { p.queued = null; reachGoal(); return; }
+        checkPickup();
+
+        // wet-floor slide: land on a shiny tile -> skid one extra tile, no re-trigger
+        const tileKey = p.col + ',' + p.row;
+        if (!wasSlide && !p.justSlid && state.wetTiles.has(tileKey) && (dc !== 0 || dr !== 0)) {
+            const c2 = clamp(p.col + dc, 0, COLS - 1);
+            const r2 = clamp(p.row + dr, GOAL_ROW, START_ROW);
+            if (c2 !== p.col || r2 !== p.row) {
+                p.justSlid = true;
+                sfx.slip();
+                addPopup(p.x, rowY(p.row) + 10, 'WHOA!', '#7de8ff');
+                beginHop(dc, dr, true);
+                return;
+            }
+        }
+        p.justSlid = false;
+
+        if (p.queued) { const q = p.queued; p.queued = null; beginHop(q[0], q[1], false); }
+    }
+
+    function checkPickup() {
+        if (state.player.row !== MEDIAN_ROW || !state.pickup || state.pickup.collected) return;
+        if (Math.abs(state.player.x - state.pickup.x) < TILE * 0.6) {
+            state.pickup.collected = true;
+            addScore(25);
+            sfx.pickup();
+            addPopup(state.pickup.x, state.pickup.y - 14, '+' + Math.round(25 * diff().scoreMul) + ' ' + state.pickup.def.name, state.pickup.def.color);
+            updateHUD();
+        }
+    }
+
+    // --- Input ----------------------------------------------------------------
+    const KEY_DIRS = {
+        ArrowUp: [0, -1], w: [0, -1], W: [0, -1],
+        ArrowDown: [0, 1], s: [0, 1], S: [0, 1],
+        ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0],
+        ArrowRight: [1, 0], d: [1, 0], D: [1, 0]
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        const d = KEY_DIRS[e.key];
+        if (d) { e.preventDefault(); ensureAudio(); attemptMove(d[0], d[1]); }
+        else if (e.key === 'Escape') { window.location.href = 'index.html'; }
+    });
+
+    function wireDpad(id, dc, dr) {
+        const el = document.getElementById(id);
+        let repeatTimer = null, delayTimer = null;
+        function fire() { ensureAudio(); attemptMove(dc, dr); }
+        function start(e) {
+            e.preventDefault(); el.classList.add('pressed'); fire();
+            delayTimer = setTimeout(() => { repeatTimer = setInterval(fire, 140); }, 300);
+        }
+        function stop() { el.classList.remove('pressed'); clearTimeout(delayTimer); clearInterval(repeatTimer); }
+        el.addEventListener('pointerdown', start);
+        el.addEventListener('pointerup', stop);
+        el.addEventListener('pointerleave', stop);
+        el.addEventListener('pointercancel', stop);
+    }
+    wireDpad('dp-up', 0, -1);
+    wireDpad('dp-down', 0, 1);
+    wireDpad('dp-left', -1, 0);
+    wireDpad('dp-right', 1, 0);
+
+    // --- Update -----------------------------------------------------------
+    function updateRows(dt) {
+        for (const key in state.rowStates) {
+            const rs = state.rowStates[key];
+            rs.offset = mod(rs.offset + rs.cfg.dir * rs.cfg.speed * dt, rs.loopLen);
+
+            // honk telegraph: warn as an obstacle is about to enter the screen.
+            // warned resets while the obstacle sits in the far-side band, so
+            // every wrap re-arms the telegraph regardless of lane speed.
+            if (rs.cfg.honk) {
+                const band = (rs.loopLen - W) / 2;
+                const warnDist = Math.min(rs.cfg.speed * 0.65, band - 4);
+                for (let i = 0; i < rs.obs.length; i++) {
+                    const r = obstacleRect(Number(key), rs, i);
+                    const cx = r.x + r.w / 2;
+                    const nearSide = rs.cfg.dir === 1 ? cx < 0 : cx > W;       // approaching band
+                    const farSide = rs.cfg.dir === 1 ? cx > W : cx < 0;        // just exited
+                    if (farSide) { r.o.warned = false; continue; }
+                    if (!nearSide) continue;
+                    const dist = rs.cfg.dir === 1 ? -cx : cx - W;
+                    if (dist <= warnDist && !r.o.warned) {
+                        r.o.warned = true;
+                        sfx.honk();
+                        state.rowWarn = { row: Number(key), side: rs.cfg.dir === 1 ? 'left' : 'right', until: state.time + 0.65 };
+                    }
+                }
+            }
+        }
+    }
+
+    function updateUfo(dt) {
+        const u = state.ufo;
+        if (!u || state.phase !== 'playing') return;
+        if (!u.sweep) {
+            if (state.time >= u.nextAt) {
+                u.sweep = { row: 1 + Math.floor(Math.random() * 7), dir: Math.random() < 0.5 ? 1 : -1, x: 0, warnT: 0.9 };
+                u.sweep.x = u.sweep.dir === 1 ? -60 : W + 60;
+                sfx.alarm();
+            }
+            return;
+        }
+        const s = u.sweep;
+        if (s.warnT > 0) { s.warnT -= dt; return; }
+        s.x += s.dir * 240 * dt;
+        const p = state.player;
+        if (p.row === s.row && state.time >= state.invulnUntil &&
+            Math.abs(getVisX() - s.x) < (50 + PW) / 2) {
+            loseLife('BEAMED UP! BYE GRANDPAPPY!');
+            u.sweep = null;
+            u.nextAt = state.time + rand(5, 8);
+            return;
+        }
+        if ((s.dir === 1 && s.x > W + 70) || (s.dir === -1 && s.x < -70)) {
+            u.sweep = null;
+            u.nextAt = state.time + rand(5, 8);
+        }
+    }
+
+    function playerAABB() {
+        return { x: getVisX() - PW / 2, y: rowY(state.player.row) + (TILE - PH) / 2, w: PW, h: PH };
+    }
+    function overlap(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function checkCollisions(dt) {
+        const p = state.player;
+        const rs = state.rowStates[p.row];
+        if (!rs) return;
+        const invuln = state.time < state.invulnUntil;
+        const pRect = playerAABB();
+
+        if (rs.cfg.type === 'hazard') {
+            for (let i = 0; i < rs.obs.length; i++) {
+                const r = obstacleRect(p.row, rs, i);
+                if (r.key === 'bingo' && bounceHeight(r.o) > 16) { r.o.nearArm = false; continue; }   // airborne ball: safe
+                if (!invuln && overlap(pRect, r)) { loseLife(HIT_MSG[r.key] || 'OUCH!'); return; }
+                // near-miss: obstacle edge grazes within 16px, then recedes past 44px
+                if (!p.hop && !invuln) {
+                    const g = Math.abs((r.x + r.w / 2) - getVisX()) - (r.w + PW) / 2;
+                    if (g < 16) r.o.nearArm = true;
+                    else if (g > 44 && r.o.nearArm) {
+                        r.o.nearArm = false;
+                        addScore(15);
+                        addPopup(getVisX(), rowY(p.row) + 8, 'CLOSE ONE! +' + Math.round(15 * diff().scoreMul), '#ffd166');
+                        sfx.near();
+                    }
+                } else {
+                    r.o.nearArm = false;
+                }
+            }
+        } else if (rs.cfg.type === 'river') {
+            if (p.hop) return;   // airborne: carry & drown checks wait for landing
+            let carried = false, sank = false;
+            for (let i = 0; i < rs.obs.length; i++) {
+                const r = obstacleRect(p.row, rs, i);
+                if (overlap(pRect, r)) {
+                    if (sinkState(r.o) === 'sunk') { sank = true; continue; }
+                    p.x += rs.cfg.dir * rs.cfg.speed * dt;
+                    carried = true;
+                    break;
+                }
+            }
+            if (!carried) {
+                loseLife(sank ? 'THE LOG SANK! SPLASH!' : (SPLASH_MSG[rs.cfg.obstType] || 'SPLASH!'));
+                return;
+            }
+            if (p.x < -PW / 2 || p.x > W + PW / 2) { loseLife(SPLASH_MSG[rs.cfg.obstType] || 'SPLASH!'); }
+        }
+    }
+
+    function update(dt) {
+        state.time += dt;
+        updateBanner(dt);
+        if (state.shake > 0) state.shake = Math.max(0, state.shake - dt);
+        updateParticles(dt);
+        updatePopups(dt);
+
+        const p = state.player;
+        if (p.landSquash > 0) p.landSquash = Math.max(0, p.landSquash - dt * 8);
+
+        if (state.phase === 'levelIntro') {
+            updateRows(dt);
+            state.phaseTimer -= dt;
+            if (state.phaseTimer <= 0) state.phase = 'playing';
+            return;
+        }
+        if (state.phase === 'hit') {
+            state.phaseTimer -= dt;
+            if (state.phaseTimer <= 0) {
+                resetPlayerToStart();
+                state.timer = state.timeLimit;
+                state.invulnUntil = state.time + 1.2;
+                state.deathPos = null;
+                state.phase = 'playing';
+            }
+            return;
+        }
+        if (state.phase === 'crossingClear' || state.phase === 'levelClear') {
+            updateRows(dt);
+            state.phaseTimer -= dt;
+            if (state.phaseTimer <= 0) advanceAfterClear();
+            return;
+        }
+        if (state.phase === 'win') { state.winT += dt; return; }
+        if (state.phase !== 'playing') return;
+
+        updateRows(dt);
+        updateUfo(dt);
+        if (state.phase !== 'playing') return;   // ufo may have ended the run
+
+        if (p.hop) {
+            p.hop.t += dt;
+            if (p.hop.t >= p.hop.dur) finishHop();
+        }
+        if (state.phase !== 'playing') { updateHUD(); return; }   // finishHop may have changed phase
+
+        checkCollisions(dt);
+        if (state.phase !== 'playing') return;
+
+        state.timer -= dt;
+        if (state.timer <= 0) { loseLife('GRANDPAPPY DOZED OFF!'); return; }
+        const sec = Math.ceil(state.timer);
+        if (state.timer < 5 && sec !== state.lastTickSec) { state.lastTickSec = sec; sfx.tick(); }
+        updateHUD();
+    }
+
+    // --- Particles / popups / confetti -------------------------------------------
+    function spawnConfetti() {
+        const cols = ['#ffd166', '#6fd67a', '#7de8ff', '#ff8fbf', '#ffb454'];
+        state.particles.push({
+            x: Math.random() * W, y: -20 - Math.random() * 100,
+            vx: (Math.random() - 0.5) * 60, vy: 80 + Math.random() * 100,
+            life: 4 + Math.random() * 2, maxLife: 6, size: 4 + Math.random() * 4,
+            color: cols[Math.floor(Math.random() * cols.length)], confetti: true
+        });
+    }
+    function spawnHitDust(x, y) {
+        for (let i = 0; i < 10; i++) {
+            const a = Math.random() * Math.PI * 2, sp = 50 + Math.random() * 120;
+            state.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 0.5, maxLife: 0.5, size: 3, color: '#f5e6c8' });
+        }
+    }
+    function spawnLandDust(x, y) {
+        for (let i = 0; i < 4; i++) {
+            state.particles.push({
+                x: x + rand(-10, 10), y, vx: rand(-30, 30), vy: rand(-40, -10),
+                life: 0.3, maxLife: 0.3, size: 2, color: 'rgba(245,230,200,0.8)'
+            });
+        }
+    }
+    function updateParticles(dt) {
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+            const p = state.particles[i];
+            p.life -= dt;
+            if (p.life <= 0 || (!p.confetti && p.y > H + 40)) { state.particles.splice(i, 1); continue; }
+            p.vy += (p.confetti ? 20 : 260) * dt;
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.confetti && p.y > H + 20) { p.y = -20; p.x = Math.random() * W; }
+        }
+    }
+    function addPopup(x, y, text, color) {
+        state.popups.push({ x: clamp(x, 50, W - 50), y, text, color, life: 0.85, maxLife: 0.85 });
+    }
+    function updatePopups(dt) {
+        for (let i = state.popups.length - 1; i >= 0; i--) {
+            const p = state.popups[i];
+            p.life -= dt;
+            p.y -= 32 * dt;
+            if (p.life <= 0) state.popups.splice(i, 1);
+        }
+    }
+
+    // --- Audio --------------------------------------------------------------
+    let audioCtx = null;
+    function ensureAudio() { if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; audioCtx = new AC(); } if (audioCtx.state === 'suspended') audioCtx.resume(); }
+    function tone(freq, dur, type, vol, slideTo, when) {
+        if (muted || !audioCtx) return;
+        const t0 = audioCtx.currentTime + (when || 0);
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = type || 'square'; osc.frequency.setValueAtTime(freq, t0);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+        gain.gain.setValueAtTime(vol || 0.06, t0); gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain).connect(audioCtx.destination); osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+    const sfx = {
+        hop: () => { const f = 420 + Math.random() * 60; tone(f, 0.04, 'square', 0.04, f + 130); },
+        slip: () => tone(700, 0.12, 'sine', 0.05, 250),
+        hit: () => tone(180, 0.3, 'sawtooth', 0.09, 40),
+        pickup: () => [660, 880].forEach((f, i) => tone(f, 0.07, 'square', 0.05, undefined, i * 0.06)),
+        near: () => tone(880, 0.05, 'square', 0.035, 1100),
+        honk: () => { tone(310, 0.12, 'square', 0.06); tone(392, 0.12, 'square', 0.06); },
+        alarm: () => [740, 740].forEach((f, i) => tone(f, 0.1, 'sawtooth', 0.05, 500, i * 0.14)),
+        tick: () => tone(1000, 0.03, 'square', 0.035),
+        crossing: () => [523, 659].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.07)),
+        levelClear: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.1, 'square', 0.06, undefined, i * 0.08)),
+        gameOver: () => [400, 320, 240, 160].forEach((f, i) => tone(f, 0.22, 'sawtooth', 0.07, undefined, i * 0.13)),
+        fanfare: () => [523, 523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.14, 'square', 0.06, undefined, i * 0.1)),
+        select: () => tone(660, 0.05, 'square', 0.04)
+    };
+
+    // --- Player sprite (10x12 pixel grid) --------------------------------------
+    const PLAYER_GRID = [
+        '.HHHHHHHH.',
+        'H.SSSSSS.H',
+        'H.SSSSSS.H',
+        '..SSSSSS..',
+        '..SeSSeS..',
+        '..SSSSSS..',
+        '..SMMMMS..',
+        '..SSSSSS..',
+        '.CCCCCCCC.',
+        'CCCCCCCCCC',
+        '..PPPPPP..',
+        '..OO..OO..'
+    ];
+    const PLAYER_COLORS = { H: '#e8e8e8', S: '#e8b98a', e: '#e8b98a', M: '#f5f5f5', C: '#b23b3b', P: '#3a5a8a', O: '#1a1a1a' };
+
+    function drawPlayerBitmap(cx, topY, cell, mood, facing) {
+        ctx.save();
+        if (facing === -1) { ctx.translate(cx, 0); ctx.scale(-1, 1); ctx.translate(-cx, 0); }
+        const gw = PLAYER_GRID[0].length, gh = PLAYER_GRID.length;
+        const startX = cx - (gw * cell) / 2;
+        for (let r = 0; r < gh; r++) {
+            const row = PLAYER_GRID[r];
+            for (let c = 0; c < gw; c++) {
+                const ch = row[c];
+                if (ch === '.') continue;
+                ctx.fillStyle = PLAYER_COLORS[ch];
+                ctx.fillRect(Math.round(startX + c * cell), Math.round(topY + r * cell), Math.ceil(cell) + 1, Math.ceil(cell) + 1);
+            }
+        }
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(Math.round(startX + 3 * cell), Math.round(topY + 4 * cell), Math.ceil(cell), Math.ceil(cell));
+        ctx.fillRect(Math.round(startX + 6 * cell), Math.round(topY + 4 * cell), Math.ceil(cell), Math.ceil(cell));
+        ctx.fillStyle = '#d8d8d8';
+        if (mood === 'happy') {
+            ctx.fillRect(Math.round(startX + 2 * cell), Math.round(topY + 2.6 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.6));
+            ctx.fillRect(Math.round(startX + 5.4 * cell), Math.round(topY + 2.6 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.6));
+        } else {
+            ctx.fillRect(Math.round(startX + 2 * cell), Math.round(topY + 3.2 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.6));
+            ctx.fillRect(Math.round(startX + 5.4 * cell), Math.round(topY + 3.2 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.6));
+        }
+        ctx.fillStyle = '#3a1a12';
+        const mouthY = topY + 7.2 * cell;
+        if (mood === 'happy') {
+            ctx.fillRect(Math.round(startX + 3 * cell), Math.round(mouthY), Math.ceil(cell), Math.ceil(cell * 0.5));
+            ctx.fillRect(Math.round(startX + 4 * cell), Math.round(mouthY + cell * 0.4), Math.ceil(cell * 2), Math.ceil(cell * 0.5));
+            ctx.fillRect(Math.round(startX + 6 * cell), Math.round(mouthY), Math.ceil(cell), Math.ceil(cell * 0.5));
+        } else {
+            ctx.fillRect(Math.round(startX + 3 * cell), Math.round(mouthY + cell * 0.4), Math.ceil(cell), Math.ceil(cell * 0.5));
+            ctx.fillRect(Math.round(startX + 4 * cell), Math.round(mouthY), Math.ceil(cell * 2), Math.ceil(cell * 0.5));
+            ctx.fillRect(Math.round(startX + 6 * cell), Math.round(mouthY + cell * 0.4), Math.ceil(cell), Math.ceil(cell * 0.5));
+        }
+        if (state.items.glasses) {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(Math.round(startX + 2.6 * cell), Math.round(topY + 4.1 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.35));
+            ctx.fillRect(Math.round(startX + 5.8 * cell), Math.round(topY + 4.1 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.35));
+            ctx.fillRect(Math.round(startX + 4.6 * cell), Math.round(topY + 4.1 * cell), Math.ceil(cell * 0.8), Math.ceil(cell * 0.25));
+        }
+        if (state.items.cane) {
+            ctx.fillStyle = '#8a5a2f';
+            ctx.fillRect(Math.round(startX + 10 * cell), Math.round(topY + 5 * cell), Math.ceil(cell * 0.6), Math.ceil(cell * 6));
+            ctx.fillRect(Math.round(startX + 9.6 * cell), Math.round(topY + 4.6 * cell), Math.ceil(cell * 1.4), Math.ceil(cell * 0.6));
+        }
+        if (state.items.molasses) {
+            ctx.fillStyle = '#5a3410';
+            ctx.fillRect(Math.round(startX - 2.6 * cell), Math.round(topY + 7.5 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 2.2));
+            ctx.fillStyle = '#3a230a';
+            ctx.fillRect(Math.round(startX - 2.6 * cell), Math.round(topY + 7.1 * cell), Math.ceil(cell * 1.6), Math.ceil(cell * 0.5));
+        }
+        if (state.items.prunes) {
+            ctx.fillStyle = '#7a3a8a';
+            ctx.fillRect(Math.round(startX - 2.4 * cell), Math.round(topY + 4.2 * cell), Math.ceil(cell * 1.4), Math.ceil(cell * 2));
+            ctx.fillStyle = '#4a2054';
+            ctx.fillRect(Math.round(startX - 2.1 * cell), Math.round(topY + 3.7 * cell), Math.ceil(cell * 0.8), Math.ceil(cell * 0.6));
+        }
+        ctx.restore();
+    }
+
+    function drawPlayer() {
+        const p = state.player;
+        if (state.phase === 'hit' && state.deathPos) { drawDeadPlayer(); return; }
+        if (state.time < state.invulnUntil && Math.floor(state.time * 10) % 2 === 0 && state.phase === 'playing') return;
+
+        const cx = getVisX();
+        const visRow = getVisRow();
+        let arc = 0, stretch = 1;
+        if (p.hop && !p.hop.slide) {
+            const t = p.hop.t / p.hop.dur;
+            arc = Math.sin(t * Math.PI) * HOP_HEIGHT;
+            stretch = 1 + Math.sin(t * Math.PI) * 0.14;
+        }
+        const squash = 1 - p.landSquash * 0.16;
+        const scaleY = stretch * squash;
+        const cell = PH / 12 * scaleY;
+
+        // idle wobble when standing around
+        let idleBob = 0;
+        const idle = state.phase === 'playing' && !p.hop && state.time - state.lastInputAt > 3;
+        if (idle) idleBob = Math.abs(Math.sin(state.time * 3)) * 2;
+
+        const baseY = rowY(visRow) + TILE - 6;
+        const topY = baseY - PH * scaleY - arc - idleBob;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.ellipse(cx, baseY - 2, PW * 0.34 * (1 - arc / 60), 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawPlayerBitmap(cx, topY, cell, p.mood, p.facing);
+
+        // grumble bubble while idling
+        if (idle && mod(state.time, 4) < 1.6) {
+            ctx.fillStyle = 'rgba(245,230,200,0.92)';
+            ctx.fillRect(cx + 20, topY - 16, 48, 15);
+            ctx.fillRect(cx + 16, topY - 4, 8, 6);
+            ctx.fillStyle = '#3a1a12';
+            ctx.font = "9px 'Press Start 2P', monospace";
+            ctx.textAlign = 'left';
+            ctx.fillText('HMPH!', cx + 24, topY - 5);
+        }
+
+        // held-up prize during the level-clear celebration
+        if (state.phase === 'levelClear') {
+            drawGoalItem(LEVELS[state.levelIndex].itemKey, cx, topY - 22 - Math.sin(state.time * 5) * 3);
+        }
+    }
+
+    function drawDeadPlayer() {
+        const d = state.deathPos;
+        const cx = d.x, baseY = rowY(d.row) + TILE - 6;
+        const cell = PH / 12 * 0.4;
+        drawPlayerBitmap(cx, baseY - PH * 0.4, cell, 'unhappy', state.player.facing);
+        ctx.fillStyle = '#ffe15a';
+        ctx.font = "11px 'Press Start 2P', monospace";
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 3; i++) {
+            const a = state.time * 5 + i * 2.09;
+            ctx.fillText('*', cx + Math.cos(a) * 22, baseY - PH * 0.45 + Math.sin(a) * 8);
+        }
+    }
+
+    // --- Obstacle drawing --------------------------------------------------
+    const PIXCIRCLE = ['.XXX.', 'XXXXX', 'XXXXX', 'XXXXX', '.XXX.'];
+    function drawMask(mask, x, y, w, h, color) {
+        const cw = w / mask[0].length, ch = h / mask.length;
+        ctx.fillStyle = color;
+        for (let r = 0; r < mask.length; r++) {
+            for (let c = 0; c < mask[r].length; c++) {
+                if (mask[r][c] !== '.') ctx.fillRect(Math.round(x + c * cw), Math.round(y + r * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+            }
+        }
+    }
+
+    function drawVehicle(o, def) {
+        ctx.fillStyle = def.color;
+        ctx.fillRect(o.x, o.y + o.h * 0.14, o.w, o.h * 0.6);
+        ctx.fillStyle = '#1a1a1a';
+        const ww = Math.max(6, o.w * 0.1), wh = Math.max(6, o.h * 0.26);
+        ctx.fillRect(o.x + o.w * 0.1, o.y + o.h * 0.66, ww, wh);
+        ctx.fillRect(o.x + o.w * 0.78, o.y + o.h * 0.66, ww, wh);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillRect(o.x + o.w * 0.14, o.y + o.h * 0.2, o.w * 0.72, o.h * 0.2);
+        ctx.fillStyle = '#ffe98a';
+        ctx.fillRect(o.x + o.w - 5, o.y + o.h * 0.35, 4, 4);
+        ctx.fillRect(o.x + 1, o.y + o.h * 0.35, 4, 4);
+        if (o.key === 'scooter') {
+            ctx.fillStyle = '#7a3a30';
+            ctx.fillRect(o.x + o.w * 0.15, o.y - o.h * 0.25, o.w * 0.1, o.h * 0.4);
+            ctx.fillRect(o.x + o.w * 0.08, o.y - o.h * 0.3, o.w * 0.28, o.h * 0.12);
+        } else if (o.key === 'wheelchair') {
+            ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(o.x + o.w * 0.3, o.y + o.h * 0.7, o.h * 0.32, 0, Math.PI * 2); ctx.stroke();
+        } else if (o.key === 'jelloCart') {
+            const wob = Math.sin(state.time * 9 + o.x * 0.08) * 2;
+            ctx.fillStyle = '#4dd67a';
+            ctx.beginPath();
+            ctx.ellipse(o.x + o.w / 2, o.y + o.h * 0.1 + wob * 0.3, o.w * 0.3 + wob, o.h * 0.28, 0, Math.PI, 0);
+            ctx.fill();
+        }
+    }
+
+    function drawRound(o, def) {
+        drawMask(PIXCIRCLE, o.x, o.y, o.w, o.h, def.color);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(o.x + o.w * 0.55, o.y + o.h * 0.55, o.w * 0.3, o.h * 0.3);
+        if (o.key === 'clock') {
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(o.x + o.w * 0.05, o.y - o.h * 0.12, o.w * 0.22, o.h * 0.2);
+            ctx.fillRect(o.x + o.w * 0.73, o.y - o.h * 0.12, o.w * 0.22, o.h * 0.2);
+            ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
+            const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - o.h * 0.28); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + o.w * 0.2, cy); ctx.stroke();
+        }
+    }
+
+    const BINGO_CALLS = ['B4', 'I19', 'N33', 'G52', 'O68'];
+    function drawBingo(o) {
+        const h = bounceHeight(o.o);
+        ctx.fillStyle = 'rgba(0,0,0,' + Math.max(0.08, 0.35 - h / 200).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.ellipse(o.x + o.w / 2, o.y + o.h - 2, Math.max(4, o.w * 0.4 * (1 - h / 90)), 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const by = o.y - h;
+        drawMask(PIXCIRCLE, o.x, by, o.w, o.h, OBST.bingo.color);
+        ctx.fillStyle = '#f8f8f8';
+        ctx.beginPath(); ctx.arc(o.x + o.w / 2, by + o.h / 2, o.w * 0.28, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = "7px 'Press Start 2P', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillText(BINGO_CALLS[Math.floor(o.o.bouncePhase * 10) % BINGO_CALLS.length], o.x + o.w / 2, by + o.h / 2 + 3);
+    }
+
+    function drawBlob(o, def) {
+        drawMask(PIXCIRCLE, o.x, o.y, o.w, o.h, def.color);
+        ctx.fillStyle = def.color;
+        ctx.fillRect(o.x + o.w * 0.05, o.y - o.h * 0.1, o.w * 0.2, o.h * 0.22);
+        ctx.fillRect(o.x + o.w * 0.75, o.y - o.h * 0.1, o.w * 0.2, o.h * 0.22);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(o.x + o.w * 0.3, o.y + o.h * 0.4, o.w * 0.1, o.h * 0.1);
+        ctx.fillRect(o.x + o.w * 0.6, o.y + o.h * 0.4, o.w * 0.1, o.h * 0.1);
+        if (o.key === 'bear') {
+            ctx.fillStyle = '#c9a06a';
+            ctx.fillRect(o.x + o.w * 0.35, o.y + o.h * 0.55, o.w * 0.3, o.h * 0.25);
+        } else if (o.key === 'walker') {
+            ctx.fillStyle = '#e8e8e8';
+            ctx.fillRect(o.x + o.w * 0.15, o.y - o.h * 0.2, o.w * 0.7, o.h * 0.15);
+            ctx.fillStyle = '#8a94a8';
+            ctx.fillRect(o.x - o.w * 0.12, o.y + o.h * 0.3, o.w * 0.12, o.h * 0.7);
+            ctx.fillRect(o.x + o.w, o.y + o.h * 0.3, o.w * 0.12, o.h * 0.7);
+        } else if (o.key === 'gnome') {
+            ctx.fillStyle = '#e8534f';
+            ctx.beginPath();
+            ctx.moveTo(o.x + o.w * 0.5, o.y - o.h * 0.5);
+            ctx.lineTo(o.x + o.w * 0.85, o.y + o.h * 0.15);
+            ctx.lineTo(o.x + o.w * 0.15, o.y + o.h * 0.15);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#f4f4f4';
+            ctx.fillRect(o.x + o.w * 0.3, o.y + o.h * 0.55, o.w * 0.4, o.h * 0.3);
+        }
+    }
+
+    function drawPlatform(o, def) {
+        const ss = sinkState(o.o);
+        ctx.save();
+        if (ss === 'sunk') ctx.globalAlpha = 0.3;
+        ctx.fillStyle = def.color;
+        ctx.fillRect(o.x, o.y + (ss === 'sunk' ? 6 : 0), o.w, o.h - (ss === 'sunk' ? 6 : 0));
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        for (let i = 1; i < 3; i++) ctx.fillRect(o.x + 4, o.y + (o.h / 3) * i - 1, o.w - 8, 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fillRect(o.x, o.y, o.w, 3);
+        ctx.restore();
+        if (ss === 'bubbling') {
+            ctx.fillStyle = 'rgba(230,245,255,0.85)';
+            for (let i = 0; i < 3; i++) {
+                const bx = o.x + o.w * (0.25 + i * 0.25), by = o.y - 4 - mod(state.time * 26 + i * 7, 12);
+                ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        if (o.key === 'canoe') {
+            ctx.fillStyle = '#5a3410';
+            ctx.fillRect(o.x + o.w * 0.42, o.y - o.h * 0.3, o.w * 0.16, o.h * 0.4);
+        }
+        if (o.key === 'sheep') {
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(o.x + o.w * 0.05, o.y - o.h * 0.12, o.w * 0.18, o.h * 0.22);
+            ctx.fillStyle = '#f4f4f4';
+            ctx.fillRect(o.x + o.w * 0.7, o.y - o.h * 0.15, o.w * 0.22, o.h * 0.25);
+            ctx.fillRect(o.x - o.w * 0.06, o.y + o.h * 0.15, o.w * 0.14, o.h * 0.5);
+        }
+    }
+
+    function drawSpecial(o, def) {
+        if (o.key === 'denture') {
+            const chomp = Math.abs(Math.sin(state.time * 6 + o.x * 0.05)) * 5;
+            ctx.fillStyle = def.color;
+            ctx.fillRect(o.x, o.y + o.h * 0.05 - chomp * 0.4, o.w, o.h * 0.32);
+            ctx.fillRect(o.x, o.y + o.h * 0.45 + chomp * 0.4, o.w, o.h * 0.32);
+            ctx.fillStyle = '#e88a9a';
+            ctx.fillRect(o.x, o.y + o.h * 0.68 + chomp * 0.4, o.w, o.h * 0.14);
+            ctx.fillStyle = '#c9c9c9';
+            for (let i = 0; i < 6; i++) ctx.fillRect(o.x + (o.w / 6) * i + 1, o.y + o.h * 0.05 - chomp * 0.4, 2, o.h * 0.3);
+        }
+    }
+
+    function drawObstacle(o) {
+        const def = OBST[o.key];
+        if (o.key === 'bingo') { drawBingo(o); return; }
+        switch (def.family) {
+            case 'vehicle': drawVehicle(o, def); break;
+            case 'round': drawRound(o, def); break;
+            case 'blob': drawBlob(o, def); break;
+            case 'platform': drawPlatform(o, def); break;
+            case 'special': drawSpecial(o, def); break;
+        }
+    }
+
+    // --- Goal item icons -------------------------------------------------------
+    function drawGoalItem(itemKey, cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (itemKey === 'glasses') {
+            ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 3;
+            ctx.strokeRect(-20, -8, 16, 16);
+            ctx.strokeRect(4, -8, 16, 16);
+            ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(4, 0); ctx.stroke();
+        } else if (itemKey === 'cane') {
+            ctx.fillStyle = '#8a5a2f';
+            ctx.fillRect(-3, -18, 6, 34);
+            ctx.fillRect(-3, -18, 16, 6);
+        } else if (itemKey === 'molasses') {
+            ctx.fillStyle = '#5a3410'; ctx.fillRect(-12, -6, 24, 24);
+            ctx.fillStyle = '#3a230a'; ctx.fillRect(-12, -12, 24, 8);
+            ctx.fillStyle = '#e8d9a0'; ctx.fillRect(-8, 0, 16, 8);
+        } else if (itemKey === 'prunes') {
+            ctx.fillStyle = '#7a3a8a'; ctx.fillRect(-10, -8, 20, 26);
+            ctx.fillStyle = '#4a2054'; ctx.fillRect(-6, -14, 12, 7);
+            ctx.fillStyle = '#e8d9a0'; ctx.fillRect(-7, 0, 14, 9);
+        } else if (itemKey === 'bed') {
+            ctx.fillStyle = '#c9a6ff'; ctx.fillRect(-24, -6, 48, 16);
+            ctx.fillStyle = '#f4f4f4'; ctx.fillRect(-24, -16, 18, 12);
+            ctx.fillStyle = '#e8e8e8'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.fillText('Z z Z', 2, -14);
+        }
+        ctx.restore();
+    }
+
+    // --- Background --------------------------------------------------------
+    function rowBgColor(lvl, rowIndex) {
+        if (rowIndex === START_ROW || rowIndex === GOAL_ROW) return lvl.bg.safe;
+        if (rowIndex === MEDIAN_ROW) return lvl.bg.median;
+        const rs = state.rowStates[rowIndex];
+        if (rs && rs.cfg.type === 'river') return lvl.bg.b;
+        return lvl.riverPool ? lvl.bg.a : (rowIndex > MEDIAN_ROW ? lvl.bg.a : lvl.bg.b);
+    }
+
+    function drawRowTexture(lvl, rowIndex, y) {
+        ctx.save();
+        const rs = state.rowStates[rowIndex];
+        if (rs && rs.cfg.type === 'river') {
+            // animated ripples drifting with the current
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 2;
+            const drift = mod(state.time * rs.cfg.speed * 0.4 * rs.cfg.dir, 26);
+            for (let x = -26 + drift; x < W; x += 26) {
+                ctx.beginPath(); ctx.moveTo(x, y + TILE * 0.3); ctx.quadraticCurveTo(x + 13, y + TILE * 0.22, x + 26, y + TILE * 0.3); ctx.stroke();
+            }
+        } else if (lvl.key === 'grocery') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+            for (let x = 0; x < W; x += 20) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + TILE); ctx.stroke(); }
+        } else if (lvl.key === 'roads' && rowIndex !== MEDIAN_ROW && rowIndex !== START_ROW && rowIndex !== GOAL_ROW) {
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            for (let x = -10; x < W; x += 34) ctx.fillRect(x, y + TILE / 2 - 2, 16, 4);
+        } else if (lvl.key === 'retirement' && rowIndex !== START_ROW && rowIndex !== GOAL_ROW) {
+            ctx.fillStyle = 'rgba(0,0,0,0.05)';
+            for (let x = 0; x < W; x += TILE / 2) {
+                for (let yy = 0; yy < TILE; yy += TILE / 2) {
+                    if ((x / (TILE / 2) + yy / (TILE / 2) + rowIndex) % 2 === 0) ctx.fillRect(x, y + yy, TILE / 2, TILE / 2);
+                }
+            }
+        } else if (lvl.key === 'mountains' && rowIndex !== MEDIAN_ROW && rowIndex !== START_ROW && rowIndex !== GOAL_ROW) {
+            ctx.fillStyle = 'rgba(0,0,0,0.12)';
+            for (let i = 0; i < 6; i++) ctx.fillRect((i * 97 + rowIndex * 31) % W, y + TILE * 0.5, 4, 4);
+        } else if (lvl.key === 'dream' && (rowIndex === START_ROW || rowIndex === GOAL_ROW || rowIndex === MEDIAN_ROW)) {
+            for (let i = 0; i < state.stars.length; i++) {
+                const st = state.stars[i];
+                if (st.y >= y && st.y < y + TILE) {
+                    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(state.time * 2 + i);
+                    ctx.fillStyle = '#f4f4f4';
+                    ctx.fillRect(st.x, st.y, st.s, st.s);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+    }
+
+    function drawWetTiles() {
+        for (const key of state.wetTiles) {
+            const parts = key.split(',');
+            const x = Number(parts[0]) * TILE, y = Number(parts[1]) * TILE;
+            ctx.fillStyle = 'rgba(160,220,255,0.28)';
+            ctx.fillRect(x + 3, y + 3, TILE - 6, TILE - 6);
+            const gl = 0.4 + 0.3 * Math.sin(state.time * 3 + x * 0.02 + y * 0.02);
+            ctx.strokeStyle = 'rgba(230,250,255,' + gl.toFixed(3) + ')';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + 12, y + TILE - 14); ctx.lineTo(x + TILE - 18, y + 12);
+            ctx.stroke();
+        }
+    }
+
+    function drawGoalRow(lvl) {
+        if (state.crossing >= CROSSINGS) {
+            drawGoalItem(lvl.itemKey, W / 2, rowY(GOAL_ROW) + TILE / 2);
+        } else {
+            ctx.fillStyle = 'rgba(255,180,84,' + (0.5 + 0.4 * Math.sin(state.time * 4)).toFixed(3) + ')';
+            ctx.font = "13px 'Press Start 2P', monospace";
+            ctx.textAlign = 'center';
+            ctx.fillText('▲  ▲  ▲', W / 2, rowY(GOAL_ROW) + TILE / 2);
+            ctx.font = "8px 'Press Start 2P', monospace";
+            ctx.fillText('ONWARD', W / 2, rowY(GOAL_ROW) + TILE - 12);
+        }
+    }
+
+    function drawBackground() {
+        const lvl = LEVELS[state.levelIndex];
+        for (let r = 0; r < ROWS; r++) {
+            ctx.fillStyle = rowBgColor(lvl, r);
+            ctx.fillRect(0, rowY(r), W, TILE);
+            drawRowTexture(lvl, r, rowY(r));
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        for (let r = 1; r < ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, rowY(r)); ctx.lineTo(W, rowY(r)); ctx.stroke(); }
+
+        drawWetTiles();
+        drawGoalRow(lvl);
+
+        // honk warning arrow
+        if (state.rowWarn && state.time < state.rowWarn.until) {
+            const wy = rowY(state.rowWarn.row) + TILE / 2;
+            if (Math.floor(state.time * 8) % 2 === 0) {
+                ctx.fillStyle = '#ff5470';
+                ctx.font = "16px 'Press Start 2P', monospace";
+                ctx.textAlign = state.rowWarn.side === 'left' ? 'left' : 'right';
+                ctx.fillText(state.rowWarn.side === 'left' ? '▶' : '◀', state.rowWarn.side === 'left' ? 4 : W - 4, wy + 6);
+            }
+        }
+
+        // median pickup
+        if (state.pickup && !state.pickup.collected) {
+            const pu = state.pickup;
+            ctx.save();
+            ctx.translate(pu.x, pu.y + Math.sin(state.time * 3.3) * 3);
+            ctx.fillStyle = pu.def.color;
+            ctx.fillRect(-TILE * 0.2, -TILE * 0.2, TILE * 0.4, TILE * 0.4);
+            ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(pu.def.label, 0, 1);
+            ctx.restore();
+            ctx.textBaseline = 'alphabetic';
+        }
+    }
+
+    function drawUfo() {
+        const u = state.ufo;
+        if (!u || !u.sweep) return;
+        const s = u.sweep;
+        const wy = rowY(s.row);
+        if (s.warnT > 0) {
+            const a = 0.14 + 0.12 * Math.sin(state.time * 12);
+            ctx.fillStyle = 'rgba(157,252,255,' + a.toFixed(3) + ')';
+            ctx.fillRect(0, wy, W, TILE);
+            ctx.fillStyle = '#9dfcff';
+            ctx.font = "10px 'Press Start 2P', monospace";
+            ctx.textAlign = s.dir === 1 ? 'left' : 'right';
+            ctx.fillText('UFO!', s.dir === 1 ? 6 : W - 6, wy + 16);
+            return;
+        }
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#9dfcff';
+        ctx.beginPath();
+        ctx.moveTo(s.x - 12, wy - 14);
+        ctx.lineTo(s.x + 12, wy - 14);
+        ctx.lineTo(s.x + 26, wy + TILE);
+        ctx.lineTo(s.x - 26, wy + TILE);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#8a94a8';
+        ctx.beginPath(); ctx.ellipse(s.x, wy - 18, 26, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#bcc6d8';
+        ctx.beginPath(); ctx.ellipse(s.x, wy - 24, 12, 7, 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#ffe15a';
+        for (let i = -1; i <= 1; i++) ctx.fillRect(s.x + i * 14 - 2, wy - 20, 4, 4);
+    }
+
+    // --- Render -------------------------------------------------------------
+    function render() {
+        ctx.save();
+        if (state.shake > 0) ctx.translate((Math.random() - 0.5) * state.shake * 10, (Math.random() - 0.5) * state.shake * 10);
+        ctx.clearRect(-20, -20, W + 40, H + 40);
+
+        if (state.phase === 'win') { renderWinScene(); ctx.restore(); return; }
+        if (state.phase === 'start') { ctx.restore(); return; }
+
+        drawBackground();
+        for (const key in state.rowStates) {
+            const rs = state.rowStates[key];
+            for (let i = 0; i < rs.obs.length; i++) drawObstacle(obstacleRect(Number(key), rs, i));
+        }
+        drawUfo();
+        drawPlayer();
+        for (const p of state.particles) {
+            ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        }
+        ctx.globalAlpha = 1;
+        for (const p of state.popups) {
+            ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+            ctx.fillStyle = p.color;
+            ctx.font = "9px 'Press Start 2P', monospace";
+            ctx.textAlign = 'center';
+            ctx.fillText(p.text, p.x, p.y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    function renderWinScene() {
+        ctx.fillStyle = '#0a0620';
+        ctx.fillRect(0, 0, W, H);
+        for (let i = 0; i < state.stars.length; i++) {
+            const st = state.stars[i];
+            ctx.globalAlpha = 0.5 + 0.5 * Math.sin(state.time * 2 + i);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(st.x, st.y, st.s, st.s);
+        }
+        ctx.globalAlpha = 1;
+        for (const p of state.particles) {
+            ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        }
+        ctx.globalAlpha = 1;
+        drawPlayerBitmap(W / 2, H * 0.14, 9, 'happy', 1);
+        const alpha = 0.55 + Math.sin(state.winT * 6) * 0.45;
+        ctx.save();
+        ctx.globalAlpha = clamp(alpha, 0.1, 1);
+        ctx.fillStyle = '#6fd67a';
+        ctx.font = "bold 22px 'Press Start 2P', monospace";
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#6fd67a'; ctx.shadowBlur = 16;
+        ctx.fillText('GRANDPAPPY', W / 2, H * 0.72);
+        ctx.fillText('IS HAPPY!', W / 2, H * 0.72 + 30);
+        ctx.restore();
+    }
+
+    // --- HUD / banner -----------------------------------------------------
+    function updateHUD() {
+        hudScore.textContent = state.score;
+        hudHigh.textContent = 'HI ' + Math.max(state.high, state.score);
+        hudLevel.textContent = 'LV ' + (state.levelIndex + 1) + '·' + state.crossing;
+        hudLives.textContent = state.lives > 0 ? '●'.repeat(state.lives) : '—';
+        const pct = state.timeLimit > 0 ? clamp(state.timer / state.timeLimit, 0, 1) : 1;
+        timerBar.style.width = (pct * 100) + '%';
+        timerBar.style.background = pct < 0.25 ? '#ff5470' : (pct < 0.5 ? '#ffd166' : '#6fd67a');
+        timerWrap.classList.toggle('urgent', state.phase === 'playing' && state.timer < 5);
+    }
+
+    function showBanner(text, dur) {
+        state.banner = { timer: dur };
+        bannerEl.innerHTML = text.replace(/\n/g, '<br>');
+        bannerEl.classList.add('show');
+    }
+    function hideBanner() { bannerEl.classList.remove('show'); state.banner = null; }
+    function updateBanner(dt) { if (!state.banner || state.banner.timer <= 0) return; state.banner.timer -= dt; if (state.banner.timer <= 0) hideBanner(); }
+
+    // --- Layout / resize -----------------------------------------------------
+    let scale = 1;
+    function resizeCanvas() {
+        const rect = canvasWrap.getBoundingClientRect();
+        const availW = Math.max(200, Math.floor(rect.width));
+        const availH = Math.max(200, Math.floor(rect.height));
+        scale = Math.min(availW / W, availH / H);
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(W * scale * dpr);
+        canvas.height = Math.floor(H * scale * dpr);
+        canvas.style.width = (W * scale) + 'px';
+        canvas.style.height = (H * scale) + 'px';
+        ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    }
+
+    // --- Start screen --------------------------------------------------------
+    function showStart() {
+        state.phase = 'start';
+        modalContent.innerHTML =
+            '<h1>GRANDPAPPY<br>IS UNHAPPY</h1>' +
+            '<p>He\'s lost his glasses, cane, molasses, prune juice &mdash; and his way back to bed. Hop him across 5 levels of danger!</p>' +
+            '<div class="setup-row"><span class="setup-label">DIFFICULTY</span><div class="opt-group" id="diff-opts"></div></div>' +
+            '<div class="legend">&uarr;&darr;&larr;&rarr; / WASD / D-PAD to hop &middot; 3 crossings a level<br>' +
+            'Watch for: slippery floors &middot; honking traffic<br>' +
+            'sinking logs &middot; bouncing bingo balls &middot; UFOs</div>' +
+            '<button class="gp-btn" id="play-btn">START</button>';
+        const opts = document.getElementById('diff-opts');
+        for (const [val, label] of [['casual', 'CASUAL'], ['normal', 'NORMAL'], ['hard', 'HARD']]) {
+            const b = document.createElement('button');
+            b.className = 'opt-btn' + (state.difficulty === val ? ' sel' : '');
+            b.textContent = label;
+            b.addEventListener('click', () => { ensureAudio(); sfx.select(); state.difficulty = val; localStorage.setItem(LS.diff, val); showStart(); });
+            opts.appendChild(b);
+        }
+        document.getElementById('play-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startGame(); });
+        modal.style.display = 'block';
+        updateHUD();
+    }
+
+    const muteBtn = document.getElementById('mute-btn');
+    function updateMute() { muteBtn.textContent = muted ? '\u{1F507}' : '\u{1F50A}'; }
+    muteBtn.addEventListener('click', () => { ensureAudio(); muted = !muted; localStorage.setItem(LS.muted, muted ? '1' : '0'); sfx.select(); updateMute(); });
+    updateMute();
+
+    // --- Boot ---------------------------------------------------------------
+    resizeCanvas();
+    let resizeRAF;
+    window.addEventListener('resize', () => { cancelAnimationFrame(resizeRAF); resizeRAF = requestAnimationFrame(resizeCanvas); });
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+
+    let lastT = 0;
+    function loop(ts) {
+        const t = ts / 1000; const dt = Math.min(0.05, t - lastT || 0.016); lastT = t;
+        update(dt);
+        render();
+        requestAnimationFrame(loop);
+    }
+
+    showStart();
+    requestAnimationFrame(loop);
+
+    // Test hooks
+    window.state = state;
+    window.startGameTest = startGame;
+    window.attemptMoveTest = attemptMove;
+    window.startCrossingTest = startCrossing;
+    window.buildCrossingTest = buildCrossing;
+    window.winTest = winSequence;
+</script>
+</body>
+</html>
