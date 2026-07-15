@@ -95,21 +95,27 @@ Drag a cartridge into the console (or tap one) to play.
 
 8. **Grandpappy is Unhappy**  
    Direct link: [https://zack0liver.github.io/games/index_grandpappy_unhappy.html](https://zack0liver.github.io/games/index_grandpappy_unhappy.html)  
-   A Frogger/Crossy-Road-style hopper. Grandpappy is grumpy because he's lost
-   his glasses, his cane, and his molasses — hop him across four lanes of
-   danger, one item per level, to cheer him up. **Grocery Store** (dodge
-   runaway shopping carts, rolling melons and a forklift for his glasses),
-   **Main Street** (classic road-crossing traffic, from motorcycles to a
-   school bus, for his cane), **Mountain Trail** (boulders and a wandering
-   bear on the rocks, then hop logs and canoes across the river for his
-   molasses), and the surprise finale, **Grandpappy's Dream** (flying
-   dentures, bouncing alarm clocks and UFO beams, then a river of floating
-   pillows and sheep back to bed). Move with the arrows/WASD or the on-screen
-   D-pad, grab a bonus pickup crossing each median, and beat the clock on
-   every crossing. Clear all four levels and a giant pixel face flashes
-   **GRANDPAPPY IS HAPPY!** Three lives, a saved high score, and cosmetic
-   items he keeps wearing (glasses, cane, jug of molasses) once you fetch
-   them.
+   A Frogger/Crossy-Road-style hopper. Grandpappy is grumpy because he's
+   lost his glasses, cane, molasses, prune juice — and his way back to bed.
+   Hop him through **five levels of three randomized crossings each** (lane
+   layouts, obstacle types, speeds, directions and gaps reroll every
+   crossing), each level ending in a prize he keeps wearing or carrying, and
+   each with its own signature twist: **Grocery Store** (runaway carts,
+   melons and forklifts, plus slippery wet-floor tiles that skid you an
+   extra hop), **Main Street** (traffic from motorcycles to a school bus,
+   with a honking telegraph before the fast lane strikes), **Mountain
+   Trail** (boulders and bears, then log-and-canoe river hopping where some
+   logs bubble and sink beneath you), **Retirement Home** (mobility
+   scooters, rogue wheelchairs and jello carts, with bingo balls that
+   arc-bounce down their lanes — sneak under them mid-bounce), and the
+   finale, **Grandpappy's Dream** (chomping dentures, alarm clocks and
+   garden gnomes, a pillow-and-sheep river, and a UFO that periodically
+   sweeps a telegraphed abduction beam across a lane). Crossy-Road-feel
+   tweened hops with input buffering, near-miss bonuses, floating score
+   popups, a per-crossing countdown, a no-death "spry bonus," and three
+   difficulties (casual/normal/hard) with score multipliers. Clear all five
+   levels and a giant pixel face flashes **GRANDPAPPY IS HAPPY!** Three
+   lives and a saved high score.
 
 ## Planned Enhancements
 
