@@ -87,11 +87,45 @@ Drag a cartridge into the console (or tap one) to play.
    Direct link: [https://zack0liver.github.io/games/index_neon_breakout.html](https://zack0liver.github.io/games/index_neon_breakout.html)  
    A single-player brick breaker drenched in neon glow. Bounce the ball off
    your paddle to smash rows of glowing bricks — tougher multi-hit bricks show
-   up as you climb the levels, which get taller and busier each time. Broken
-   bricks sometimes drop power-ups you catch with the paddle: wide paddle,
-   multiball, slow ball, paddle laser, and extra lives. Move with the mouse or
-   arrow keys (drag on touch), Space to launch and to fire the laser. Three
-   lives, three difficulties, and a saved high score to chase.
+   up as you climb the levels, which get taller and busier each time. Every
+   3rd level is a **designed pattern** (diamond, smiley, zigzag, heart,
+   fortress) with a bigger clear bonus; pulsing **red-orange bricks explode** and
+   chain-detonate their neighbors, and from level 6 silver **steel bricks**
+   form indestructible walls to route around. Chain brick hits without
+   touching the paddle to build a **combo multiplier** (up to x8, with
+   rising-pitch sounds and floating score popups). Broken bricks sometimes
+   drop power-ups you catch with the paddle: wide paddle, multiball,
+   **5-ball frenzy**, slow ball, paddle laser, extra lives, and the
+   **powerball** — 5–10 seconds where the ball plows straight through
+   everything but steel. From level 11, watch for red-ringed **hazard
+   drops** (shrunk paddle, sped-up ball) — dodging is part of the game. Move
+   with the mouse or arrow keys (drag on touch), Space to launch and to fire
+   the laser. Three lives, four difficulties (casual to **extreme**), and a
+   saved high score to chase.
+
+8. **Grandpappy is Unhappy**  
+   Direct link: [https://zack0liver.github.io/games/index_grandpappy_unhappy.html](https://zack0liver.github.io/games/index_grandpappy_unhappy.html)  
+   A Frogger/Crossy-Road-style hopper. Grandpappy is grumpy because he's
+   lost his glasses, cane, molasses, prune juice — and his way back to bed.
+   Hop him through **five levels of three randomized crossings each** (lane
+   layouts, obstacle types, speeds, directions and gaps reroll every
+   crossing), each level ending in a prize he keeps wearing or carrying, and
+   each with its own signature twist: **Grocery Store** (runaway carts,
+   melons and forklifts, plus slippery wet-floor tiles that skid you an
+   extra hop), **Main Street** (traffic from motorcycles to a school bus,
+   with a honking telegraph before the fast lane strikes), **Mountain
+   Trail** (boulders and bears, then log-and-canoe river hopping where some
+   logs bubble and sink beneath you), **Retirement Home** (mobility
+   scooters, rogue wheelchairs and jello carts, with bingo balls that
+   arc-bounce down their lanes — sneak under them mid-bounce), and the
+   finale, **Grandpappy's Dream** (chomping dentures, alarm clocks and
+   garden gnomes, a pillow-and-sheep river, and a UFO that periodically
+   sweeps a telegraphed abduction beam across a lane). Crossy-Road-feel
+   tweened hops with input buffering, near-miss bonuses, floating score
+   popups, a per-crossing countdown, a no-death "spry bonus," and three
+   difficulties (casual/normal/hard) with score multipliers. Clear all five
+   levels and a giant pixel face flashes **GRANDPAPPY IS HAPPY!** Three
+   lives and a saved high score.
 
 ## Planned Enhancements
 

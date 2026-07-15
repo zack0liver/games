@@ -173,6 +173,7 @@
     </div>
 </div>
 
+<script src="highscores.js"></script>
 <script>
     'use strict';
     // =====================================================================
@@ -237,7 +238,7 @@
         round: 1,
         level: 1,
         soloScore: 0,
-        highScore: parseInt(localStorage.getItem('sd_highscore') || '0', 10),
+        highScore: HS.getBoard('snake-duel', 'sd_highscore').personalBest.score,
         tickAcc: 0,
         banner: null,
         roundWinner: null
@@ -315,15 +316,25 @@
     function gameOverSolo() {
         state.phase = 'matchOver';
         const isBest = state.soloScore > state.highScore;
-        if (isBest) { state.highScore = state.soloScore; localStorage.setItem('sd_highscore', String(state.highScore)); }
+        const qualifies = HS.checkQualifies('snake-duel', state.soloScore, 'sd_highscore');
         hideBanner();
-        modalContent.innerHTML = '<h1 style="color:' + P1 + '">GAME OVER</h1>' +
-            '<p>LENGTH ' + (state.soloScore + START_LEN) + ' &middot; LEVEL ' + state.level + '</p>' +
-            '<p>' + (isBest ? 'NEW BEST!' : 'BEST ' + (state.highScore + START_LEN)) + '</p>';
-        modal.style.display = 'block';
+
+        function finish() {
+            if (isBest) state.highScore = state.soloScore;
+            modalContent.innerHTML = '<h1 style="color:' + P1 + '">GAME OVER</h1>' +
+                '<p>LENGTH ' + (state.soloScore + START_LEN) + ' &middot; LEVEL ' + state.level + '</p>' +
+                '<p>' + (isBest ? 'NEW BEST!' : 'BEST ' + (state.highScore + START_LEN)) + '</p>';
+            modal.style.display = 'block';
+            updateHUD();
+        }
+
         sfx.crash();
         if (isBest) sfx.fanfare();
-        updateHUD();
+        if (qualifies) {
+            HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('snake-duel', name, state.soloScore); finish(); } });
+        } else {
+            finish();
+        }
     }
 
     function startMatch() {

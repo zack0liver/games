@@ -210,6 +210,101 @@
             color: #00ff8899;
         }
 
+        /* ---- High Scores screen ---- */
+        #hs-link {
+            display: block;
+            text-align: right;
+            font-size: 14px;
+            color: #7de8ff;
+            text-shadow: 0 0 6px #7de8ff88;
+            cursor: pointer;
+            margin: -6px 0 12px;
+        }
+
+        #hs-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 74px;
+            overflow-y: auto;
+            margin-bottom: 14px;
+        }
+
+        .hs-tab {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #0f4a2c;
+            color: #00cc6e;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .hs-tab.active {
+            border-color: #00ff88;
+            background: #00ff8822;
+            color: #e8fff2;
+            text-shadow: 0 0 6px #00ff88;
+        }
+
+        #hs-columns {
+            display: grid;
+            grid-template-columns: 46px 1fr 90px 76px;
+            font-size: 15px;
+            color: #00994d88;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #0f4a2c;
+            margin-bottom: 4px;
+        }
+
+        .hs-row {
+            display: grid;
+            grid-template-columns: 46px 1fr 90px 76px;
+            padding: 4px 6px;
+            font-size: 18px;
+            color: #00cc6e;
+            border-radius: 3px;
+        }
+
+        .hs-row.top3 {
+            background: #00ff8811;
+        }
+
+        .hs-row.top3 .rank {
+            color: #ffb454;
+        }
+
+        .hs-row.top3 .name,
+        .hs-row.top3 .score {
+            color: #e8fff2;
+            text-shadow: 0 0 6px #00ff88;
+        }
+
+        .hs-row .score {
+            text-align: right;
+        }
+
+        .hs-row .date {
+            text-align: right;
+            color: #00994d88;
+            font-size: 15px;
+        }
+
+        #hs-best-bar {
+            margin-top: 14px;
+            padding: 8px 12px;
+            background: #00ff8811;
+            border-left: 3px solid #00ff88;
+            display: flex;
+            justify-content: space-between;
+            font-size: 17px;
+        }
+
+        #hs-best-bar .best-label {
+            color: #7de8ff;
+            text-shadow: 0 0 6px #7de8ff;
+        }
+
         /* ---- Controls ---- */
         #controls {
             display: flex;
@@ -317,15 +412,26 @@
                 <div id="screen">
                     <div id="screen-content">
                         <div id="screen-header">
-                            <span class="label">GAME SELECT</span>
+                            <span class="label" id="header-label">GAME SELECT</span>
                             <span class="counter" id="counter">01 / 07</span>
                         </div>
 
+                        <span id="hs-link">HIGH SCORES &rarr;</span>
+
                         <div id="game-list"></div>
 
+                        <div id="scores-view" style="display: none;">
+                            <div id="hs-tabs"></div>
+                            <div id="hs-columns">
+                                <span>RANK</span><span>NAME</span><span>SCORE</span><span>DATE</span>
+                            </div>
+                            <div id="hs-rows"></div>
+                            <div id="hs-best-bar"></div>
+                        </div>
+
                         <div id="screen-footer">
-                            <span>&uarr;&darr; MOVE</span>
-                            <span>ENTER SELECT</span>
+                            <span id="footer-left">&uarr;&darr; MOVE</span>
+                            <span id="footer-right">ENTER SELECT</span>
                         </div>
                     </div>
                 </div>
@@ -349,28 +455,50 @@
 
     <p id="caption">Click a game, or use &uarr;&darr; and ENTER</p>
 
+    <script src="highscores.js"></script>
     <script>
         const GAMES = [
-            { name: 'ASTEROIDS: JUNGLE ACES', tag: 'SPACE SHOOTER', file: 'index_asteroids_monkeys.html' },
-            { name: 'GALAGA VECTOR', tag: 'ARCADE SHOOTER', file: 'index_galaga_v1.html' },
-            { name: 'ASTEROIDS: MAZE EDITION', tag: 'MAZE RUNNER', file: 'index_asteroids_maze.html' },
+            { name: 'ASTEROIDS: JUNGLE ACES', tag: 'SPACE SHOOTER', file: 'index_asteroids_monkeys.html', slug: 'asteroids-monkeys' },
+            { name: 'GALAGA VECTOR', tag: 'ARCADE SHOOTER', file: 'index_galaga_v1.html', slug: 'galaga' },
+            { name: 'ASTEROIDS: MAZE EDITION', tag: 'MAZE RUNNER', file: 'index_asteroids_maze.html', slug: 'asteroids-maze' },
             { name: 'CANDY CHECKERS', tag: '2P SUGAR STRATEGY', file: 'index_candy_checkers.html' },
             { name: 'TANK WARS', tag: 'ARTILLERY DUEL 2-4P', file: 'index_tank_wars.html' },
-            { name: 'SNAKE DUEL', tag: '2P GROW & TRAP', file: 'index_snake_duel.html' },
-            { name: 'NEON BREAKOUT', tag: 'BRICK BREAKER', file: 'index_neon_breakout.html' }
+            { name: 'SNAKE DUEL', tag: '2P GROW & TRAP', file: 'index_snake_duel.html', slug: 'snake-duel' },
+            { name: 'NEON BREAKOUT', tag: 'BRICK BREAKER', file: 'index_neon_breakout.html', slug: 'neon-breakout' },
+            { name: 'GRANDPAPPY IS UNHAPPY', tag: 'FROGGER-STYLE HOPPER', file: 'index_grandpappy_unhappy.html', slug: 'grandpappy' }
         ];
 
+        const SCORE_GAMES = GAMES.filter(g => g.slug);
+
         const listEl = document.getElementById('game-list');
+        const scoresViewEl = document.getElementById('scores-view');
         const counterEl = document.getElementById('counter');
+        const headerLabelEl = document.getElementById('header-label');
+        const footerLeftEl = document.getElementById('footer-left');
+        const footerRightEl = document.getElementById('footer-right');
+        const hsLinkEl = document.getElementById('hs-link');
+        const hsTabsEl = document.getElementById('hs-tabs');
+        const hsRowsEl = document.getElementById('hs-rows');
+        const hsBestBarEl = document.getElementById('hs-best-bar');
         const btnA = document.getElementById('btn-a');
 
         let selected = 0;
+        let screen = 'select'; // 'select' | 'scores'
+        let scoresTabIndex = 0;
 
         function pad(n) {
             return String(n).padStart(2, '0');
         }
 
-        function render() {
+        function tabLabel(game) {
+            const prefix = game.name.split(':')[0].trim();
+            const sharesPrefix = SCORE_GAMES.filter(g => g.name.split(':')[0].trim() === prefix).length > 1;
+            if (!sharesPrefix) return prefix;
+            const firstWordAfterColon = (game.name.split(':')[1] || '').trim().split(' ')[0];
+            return `${prefix} ${firstWordAfterColon}`.trim();
+        }
+
+        function renderSelect() {
             listEl.innerHTML = '';
             GAMES.forEach((game, i) => {
                 const active = i === selected;
@@ -386,17 +514,72 @@
                 listEl.appendChild(row);
                 if (active) row.scrollIntoView({ block: 'nearest' });
             });
+            headerLabelEl.textContent = 'GAME SELECT';
             counterEl.textContent = `${pad(selected + 1)} / ${pad(GAMES.length)}`;
+            footerLeftEl.innerHTML = '&uarr;&darr; MOVE';
+            footerRightEl.textContent = 'ENTER SELECT';
+        }
+
+        function renderScores() {
+            const game = SCORE_GAMES[scoresTabIndex];
+            const board = HS.getBoard(game.slug);
+
+            hsTabsEl.innerHTML = '';
+            SCORE_GAMES.forEach((g, i) => {
+                const tab = document.createElement('span');
+                tab.className = 'hs-tab' + (i === scoresTabIndex ? ' active' : '');
+                tab.textContent = tabLabel(g);
+                tab.addEventListener('click', () => { scoresTabIndex = i; renderScreen(); });
+                hsTabsEl.appendChild(tab);
+            });
+
+            hsRowsEl.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const entry = board.top10[i];
+                const row = document.createElement('div');
+                row.className = 'hs-row' + (i < 3 ? ' top3' : '');
+                row.innerHTML = `
+                    <span class="rank">${pad(i + 1)}</span>
+                    <span class="name">${entry ? entry.name : '&mdash;'}</span>
+                    <span class="score">${entry ? entry.score.toLocaleString() : '&mdash;'}</span>
+                    <span class="date">${entry && entry.date ? entry.date : ''}</span>
+                `;
+                hsRowsEl.appendChild(row);
+            }
+
+            hsBestBarEl.innerHTML = `
+                <span class="best-label">YOUR BEST: ${board.personalBest.score.toLocaleString()}</span>
+                <span>${board.personalBest.date || ''}</span>
+            `;
+
+            headerLabelEl.textContent = 'HIGH SCORES';
+            counterEl.textContent = 'TOP 10';
+            footerLeftEl.innerHTML = '&larr; BACK TO GAMES';
+            footerRightEl.innerHTML = '&uarr;&darr;&rarr; SWITCH GAME';
+        }
+
+        function renderScreen() {
+            if (screen === 'select') {
+                listEl.style.display = '';
+                scoresViewEl.style.display = 'none';
+                hsLinkEl.style.display = '';
+                renderSelect();
+            } else {
+                listEl.style.display = 'none';
+                scoresViewEl.style.display = '';
+                hsLinkEl.style.display = 'none';
+                renderScores();
+            }
         }
 
         function move(delta) {
             selected = (selected + delta + GAMES.length) % GAMES.length;
-            render();
+            renderScreen();
         }
 
         function launch(i) {
             selected = i;
-            render();
+            renderScreen();
             btnA.classList.add('pressed');
             setTimeout(() => btnA.classList.remove('pressed'), 180);
             setTimeout(() => {
@@ -404,13 +587,41 @@
             }, 180);
         }
 
+        function openScores() {
+            const i = SCORE_GAMES.findIndex(g => g.file === GAMES[selected].file);
+            scoresTabIndex = i >= 0 ? i : 0;
+            screen = 'scores';
+            renderScreen();
+        }
+
+        function closeScores() {
+            screen = 'select';
+            renderScreen();
+        }
+
+        hsLinkEl.addEventListener('click', openScores);
+
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-            else if (e.key === 'Enter') { launch(selected); }
+            if (screen === 'select') {
+                if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); openScores(); }
+                else if (e.key === 'Enter') { launch(selected); }
+            } else {
+                if (e.key === 'ArrowLeft') { e.preventDefault(); closeScores(); }
+                else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    scoresTabIndex = (scoresTabIndex + 1) % SCORE_GAMES.length;
+                    renderScreen();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    scoresTabIndex = (scoresTabIndex - 1 + SCORE_GAMES.length) % SCORE_GAMES.length;
+                    renderScreen();
+                }
+            }
         });
 
-        render();
+        renderScreen();
     </script>
 </body>
 </html>

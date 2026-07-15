@@ -109,6 +109,7 @@
     </div>
     <div id="messageBox"></div>
 
+    <script src="highscores.js"></script>
     <script>
         // Use requestAnimationFrame for smoother game loop
         let animationFrameId;
@@ -638,7 +639,7 @@
         let score = 0;
         let lives = INITIAL_LIVES;
         let gameLevel = 1;
-        let highScore = parseInt(localStorage.getItem('galagaHighScore') || '0', 10);
+        let highScore = HS.getBoard('galaga', 'galagaHighScore').personalBest.score;
 
         // --- Formation & Flight Paths ---
         let formationT = 0;   // drives the formation's sway/breathe motion
@@ -766,12 +767,18 @@
             spawnExplosion(playerInstance.x + playerInstance.width / 2,
                            playerInstance.y + playerInstance.height / 2, '#ff4444', 24);
             lives--;
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('galagaHighScore', String(highScore));
-            }
+            if (score > highScore) highScore = score;
             if (lives <= 0) {
-                showModal(`GAME OVER! Score: ${score} — Best: ${highScore}. Press any key or tap to restart.`, resetGame);
+                const finalScore = score;
+                const qualifies = HS.checkQualifies('galaga', finalScore, 'galagaHighScore');
+                function finish() {
+                    showModal(`GAME OVER! Score: ${finalScore} — Best: ${highScore}. Press any key or tap to restart.`, resetGame);
+                }
+                if (qualifies) {
+                    HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore('galaga', name, finalScore); finish(); } });
+                } else {
+                    finish();
+                }
             } else {
                 showMessage(`HIT! ${lives} lives remaining.`, 1500);
                 // Fresh ship with brief blink protection; clear enemy fire
