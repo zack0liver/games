@@ -120,6 +120,7 @@
 
         #modal h1 { font-size: 1.6rem; margin: 0 0 14px; color: #b26bff; }
         #modal p { font-size: 0.85rem; margin: 0 0 10px; color: #cfd6e6; }
+        .controls-legend p { font-size: 0.68rem; text-align: left; margin: 0 0 4px; color: #9fb8c8; }
 
         .setup-row { margin: 14px 0; }
         .setup-label { display: block; font-size: 0.75rem; color: #9fb8c8; margin-bottom: 8px; letter-spacing: 1px; }
@@ -186,7 +187,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const SHIP_COLORS = ['#00ffaa', '#7de8ff', '#ff55aa', '#ffb454', '#c084fc', '#ffe15a'];
 const ARENA_NAMES = ['OPEN FIELD', 'CORRIDORS', 'FORTRESS', 'THE RING', 'SCRAPYARD'];
 const TIME_CHOICES = [60, 120, 180, 300];
-const LS = { p1: 'ad_p1Color', p2: 'ad_p2Color', arena: 'ad_arena', time: 'ad_timeLimit' };
+const LS = { p1: 'ad_p1Color', p2: 'ad_p2Color', arena: 'ad_arena', time: 'ad_timeLimit', obstacleDamage: 'ad_obstacleDamage' };
 
 const POWERUP_INFO = {
     S: { color: '#7dd3fc', name: 'SHIELD' },
@@ -363,18 +364,21 @@ class Player {
         this.wallHitCooldown = 0;
         this.shieldTimer = 0; this.ghostTimer = 0; this.speedTimer = 0; this.rapidTimer = 0;
         this.bazookaArmed = false; this.charging = false; this.charge = 0;
+        this.fireHoldTime = 0; this.overheatTimer = 0;
     }
     get shielded() { return this.shieldTimer > 0; }
     get ghost() { return this.ghostTimer > 0; }
     get speedBoost() { return this.speedTimer > 0; }
     get rapid() { return this.rapidTimer > 0; }
+    get overheated() { return this.overheatTimer > 0; }
     placeAtStart(x, angle) {
         this.x = x; this.y = H / 2; this.vx = 0; this.vy = 0; this.angle = angle;
         this.health = 100;
         this.turnLeft = false; this.turnRight = false; this.thrusting = false; this.fireHeld = false;
         this.bulletCooldown = 0; this.wallHitCooldown = 0;
-        this.shieldTimer = 0; this.ghostTimer = 0; this.speedTimer = 0; this.rapidTimer = 0;
+        this.shieldTimer = 3; this.ghostTimer = 0; this.speedTimer = 0; this.rapidTimer = 0;
         this.bazookaArmed = false; this.charging = false; this.charge = 0;
+        this.fireHoldTime = 0; this.overheatTimer = 0;
     }
     updatePhysics(dt) {
         if (this.turnLeft) this.angle -= this.rotationSpeed * dt;
@@ -408,6 +412,10 @@ class Player {
         if (this.ghostTimer > 0) this.ghostTimer -= dt;
         if (this.speedTimer > 0) this.speedTimer -= dt;
         if (this.rapidTimer > 0) this.rapidTimer -= dt;
+        if (this.overheatTimer > 0) {
+            this.overheatTimer -= dt;
+            if (this.overheatTimer <= 0) this.fireHoldTime = 0;
+        }
     }
     draw() {
         ctx.save();
@@ -439,6 +447,17 @@ class Player {
             ctx.fillStyle = '#ff8a3d';
             ctx.fillRect(0, 0, 40 * frac, 6);
             ctx.restore();
+        } else if (this.overheated || this.fireHoldTime > 0) {
+            const frac = this.overheated ? (this.overheatTimer / 5) : (this.fireHoldTime / 5);
+            const color = this.overheated ? '#ff3b3b' : '#ffe15a';
+            ctx.save();
+            ctx.translate(this.x - 20, this.y - this.radius - 16);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(0, 0, 40, 6);
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 40 * frac, 6);
+            ctx.restore();
         }
     }
 }
@@ -446,7 +465,7 @@ class Player {
 class Beacon {
     constructor(owner, x) {
         this.owner = owner; this.x = x; this.y = H / 2; this.radius = 16;
-        this.hits = 0; this.flash = 0;
+        this.hits = 0; this.flash = 0; this.bonusCooldown = 0;
     }
 }
 
@@ -498,6 +517,7 @@ const G = {
     arenaIndex: 0,
     timeLimit: 120,
     timeLeft: 120,
+    obstacleDamageEnabled: true,
     phase: 'settings', // settings | playing | suddendeath | gameover
     winner: null,
     powerupSpawnTimer: rand(8, 12),
@@ -510,7 +530,8 @@ function loadSettings() {
     if (p2 === p1) p2 = SHIP_COLORS.find(c => c !== p1);
     const arenaIndex = clamp(parseInt(localStorage.getItem(LS.arena), 10) || 0, 0, ARENAS.length - 1);
     const timeLimit = TIME_CHOICES.includes(parseInt(localStorage.getItem(LS.time), 10)) ? parseInt(localStorage.getItem(LS.time), 10) : 120;
-    return { p1Color: p1, p2Color: p2, arenaIndex, timeLimit };
+    const obstacleDamage = localStorage.getItem(LS.obstacleDamage) !== '0';
+    return { p1Color: p1, p2Color: p2, arenaIndex, timeLimit, obstacleDamage };
 }
 
 function saveSettings(s) {
@@ -518,6 +539,7 @@ function saveSettings(s) {
     localStorage.setItem(LS.p2, s.p2Color);
     localStorage.setItem(LS.arena, String(s.arenaIndex));
     localStorage.setItem(LS.time, String(s.timeLimit));
+    localStorage.setItem(LS.obstacleDamage, s.obstacleDamage ? '1' : '0');
 }
 
 let currentSettings = loadSettings();
@@ -696,6 +718,7 @@ function applyDamage(p, amount) {
 function registerWallHit(p) {
     if (p.wallHitCooldown > 0) return;
     p.wallHitCooldown = 0.8;
+    if (!G.obstacleDamageEnabled) return;
     applyDamage(p, 2);
     spark(p.x, p.y, '#ff6b9d', 6);
 }
@@ -761,9 +784,10 @@ function handleBeaconHit(obj) {
             beacon.hits++;
             beacon.flash = 0.3;
             spark(obj.x, obj.y, '#7dd3fc', 8);
-            if (beacon.hits % 10 === 0) {
+            if (beacon.hits % 10 === 0 && beacon.bonusCooldown <= 0) {
                 const owner = G.players[obj.owner];
                 owner.health = Math.min(owner.maxHealth, owner.health + 25);
+                beacon.bonusCooldown = 30;
                 sfx.beaconBonus();
                 G.banner = { text: 'BEACON CHARGE!', sub: `PLAYER ${obj.owner + 1} +25 HEALTH`, timer: 1.6, color: '#7dd3fc' };
             } else {
@@ -824,12 +848,23 @@ function handleFiring(p, dt) {
             sfx.bazookaFire();
             p.bazookaArmed = false; p.charging = false; p.charge = 0;
         }
-    } else if (p.fireHeld && p.bulletCooldown <= 0) {
-        const bx = p.x + Math.cos(p.angle) * p.radius * 1.5;
-        const by = p.y + Math.sin(p.angle) * p.radius * 1.5;
-        G.bullets.push(new Bullet(bx, by, p.angle, p.idx, 10));
-        p.bulletCooldown = p.rapid ? 0.09 : 0.18;
-        sfx.shoot();
+    } else if (p.overheated) {
+        p.fireHoldTime = 0;
+    } else if (p.fireHeld) {
+        p.fireHoldTime += dt;
+        if (p.fireHoldTime >= 5) {
+            p.overheatTimer = 5;
+            p.fireHoldTime = 0;
+            sfx.overheat();
+        } else if (p.bulletCooldown <= 0) {
+            const bx = p.x + Math.cos(p.angle) * p.radius * 1.5;
+            const by = p.y + Math.sin(p.angle) * p.radius * 1.5;
+            G.bullets.push(new Bullet(bx, by, p.angle, p.idx, 10));
+            p.bulletCooldown = p.rapid ? 0.09 : 0.18;
+            sfx.shoot();
+        }
+    } else {
+        p.fireHoldTime = 0;
     }
 }
 
@@ -888,6 +923,7 @@ function startMatch(settings) {
     G.arenaIndex = settings.arenaIndex;
     G.timeLimit = settings.timeLimit;
     G.timeLeft = settings.timeLimit;
+    G.obstacleDamageEnabled = settings.obstacleDamage;
     G.players = [new Player(0, settings.p1Color), new Player(1, settings.p2Color)];
     G.players[0].placeAtStart(60, 0);
     G.players[1].placeAtStart(W - 60, PI);
@@ -917,7 +953,10 @@ function endMatch() {
 
 function update(dt) {
     if (G.banner.timer > 0) G.banner.timer -= dt;
-    for (const beacon of G.beacons) if (beacon.flash > 0) beacon.flash -= dt;
+    for (const beacon of G.beacons) {
+        if (beacon.flash > 0) beacon.flash -= dt;
+        if (beacon.bonusCooldown > 0) beacon.bonusCooldown -= dt;
+    }
 
     if (G.phase !== 'playing' && G.phase !== 'suddendeath') {
         G.particles.forEach(p => p.update(dt));
@@ -969,6 +1008,12 @@ function showSettings() {
             '<div class="setup-row"><span class="setup-label">PLAYER 2 COLOR</span><div class="opt-group" id="p2-swatches"></div></div>' +
             '<div class="setup-row"><span class="setup-label">ARENA</span><div class="opt-group" id="arena-opts"></div></div>' +
             '<div class="setup-row"><span class="setup-label">TIME LIMIT</span><div class="opt-group" id="time-opts"></div></div>' +
+            '<div class="setup-row"><span class="setup-label">OBSTACLE DAMAGE</span><div class="opt-group" id="obstacle-dmg-opts"></div></div>' +
+            '<div class="setup-row controls-legend">' +
+            '<span class="setup-label">CONTROLS</span>' +
+            '<p>P1: A/D turn &middot; W thrust &middot; SPACE or LEFT SHIFT fire</p>' +
+            '<p>P2: &larr;/&rarr; turn &middot; &uarr; thrust &middot; ENTER, RIGHT SHIFT or RIGHT &#8984; fire</p>' +
+            '</div>' +
             '<button class="ad-btn" id="start-btn">START MATCH</button>';
 
         const p1Wrap = document.getElementById('p1-swatches');
@@ -1005,6 +1050,15 @@ function showSettings() {
             timeWrap.appendChild(b);
         });
 
+        const dmgWrap = document.getElementById('obstacle-dmg-opts');
+        [[true, 'ON'], [false, 'OFF']].forEach(([val, label]) => {
+            const b = document.createElement('button');
+            b.className = 'opt-btn' + (s.obstacleDamage === val ? ' sel' : '');
+            b.textContent = label;
+            b.addEventListener('click', () => { s.obstacleDamage = val; renderModal(); });
+            dmgWrap.appendChild(b);
+        });
+
         document.getElementById('start-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startMatch(s); });
     }
     renderModal();
@@ -1013,28 +1067,44 @@ function showSettings() {
 
 // --- Input ----------------------------------------------------------------
 
-const KEYMAP = {
-    a: ['p1', 'turnLeft'], d: ['p1', 'turnRight'], w: ['p1', 'thrusting'], ' ': ['p1', 'fireHeld'],
-    arrowleft: ['p2', 'turnLeft'], arrowright: ['p2', 'turnRight'], arrowup: ['p2', 'thrusting'], enter: ['p2', 'fireHeld']
+// Movement keys map 1:1 to a player/action. Fire keys are many-to-one (a
+// player can hold any combination of their fire keys) so fireHeld tracks a
+// per-player set of currently-down fire codes instead of a single boolean.
+const MOVEMENT_KEYMAP = {
+    KeyA: [0, 'turnLeft'], KeyD: [0, 'turnRight'], KeyW: [0, 'thrusting'],
+    ArrowLeft: [1, 'turnLeft'], ArrowRight: [1, 'turnRight'], ArrowUp: [1, 'thrusting']
 };
-const PREVENT_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ']);
+const FIRE_KEYS = {
+    0: ['Space', 'ShiftLeft'],
+    1: ['Enter', 'ShiftRight', 'MetaRight']
+};
+const PREVENT_CODES = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
+const fireKeysDown = [new Set(), new Set()];
 
 document.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    if (key === 'escape') { window.location.href = 'index.html'; return; }
-    if (PREVENT_KEYS.has(key)) e.preventDefault();
-    const mapping = KEYMAP[key];
-    if (!mapping || G.players.length < 2) return;
+    if (e.code === 'Escape') { window.location.href = 'index.html'; return; }
+    if (PREVENT_CODES.has(e.code)) e.preventDefault();
+    if (G.players.length < 2) return;
     ensureAudio();
-    const p = G.players[mapping[0] === 'p1' ? 0 : 1];
-    p[mapping[1]] = true;
+    const movement = MOVEMENT_KEYMAP[e.code];
+    if (movement) G.players[movement[0]][movement[1]] = true;
+    for (let i = 0; i < 2; i++) {
+        if (FIRE_KEYS[i].includes(e.code)) {
+            fireKeysDown[i].add(e.code);
+            G.players[i].fireHeld = true;
+        }
+    }
 });
 document.addEventListener('keyup', (e) => {
-    const key = e.key.toLowerCase();
-    const mapping = KEYMAP[key];
-    if (!mapping || G.players.length < 2) return;
-    const p = G.players[mapping[0] === 'p1' ? 0 : 1];
-    p[mapping[1]] = false;
+    if (G.players.length < 2) return;
+    const movement = MOVEMENT_KEYMAP[e.code];
+    if (movement) G.players[movement[0]][movement[1]] = false;
+    for (let i = 0; i < 2; i++) {
+        if (FIRE_KEYS[i].includes(e.code)) {
+            fireKeysDown[i].delete(e.code);
+            G.players[i].fireHeld = fireKeysDown[i].size > 0;
+        }
+    }
 });
 
 // --- Audio ------------------------------------------------------------
@@ -1061,6 +1131,7 @@ const sfx = {
     powerup: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.05)),
     beaconHit: () => tone(500, 0.05, 'square', 0.04, 700),
     beaconBonus: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.1, 'square', 0.06, undefined, i * 0.08)),
+    overheat: () => tone(200, 0.3, 'sawtooth', 0.08, 60),
     win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.15, 'square', 0.06, undefined, i * 0.1)),
     select: () => tone(660, 0.05, 'square', 0.04)
 };
@@ -1173,6 +1244,15 @@ function drawBeacon(beacon) {
         ctx.fillStyle = i < pipCount ? '#7dd3fc' : 'rgba(125,211,252,0.25)';
         ctx.fillRect(startX + i * 6, pipY, 4, 4);
     }
+
+    // Bonus cooldown: counts down from 30s after a comeback bonus fires.
+    if (beacon.bonusCooldown > 0) {
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(Math.ceil(beacon.bonusCooldown) + 's', beacon.x, beacon.y + beacon.radius + 6);
+    }
 }
 
 function drawHUD() {
@@ -1203,6 +1283,7 @@ function drawHUD() {
         if (p.rapid) icons.push(['R', '#ffe15a', p.rapidTimer]);
         if (p.speedBoost) icons.push(['>', '#c084fc', p.speedTimer]);
         if (p.ghost) icons.push(['G', '#b8bcc4', p.ghostTimer]);
+        if (p.overheated) icons.push(['OVERHEAT', '#ff3b3b', p.overheatTimer]);
         ctx.font = '12px monospace';
         icons.forEach((icon, idx) => {
             const [label, color, timer] = icon;
