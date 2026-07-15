@@ -111,13 +111,25 @@
     const CY = '#38e8ff', MG = '#ff4d9d';
 
     const PU = {
-        wide:  { label: 'W', color: '#4dd6a8', name: 'WIDE PADDLE' },
-        multi: { label: '3', color: '#ffd166', name: 'MULTIBALL' },
-        slow:  { label: 'S', color: '#5aa9ff', name: 'SLOW BALL' },
-        laser: { label: 'L', color: '#ff5470', name: 'LASER' },
-        life:  { label: '+', color: '#ff4d9d', name: 'EXTRA LIFE' }
+        wide:   { label: 'W', color: '#4dd6a8', name: 'WIDE PADDLE' },
+        multi:  { label: '3', color: '#ffd166', name: 'MULTIBALL' },
+        slow:   { label: 'S', color: '#5aa9ff', name: 'SLOW BALL' },
+        laser:  { label: 'L', color: '#ff5470', name: 'LASER' },
+        life:   { label: '+', color: '#ff4d9d', name: 'EXTRA LIFE' },
+        five:   { label: '5', color: '#c9a6ff', name: '5-BALL FRENZY' },
+        power:  { label: 'P', color: '#ff4dff', name: 'POWERBALL' },
+        shrink: { label: '−', color: '#ff3b3b', name: 'SHRUNK PADDLE!', bad: true },
+        fast:   { label: '≫', color: '#ff3b3b', name: 'SPEED UP!', bad: true }
     };
-    const PU_KEYS = Object.keys(PU);
+    const PU_WEIGHTS = { wide: 3, multi: 3, slow: 2, laser: 2, five: 1.5, power: 1.5, life: 1 };
+    function rollPU(level) {
+        if (level >= 11 && Math.random() < 0.2) return Math.random() < 0.5 ? 'shrink' : 'fast';
+        let total = 0;
+        for (const k in PU_WEIGHTS) total += PU_WEIGHTS[k];
+        let r = Math.random() * total;
+        for (const k in PU_WEIGHTS) { r -= PU_WEIGHTS[k]; if (r <= 0) return k; }
+        return 'wide';
+    }
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -135,7 +147,7 @@
     const LS = { muted: 'nb_muted', high: 'nb_highscore', diff: 'nb_diff' };
     let muted = localStorage.getItem(LS.muted) === '1';
 
-    const DIFF = { casual: { speed: 250, ramp: 16, drop: 0.30 }, normal: { speed: 300, ramp: 22, drop: 0.24 }, hard: { speed: 360, ramp: 28, drop: 0.18 } };
+    const DIFF = { casual: { speed: 250, ramp: 16, drop: 0.30 }, normal: { speed: 300, ramp: 22, drop: 0.24 }, hard: { speed: 360, ramp: 28, drop: 0.18 }, extreme: { speed: 440, ramp: 34, drop: 0.15 } };
 
     const state = {
         phase: 'start',          // start | ready | playing | levelClear | dead | gameOver
@@ -152,7 +164,11 @@
         level: 1,
         time: 0,
         wideUntil: 0, slowUntil: 0, laserUntil: 0,
+        powerUntil: 0, fastUntil: 0, shrinkUntil: 0,
+        combo: 0,
+        isPattern: false,
         laserCooldown: 0,
+        popups: [],
         banner: null,
         shake: 0
     };
@@ -161,23 +177,74 @@
     function levelSpeed() { return diff().speed + (state.level - 1) * diff().ramp; }
 
     // --- Level generation ---------------------------------------------------
+    // Pattern masks: . empty, x 1hp, X 2hp, E explosive, S steel (2hp before level 6)
+    const PATTERNS = [
+        { name: 'DIAMOND', rows: ['....xx....', '...xXXx...', '..xxEExx..', '.xxxXXxxx.', 'xxxxEExxxx', '.xxxXXxxx.', '..xxEExx..', '...xXXx...', '....xx....'] },
+        { name: 'SMILEY', rows: ['..XX..XX..', '..XX..XX..', '..........', 'X........X', '.Xx....xX.', '..XXxxXX..'] },
+        { name: 'ZIGZAG', rows: ['XX........', 'xXX.......', '.xXX......', '..xXE.....', '...xXX....', '....xXX...', '.....EXx..', '......XXx.', '.......XXx'] },
+        { name: 'HEART', rows: ['.xx....xx.', 'xXXx..xXXx', 'xXEXxxXEXx', '.xXXXXXXx.', '..xXXXXx..', '...xXXx...', '....xx....'] },
+        { name: 'FORTRESS', rows: ['S...xx...S', 'Sx.xXXx.xS', 'S.xxEExx.S', 'S...XX...S', 'SSS....SSS'] }
+    ];
+
+    function makeBrick(c, r, bw, bh, hp, explosive, steel, n) {
+        return {
+            x: WALL + c * bw, y: TOP + r * (bh + 6), w: bw - 4, h: bh,
+            hp, maxHp: hp === Infinity ? 1 : hp,
+            color: steel ? '#b8c4d0' : PAL[r % PAL.length],
+            explosive, steel,
+            pu: !steel && Math.random() < diff().drop * 0.5 ? rollPU(n) : null
+        };
+    }
+
     function buildLevel(n) {
         state.bricks = [];
-        const rows = Math.min(9, 4 + Math.floor(n / 1.5));
         const bw = (W - 2 * WALL) / COLS, bh = 22;
+        state.isPattern = n % 3 === 0;
+
+        if (state.isPattern) {
+            const pat = PATTERNS[(n / 3 - 1) % PATTERNS.length];
+            pat.rows.forEach((rowStr, r) => {
+                for (let c = 0; c < COLS; c++) {
+                    const ch = rowStr[c];
+                    if (ch === '.') continue;
+                    let hp = 1, explosive = false, steel = false;
+                    if (ch === 'X') hp = 2;
+                    else if (ch === 'E') explosive = true;
+                    else if (ch === 'S') { if (n >= 6) { hp = Infinity; steel = true; } else hp = 2; }
+                    state.bricks.push(makeBrick(c, r, bw, bh, hp, explosive, steel, n));
+                }
+            });
+            return;
+        }
+
+        const rows = Math.min(9, 4 + Math.floor(n / 1.5));
         const maxHp = Math.min(3, 1 + Math.floor((n - 1) / 2));
         for (let r = 0; r < rows; r++) {
-            const color = PAL[r % PAL.length];
             for (let c = 0; c < COLS; c++) {
                 // carve gaps that grow with level for varied shapes
                 if (n > 2 && Math.random() < 0.10 + n * 0.01 && r > 0) continue;
                 let hp = 1;
                 if (maxHp >= 2 && r < 2 && Math.random() < 0.4 + n * 0.03) hp = Math.min(maxHp, 2 + (Math.random() < 0.3 ? 1 : 0));
-                state.bricks.push({
-                    x: WALL + c * bw, y: TOP + r * (bh + 6), w: bw - 4, h: bh,
-                    hp, maxHp: hp, color,
-                    pu: Math.random() < diff().drop * 0.5 ? PU_KEYS[Math.floor(Math.random() * PU_KEYS.length)] : null
-                });
+                state.bricks.push(makeBrick(c, r, bw, bh, hp, Math.random() < 0.08, false, n));
+            }
+        }
+
+        // steel walls from level 6 on: short indestructible runs to route around
+        if (n >= 6) {
+            const runs = Math.min(2, 1 + Math.floor((n - 6) / 4));
+            for (let k = 0; k < runs; k++) {
+                const r = 1 + Math.floor(Math.random() * Math.min(6, rows - 1));
+                const c0 = Math.floor(Math.random() * (COLS - 3));
+                for (let c = c0; c < c0 + 3; c++) {
+                    const x = WALL + c * bw, y = TOP + r * (bh + 6);
+                    const existing = state.bricks.find(b => Math.abs(b.x - x) < 1 && Math.abs(b.y - y) < 1);
+                    if (existing) {
+                        existing.hp = Infinity; existing.maxHp = 1; existing.steel = true;
+                        existing.explosive = false; existing.pu = null; existing.color = '#b8c4d0';
+                    } else {
+                        state.bricks.push({ x, y, w: bw - 4, h: bh, hp: Infinity, maxHp: 1, color: '#b8c4d0', steel: true, explosive: false, pu: null });
+                    }
+                }
             }
         }
     }
@@ -202,11 +269,13 @@
         state.level = n;
         buildLevel(n);
         state.paddle.w = PADDLE_W;
-        state.powerups = []; state.lasers = [];
+        state.powerups = []; state.lasers = []; state.popups = [];
         state.wideUntil = state.slowUntil = state.laserUntil = 0;
+        state.powerUntil = state.fastUntil = state.shrinkUntil = 0;
+        state.combo = 0;
         resetBallOnPaddle();
         state.phase = 'ready';
-        showBanner('LEVEL ' + n, 1.2);
+        showBanner(state.isPattern ? 'LEVEL ' + n + ' — ' + PATTERNS[(n / 3 - 1) % PATTERNS.length].name + '!' : 'LEVEL ' + n, 1.4);
         updateHUD();
     }
 
@@ -224,6 +293,8 @@
         if (state.lives <= 0) { gameOver(); return; }
         state.paddle.w = PADDLE_W;
         state.wideUntil = state.slowUntil = state.laserUntil = 0;
+        state.powerUntil = state.fastUntil = state.shrinkUntil = 0;
+        state.combo = 0;
         resetBallOnPaddle();
         state.phase = 'ready';
         showBanner(state.lives + ' BALL' + (state.lives === 1 ? '' : 'S') + ' LEFT', 1.0);
@@ -255,24 +326,28 @@
     function levelClear() {
         state.phase = 'levelClear';
         state._clearTimer = 1.6;
-        state.score += 100;
-        showBanner('LEVEL ' + state.level + ' CLEAR!', 1.5);
+        state.score += state.isPattern ? 350 : 100;
+        showBanner('LEVEL ' + state.level + ' CLEAR!' + (state.isPattern ? ' +350' : ''), 1.5);
         sfx.levelClear();
         updateHUD();
     }
 
     // --- Power-ups ----------------------------------------------------------
     function applyPowerup(type) {
-        sfx.powerup();
-        if (type === 'wide') { state.paddle.w = PADDLE_W_WIDE; state.wideUntil = state.time + 12; }
+        if (PU[type].bad) sfx.hazard(); else sfx.powerup();
+        if (type === 'wide') { state.paddle.w = PADDLE_W_WIDE; state.wideUntil = state.time + 12; state.shrinkUntil = 0; }
         else if (type === 'slow') { state.slowUntil = state.time + 10; }
         else if (type === 'laser') { state.laserUntil = state.time + 12; }
         else if (type === 'life') { state.lives = Math.min(9, state.lives + 1); }
-        else if (type === 'multi') {
+        else if (type === 'power') { state.powerUntil = state.time + 5 + Math.random() * 5; }
+        else if (type === 'shrink') { state.paddle.w = 64; state.shrinkUntil = state.time + 10; state.wideUntil = 0; }
+        else if (type === 'fast') { state.fastUntil = state.time + 8; }
+        else if (type === 'multi' || type === 'five') {
+            const angles = type === 'five' ? [-28, -14, 14, 28] : [-22, 22];
             const add = [];
             for (const b of state.balls) {
                 if (b.stuck) continue;
-                for (const da of [-22, 22]) {
+                for (const da of angles) {
                     if (state.balls.length + add.length >= MAX_BALLS) break;
                     const a = Math.atan2(b.vy, b.vx) + da * Math.PI / 180;
                     add.push({ x: b.x, y: b.y, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, speed: b.speed, stuck: false });
@@ -328,6 +403,7 @@
         if (state.laserCooldown > 0) state.laserCooldown -= dt;
         // expire timed power-ups
         if (state.wideUntil && state.time > state.wideUntil) { state.paddle.w = PADDLE_W; state.wideUntil = 0; }
+        if (state.shrinkUntil && state.time > state.shrinkUntil) { state.paddle.w = PADDLE_W; state.shrinkUntil = 0; }
 
         // paddle movement
         if (pointerX != null) state.paddle.x = pointerX;
@@ -338,14 +414,15 @@
         if (state.phase === 'levelClear') {
             state._clearTimer -= dt;
             if (state._clearTimer <= 0) startLevel(state.level + 1);
-            updateParticles(dt); return;
+            updateParticles(dt); updatePopups(dt); return;
         }
-        if (state.phase !== 'playing' && state.phase !== 'ready') { updateParticles(dt); return; }
+        if (state.phase !== 'playing' && state.phase !== 'ready') { updateParticles(dt); updatePopups(dt); return; }
 
         // stuck balls ride the paddle
         for (const b of state.balls) if (b.stuck) { b.x = state.paddle.x; b.y = PADDLE_Y - BALL_R - 2; }
 
-        const speedScale = state.time < state.slowUntil ? 0.62 : 1;
+        const speedScale = (state.time < state.slowUntil ? 0.62 : 1) * (state.time < state.fastUntil ? 1.35 : 1);
+        const powerActive = state.time < state.powerUntil;
 
         // integrate balls with substeps to avoid tunneling
         for (let i = state.balls.length - 1; i >= 0; i--) {
@@ -369,6 +446,7 @@
                     const ang = (-90 + off * 62) * Math.PI / 180;
                     b.vx = Math.cos(ang) * b.speed; b.vy = Math.sin(ang) * b.speed;
                     b.y = PADDLE_Y - PADDLE_H / 2 - BALL_R - 0.5;
+                    state.combo = 0;
                     sfx.paddle();
                 }
                 // bricks
@@ -377,6 +455,14 @@
                 if (b.y - BALL_R > H) { state.balls.splice(i, 1); lost = true; break; }
             }
             if (lost) continue;
+            // glowing trail (heavier on powerball)
+            if (state.particles.length < 400 && !b.stuck) {
+                state.particles.push({
+                    x: b.x, y: b.y, vx: 0, vy: 0,
+                    life: powerActive ? 0.35 : 0.2, maxLife: powerActive ? 0.35 : 0.2,
+                    size: powerActive ? 5 : 3, color: powerActive ? '#ff4dff' : '#9fe8ff', trail: true
+                });
+            }
         }
 
         // all balls gone -> lose a life
@@ -404,29 +490,62 @@
         }
 
         updateParticles(dt);
+        updatePopups(dt);
 
-        // level cleared?
-        if (state.bricks.length === 0) levelClear();
+        // level cleared? (steel bricks don't count)
+        if (!state.bricks.some(b => b.hp !== Infinity)) levelClear();
     }
 
-    function damageBrick(br, hx, hy) {
-        br.hp--;
+    function damageBrick(br, hx, hy, instant) {
+        if (br.hp === Infinity) { sfx.ding(); return; }
+        br.hp = instant ? 0 : br.hp - 1;
         if (br.hp <= 0) {
-            state.score += 10 * br.maxHp;
-            spawnShards(br.x + br.w / 2, br.y + br.h / 2, br.color);
+            const mult = Math.min(8, 1 + Math.floor(state.combo / 3));
+            state.combo++;
+            const pts = 10 * br.maxHp * mult;
+            state.score += pts;
+            addPopup(br.x + br.w / 2, br.y + br.h / 2, '+' + pts + (mult > 1 ? ' x' + mult : ''), mult > 1 ? '#ffd166' : '#9fe8ff');
+            spawnShards(br.x + br.w / 2, br.y + br.h / 2, br.explosive ? '#ff9f45' : br.color);
             if (br.pu) state.powerups.push({ x: br.x + br.w / 2, y: br.y + br.h / 2, type: br.pu });
             state.bricks.splice(state.bricks.indexOf(br), 1);
-            sfx.break();
+            sfx.break(state.combo);
+            if (br.explosive) explodeBrick(br);
         } else { sfx.ding(); }
         updateHUD();
     }
 
+    // Volatile brick blast: destroys breakable neighbours in a radius; other
+    // explosive bricks caught in the blast chain-detonate via recursion (the
+    // splice in damageBrick removes visited bricks, so chains can't loop).
+    function explodeBrick(origin) {
+        const cx = origin.x + origin.w / 2, cy = origin.y + origin.h / 2, R = 90;
+        state.shake = Math.max(state.shake, 0.35);
+        sfx.boom();
+        for (let i = 0; i < 16; i++) {
+            const a = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 220;
+            state.particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.4, maxLife: 0.4, size: 3 + Math.random() * 3, color: Math.random() < 0.5 ? '#ff9f45' : '#ffd166' });
+        }
+        for (const b of [...state.bricks]) {
+            if (b.hp === Infinity || !state.bricks.includes(b)) continue;
+            const bx = b.x + b.w / 2, by = b.y + b.h / 2;
+            if ((bx - cx) * (bx - cx) + (by - cy) * (by - cy) <= R * R) damageBrick(b, bx, by, true);
+        }
+    }
+
     // Circle-vs-AABB brick collision with axis-of-least-penetration reflection.
+    // While the powerball is active the ball plows through breakable bricks
+    // without reflecting; steel bricks always reflect.
     function collideBrick(b) {
-        for (const br of state.bricks) {
+        const power = state.time < state.powerUntil;
+        for (const br of [...state.bricks]) {
+            if (!state.bricks.includes(br)) continue;
             const nx = clamp(b.x, br.x, br.x + br.w), ny = clamp(b.y, br.y, br.y + br.h);
             const dx = b.x - nx, dy = b.y - ny;
             if (dx * dx + dy * dy <= BALL_R * BALL_R) {
+                if (power && br.hp !== Infinity) {
+                    damageBrick(br, b.x, b.y, true);
+                    continue;
+                }
                 // dx/dy are the vector from the nearest brick edge point to the
                 // ball centre. If the centre is level with the brick on one
                 // axis that component is 0 (flat face hit); otherwise it's a
@@ -458,7 +577,18 @@
         for (let i = state.particles.length - 1; i >= 0; i--) {
             const p = state.particles[i]; p.life -= dt;
             if (p.life <= 0) { state.particles.splice(i, 1); continue; }
-            p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+            if (!p.trail) { p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+        }
+    }
+
+    function addPopup(x, y, text, color) {
+        state.popups.push({ x: clamp(x, 30, W - 30), y, text, color, life: 0.7, maxLife: 0.7 });
+    }
+    function updatePopups(dt) {
+        for (let i = state.popups.length - 1; i >= 0; i--) {
+            const p = state.popups[i];
+            p.life -= dt; p.y -= 34 * dt;
+            if (p.life <= 0) state.popups.splice(i, 1);
         }
     }
 
@@ -478,7 +608,9 @@
         paddle: () => tone(320, 0.05, 'square', 0.05, 220),
         wall: () => tone(420, 0.03, 'square', 0.03),
         ding: () => tone(720, 0.04, 'square', 0.04),
-        break: () => tone(520, 0.06, 'square', 0.05, 900),
+        break: (combo) => { const f = 520 + Math.min(combo || 0, 12) * 40; tone(f, 0.06, 'square', 0.05, f + 380); },
+        boom: () => { tone(130, 0.35, 'sawtooth', 0.1, 30); tone(65, 0.4, 'square', 0.08, 25); },
+        hazard: () => tone(340, 0.25, 'sawtooth', 0.07, 90),
         launch: () => tone(300, 0.08, 'square', 0.05, 600),
         powerup: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.05)),
         laser: () => tone(900, 0.05, 'sawtooth', 0.04, 300),
@@ -516,18 +648,38 @@
         ctx.strokeRect(WALL - 2, WALL - 2, W - 2 * WALL + 4, H - WALL);
         // bricks
         for (const br of state.bricks) {
+            if (br.steel) {
+                ctx.save(); ctx.shadowColor = '#8899aa'; ctx.shadowBlur = 4;
+                ctx.fillStyle = '#b8c4d0'; rr(br.x, br.y, br.w, br.h, 3); ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = '#7a8694';
+                ctx.fillRect(br.x + 5, br.y + br.h / 2 - 1.5, 3, 3);
+                ctx.fillRect(br.x + br.w - 8, br.y + br.h / 2 - 1.5, 3, 3);
+                continue;
+            }
+            if (br.explosive) {
+                const pulse = 0.55 + 0.45 * Math.sin(state.time * 6 + br.x * 0.1);
+                ctx.save(); ctx.shadowColor = '#ff5a1a'; ctx.shadowBlur = 8 + pulse * 12;
+                ctx.fillStyle = '#ff6a2a'; rr(br.x, br.y, br.w, br.h, 3); ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.4 + pulse * 0.5).toFixed(2) + ')';
+                ctx.beginPath(); ctx.arc(br.x + br.w / 2, br.y + br.h / 2, 4, 0, 7); ctx.fill();
+                continue;
+            }
             const col = br.hp > 1 ? (HP_TINT[br.hp] || br.color) : br.color;
             ctx.save(); ctx.shadowColor = br.color; ctx.shadowBlur = 10;
             ctx.fillStyle = col; rr(br.x, br.y, br.w, br.h, 3); ctx.fill();
             ctx.restore();
-            if (br.pu) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText(PU[br.pu].label, br.x + br.w / 2, br.y + br.h / 2 + 4); }
+            if (br.pu) { ctx.fillStyle = PU[br.pu].bad ? '#ff3b3b' : 'rgba(255,255,255,0.85)'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText(PU[br.pu].label, br.x + br.w / 2, br.y + br.h / 2 + 4); }
         }
         // power-ups
         for (const p of state.powerups) {
             const info = PU[p.type];
             ctx.save(); ctx.shadowColor = info.color; ctx.shadowBlur = 12; ctx.fillStyle = info.color;
-            rr(p.x - 13, p.y - 8, 26, 16, 6); ctx.fill(); ctx.restore();
-            ctx.fillStyle = '#04040c'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText(info.label, p.x, p.y + 4);
+            rr(p.x - 13, p.y - 8, 26, 16, 6); ctx.fill();
+            if (info.bad) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; rr(p.x - 13, p.y - 8, 26, 16, 6); ctx.stroke(); }
+            ctx.restore();
+            ctx.fillStyle = info.bad ? '#fff' : '#04040c'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText(info.label, p.x, p.y + 4);
         }
         // lasers
         ctx.save(); ctx.shadowColor = '#ff5470'; ctx.shadowBlur = 8; ctx.strokeStyle = '#ff8fa8'; ctx.lineWidth = 3;
@@ -537,11 +689,22 @@
         ctx.save(); ctx.shadowColor = CY; ctx.shadowBlur = 14; ctx.fillStyle = state.time < state.laserUntil ? '#ff9f45' : CY;
         rr(state.paddle.x - state.paddle.w / 2, PADDLE_Y - PADDLE_H / 2, state.paddle.w, PADDLE_H, PADDLE_H / 2); ctx.fill(); ctx.restore();
         // balls
-        ctx.save(); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffffff';
-        for (const b of state.balls) { ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fill(); }
+        const powerActive = state.time < state.powerUntil;
+        ctx.save();
+        ctx.shadowColor = powerActive ? '#ff4dff' : '#ffffff'; ctx.shadowBlur = powerActive ? 22 : 14;
+        ctx.fillStyle = powerActive ? '#ffd0ff' : '#ffffff';
+        for (const b of state.balls) { ctx.beginPath(); ctx.arc(b.x, b.y, powerActive ? BALL_R + 2 : BALL_R, 0, 7); ctx.fill(); }
         ctx.restore();
         // particles
         for (const p of state.particles) { const a = p.life / p.maxLife; ctx.globalAlpha = a; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
+        ctx.globalAlpha = 1;
+        // score popups
+        for (const p of state.popups) {
+            ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+            ctx.fillStyle = p.color;
+            ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+            ctx.fillText(p.text, p.x, p.y);
+        }
         ctx.globalAlpha = 1;
         ctx.restore();
     }
@@ -573,10 +736,12 @@
             '<div class="setup-row"><span class="setup-label">DIFFICULTY</span><div class="opt-group" id="diff-opts"></div></div>' +
             '<div class="legend">' +
             '<span style="color:#4dd6a8">W</span> wide &nbsp; <span style="color:#ffd166">3</span> multiball &nbsp; <span style="color:#5aa9ff">S</span> slow<br>' +
-            '<span style="color:#ff5470">L</span> laser &nbsp; <span style="color:#ff4d9d">+</span> extra life</div>' +
+            '<span style="color:#ff5470">L</span> laser &nbsp; <span style="color:#ff4d9d">+</span> extra life &nbsp; <span style="color:#c9a6ff">5</span> 5-ball<br>' +
+            '<span style="color:#ff4dff">P</span> powerball &nbsp; <span style="color:#ff3b3b">RED = BAD</span> (lv 11+)<br>' +
+            'chain hits for combo multipliers &middot; pulsing bricks explode</div>' +
             '<button class="nb-btn" id="play-btn">START</button>';
         const opts = document.getElementById('diff-opts');
-        for (const [val, label] of [['casual', 'CASUAL'], ['normal', 'NORMAL'], ['hard', 'HARD']]) {
+        for (const [val, label] of [['casual', 'CASUAL'], ['normal', 'NORMAL'], ['hard', 'HARD'], ['extreme', 'EXTREME']]) {
             const b = document.createElement('button');
             b.className = 'opt-btn' + (state.difficulty === val ? ' sel' : '');
             b.textContent = label;
