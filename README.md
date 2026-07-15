@@ -127,7 +127,29 @@ Drag a cartridge into the console (or tap one) to play.
    levels and a giant pixel face flashes **GRANDPAPPY IS HAPPY!** Three
    lives and a saved high score.
 
+9. **Asteroids: Duel**  
+   Direct link: [https://zack0liver.github.io/games/index_asteroids_duel.html](https://zack0liver.github.io/games/index_asteroids_duel.html)  
+   A local 2-player dogfight in a fully visible wide arena, built on the Maze
+   Edition's ship physics. Players spawn on opposite ends with an
+   indestructible base beacon behind them; standard shots deal 10 damage
+   (100 health each), while a chargeable **bazooka** pickup (hold fire 0-1.5s,
+   release to launch) deals 20-40 and splashes a 60px radius — including onto
+   the shooter. A **shield** pickup cuts incoming damage to a tenth for 8s;
+   **rapid fire**, a **health pack**, a **speed boost**, and a **ghost** that
+   phases through obstacles (but not shots) round out the drifting pickups.
+   Land 10 cumulative hits on your opponent's beacon (tracked with pips) for
+   a repeatable +25 health comeback bonus. Choose from 5 mirrored arenas
+   (Open Field, Corridors, Fortress, The Ring, Scrapyard), a time limit, and
+   ship colors before each match; a tie at the buzzer triggers **sudden
+   death** — next hit wins. P1 uses WASD + Space, P2 uses the arrow keys +
+   Enter.
+
 ## Planned Enhancements
+
+### Asteroids: Duel
+
+- **More match modes**: capture-the-flag and time-trial variants beyond the
+  current single-round duel.
 
 ### Tank Wars
 
