@@ -87,11 +87,21 @@ Drag a cartridge into the console (or tap one) to play.
    Direct link: [https://zack0liver.github.io/games/index_neon_breakout.html](https://zack0liver.github.io/games/index_neon_breakout.html)  
    A single-player brick breaker drenched in neon glow. Bounce the ball off
    your paddle to smash rows of glowing bricks — tougher multi-hit bricks show
-   up as you climb the levels, which get taller and busier each time. Broken
-   bricks sometimes drop power-ups you catch with the paddle: wide paddle,
-   multiball, slow ball, paddle laser, and extra lives. Move with the mouse or
-   arrow keys (drag on touch), Space to launch and to fire the laser. Three
-   lives, three difficulties, and a saved high score to chase.
+   up as you climb the levels, which get taller and busier each time. Every
+   3rd level is a **designed pattern** (diamond, smiley, zigzag, heart,
+   fortress) with a bigger clear bonus; pulsing **red-orange bricks explode** and
+   chain-detonate their neighbors, and from level 6 silver **steel bricks**
+   form indestructible walls to route around. Chain brick hits without
+   touching the paddle to build a **combo multiplier** (up to x8, with
+   rising-pitch sounds and floating score popups). Broken bricks sometimes
+   drop power-ups you catch with the paddle: wide paddle, multiball,
+   **5-ball frenzy**, slow ball, paddle laser, extra lives, and the
+   **powerball** — 5–10 seconds where the ball plows straight through
+   everything but steel. From level 11, watch for red-ringed **hazard
+   drops** (shrunk paddle, sped-up ball) — dodging is part of the game. Move
+   with the mouse or arrow keys (drag on touch), Space to launch and to fire
+   the laser. Three lives, four difficulties (casual to **extreme**), and a
+   saved high score to chase.
 
 ## Planned Enhancements
 
