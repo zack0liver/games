@@ -5,6 +5,39 @@ top.
 
 ---
 
+## 2026-07-16 — Asteroids: Gauntlet (new game)
+
+**Branch:** `feat/asteroids-gauntlet`
+
+New single-player, 20-level time-trial game `index_asteroids_gauntlet.html`,
+built on the Duel engine.
+
+- **Reuse:** ship physics, `Bullet`/`Rocket`, overheat + bazooka firing,
+  powerups + `drawPowerupIcon`, obstacle geometry/collision
+  (`resolveCircleRect/Circle/Tunnel`), particles and the `tone()`/`sfx` audio
+  are all lifted from `index_asteroids_duel.html` (single-player: P2 stripped).
+  Hull-3 damage model and touch drag-to-steer come from Maze; brick pattern
+  masks (`. x X E S`, SMILEY/FORTRESS/DIAMOND) from Neon Breakout.
+- **New systems:** per-level countdown + gold/silver/bronze medals (all derived
+  from one `gold` par per level), 3 lives/run, an objective registry
+  (beacons / breakables / gate / turrets / storm / bricks / finale), `Turret`
+  (sweep/track/burst, telegraphed projectiles), `TargetBeacon`, `Gate`,
+  cursed-pickup `storm` (REVERSE/STALL/DRAIN) with core collection, and a
+  brick-grid adapter driven by ship bullets + bazooka AoE.
+- **Scoring:** time-remaining ×10 + medal bonus + no-damage bonus → shared
+  `highscores.js` board (slug `asteroids-gauntlet`). Per-level best
+  time/medal persisted to `ag_medals` and shown as a start-screen medal case.
+- **Registered** in the arcade `GAMES` array and README (#10).
+- **Verified** in-browser (served over http): all 20 levels load and run
+  error-free; firing→hit, hull-breach→fail→life-loss, time-out→fail,
+  completion→scoring/medal-save, and the finale stage sequence all pass
+  deterministic update-loop tests; brick/turret levels confirmed visually.
+  Note: real-time-feel playtest and par tuning still pending — Chrome throttles
+  the backgrounded automation tab (rAF), so live timing can't be exercised
+  under automation. Pars ship on the loose side; tune with `?dev=1`.
+
+---
+
 ## 2026-07-10 — Asteroids Jungle Aces: shield power-up + Snake food fix
 
 **Branches:** `claude/jungle-aces-shields`, `claude/snake-food-fix`
