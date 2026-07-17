@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Asteroids: Gauntlet</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap');
+
+        html, body { height: 100%; }
+
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 8px;
+            box-sizing: border-box;
+            touch-action: none;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: min(1400px, 96vw);
+            height: 100%;
+            max-height: min(880px, 94vh);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid #b26bff;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #b26bff, inset 0 0 20px #b26bff;
+            background: #000000;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: #000000;
+            border: 1px solid #3a1f5c;
+            box-shadow: 0 0 10px rgba(178, 107, 255, 0.5);
+            border-radius: 6px;
+            touch-action: none;
+        }
+
+        #back-to-arcade {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #b26bff;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid #b26bff;
+            border-radius: 6px;
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #back-to-arcade:active { background: rgba(178, 107, 255, 0.3); }
+
+        #mute-btn {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            right: max(10px, env(safe-area-inset-right));
+            z-index: 500;
+            padding: 6px 12px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: #7dd3fc;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid #7dd3fc;
+            border-radius: 6px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #kb-hint {
+            display: none;
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #7a6a94;
+            padding: 4px 0 0;
+        }
+
+        @media (max-width: 700px) {
+            #kb-hint { display: block; }
+        }
+
+        #modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.96);
+            border: 3px solid #7dd3fc;
+            padding: 20px 28px;
+            border-radius: 10px;
+            text-align: center;
+            color: #7dd3fc;
+            box-shadow: 0 0 30px #7dd3fc;
+            z-index: 100;
+            display: none;
+            max-width: 92vw;
+            width: 520px;
+            max-height: 92vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        #modal h1 { font-size: 1.6rem; margin: 0 0 14px; color: #b26bff; }
+        #modal h2 { font-size: 1rem; margin: 14px 0 8px; color: #7dd3fc; letter-spacing: 1px; }
+        #modal p { font-size: 0.85rem; margin: 0 0 10px; color: #cfd6e6; }
+        .controls-legend p { font-size: 0.68rem; text-align: left; margin: 0 0 4px; color: #9fb8c8; }
+
+        .setup-label { display: block; font-size: 0.75rem; color: #9fb8c8; margin-bottom: 8px; letter-spacing: 1px; }
+        .ag-btn {
+            background: #b26bff; color: #000; border: none; padding: 12px 22px; border-radius: 8px;
+            margin: 10px 6px 0; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.85rem;
+            box-shadow: 0 4px #7a3fc0; touch-action: manipulation;
+        }
+        .ag-btn:active { transform: translateY(4px); box-shadow: none; }
+        .ag-btn.secondary { background: #7dd3fc; box-shadow: 0 4px #3a8fb0; }
+
+        .par-row { display: flex; gap: 10px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+        .par-chip {
+            border: 2px solid #333; border-radius: 8px; padding: 8px 12px; font-size: 0.8rem;
+            display: flex; flex-direction: column; align-items: center; min-width: 70px;
+        }
+        .par-chip .par-name { font-size: 0.62rem; letter-spacing: 1px; opacity: 0.85; }
+        .par-chip .par-time { font-size: 0.95rem; margin-top: 3px; }
+        .par-gold { border-color: #ffd23f; color: #ffd23f; }
+        .par-silver { border-color: #c7d0dc; color: #c7d0dc; }
+        .par-bronze { border-color: #e0955a; color: #e0955a; }
+
+        .medal-case { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 10px 0; }
+        .medal-cell {
+            width: 26px; height: 26px; border-radius: 5px; border: 1px solid #2a2a3a;
+            display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: #4a4a5a;
+        }
+        .medal-cell.g { border-color: #ffd23f; color: #ffd23f; box-shadow: 0 0 6px #ffd23f66; }
+        .medal-cell.s { border-color: #c7d0dc; color: #c7d0dc; }
+        .medal-cell.b { border-color: #e0955a; color: #e0955a; }
+
+        #modal ul { list-style: none; padding: 0; margin: 8px 0; text-align: left; }
+        #modal li { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 2px 4px; color: #cfd6e6; }
+
+        @media (max-width: 480px) {
+            #modal { padding: 16px 18px; }
+            #modal h1 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<a id="back-to-arcade" href="index.html" aria-label="Back to arcade">&#8249; ARCADE</a>
+<button id="mute-btn" aria-label="Toggle sound">SOUND: ON</button>
+
+<div id="game-container">
+    <div id="canvas-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div id="modal"><div id="modal-content"></div></div>
+    </div>
+    <div id="kb-hint">WASD / ARROWS TO FLY &middot; SPACE TO FIRE</div>
+</div>
+
+<script src="highscores.js"></script>
+<script>
+'use strict';
+// =========================================================================
+// Asteroids: Gauntlet — single-player, 20-level time-trial gauntlet.
+// Ship physics, weapons, powerups, obstacle geometry and audio are ported
+// from Asteroids: Duel (which itself ported them from Maze Edition). Brick
+// levels borrow the pattern-mask grids from Neon Breakout. Each level is a
+// countdown time-trial with gold/silver/bronze medals; 3 hull per attempt,
+// 3 lives per run, straight-through to a combined finale.
+// =========================================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
+const modal = document.getElementById('modal');
+const modalContent = document.getElementById('modal-content');
+const muteBtn = document.getElementById('mute-btn');
+const PI = Math.PI;
+
+const W = 1200, H = 675;
+const WALL_H = 16;
+const SLUG = 'asteroids-gauntlet';
+const TOTAL_LEVELS = 20;
+
+const rand = (min, max) => Math.random() * (max - min) + min;
+const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+
+const SHIP_COLOR = '#7de8ff';
+const DEV = new URLSearchParams(location.search).has('dev');
+
+const POWERUP_INFO = {
+    S: { color: '#7dd3fc', name: 'SHIELD' },
+    B: { color: '#ff8a3d', name: 'BAZOOKA' },
+    R: { color: '#ffe15a', name: 'RAPID FIRE' },
+    '+': { color: '#7dff9d', name: 'HULL +1' },
+    '>': { color: '#c084fc', name: 'SPEED BOOST' },
+    G: { color: '#b8bcc4', name: 'GHOST' }
+};
+
+const CURSED_INFO = {
+    REVERSE: { color: '#ff4d6d', name: 'REVERSE' },
+    STALL: { color: '#ff884d', name: 'STALL' },
+    DRAIN: { color: '#c04dff', name: 'DRAIN' }
+};
+const CURSED_TYPES = Object.keys(CURSED_INFO);
+
+const MEDAL = {
+    gold: { key: 'g', color: '#ffd23f', bonus: 1000, label: 'GOLD' },
+    silver: { key: 's', color: '#c7d0dc', bonus: 500, label: 'SILVER' },
+    bronze: { key: 'b', color: '#e0955a', bonus: 250, label: 'BRONZE' },
+    none: { key: '', color: '#8891a3', bonus: 0, label: '—' }
+};
+const NO_DAMAGE_BONUS = 300;
+
+const LS = { muted: 'ag_muted', medals: 'ag_medals' };
+
+// medalFor / timeLimit are both derived from each level's single `gold` par so
+// tuning is one number per level. silver = 1.6x gold, bronze = 2.5x gold.
+function parTimes(gold) {
+    return { gold, silver: +(gold * 1.6).toFixed(1), bronze: +(gold * 2.5).toFixed(1) };
+}
+function timeLimitFor(def) {
+    if (def.time) return def.time;
+    return Math.max(20, Math.ceil(def.gold * 3.2 / 5) * 5);
+}
+function medalFor(elapsed, gold) {
+    const p = parTimes(gold);
+    if (elapsed <= p.gold) return 'gold';
+    if (elapsed <= p.silver) return 'silver';
+    if (elapsed <= p.bronze) return 'bronze';
+    return 'none';
+}
+function fmtTime(s) {
+    s = Math.max(0, s);
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    const dec = Math.floor((s * 10) % 10);
+    return `${m}:${String(sec).padStart(2, '0')}.${dec}`;
+}
+
+// =========================================================================
+// Layout generators (adapted from Duel; single-player so no mirroring needed)
+// =========================================================================
+function mirrorBlocks(list) { return list.concat(list.map(b => ({ ...b, xFrac: 1 - b.xFrac - b.wFrac }))); }
+function mirrorCircles(list) { return list.concat(list.map(c => ({ ...c, xFrac: 1 - c.xFrac }))); }
+
+function genCorridors() {
+    const xs = [0.22, 0.40, 0.58, 0.76];
+    const gapH = 0.28, w = 0.02;
+    const cols = [];
+    let prevCenter = 0.5;
+    xs.forEach((x) => {
+        let gapCenter = clamp(prevCenter + rand(-0.32, 0.32), gapH / 2 + 0.04, 1 - gapH / 2 - 0.04);
+        prevCenter = gapCenter;
+        const gapTop = gapCenter - gapH / 2, gapBot = gapCenter + gapH / 2;
+        cols.push({ xFrac: x, yFrac: 0, wFrac: w, hFrac: gapTop, type: 'solid' });
+        cols.push({ xFrac: x, yFrac: gapBot, wFrac: w, hFrac: 1 - gapBot, type: 'solid' });
+    });
+    return { walls: [], blocks: cols, circles: [], tunnels: [] };
+}
+
+function genScrapyard() {
+    const pieces = [], circles = [], placed = [];
+    const count = 9;
+    let tries = 0;
+    const drift = () => Math.random() < 0.4
+        ? { amp: 0.03, speed: rand(0.4, 0.8), phase: rand(0, PI * 2), axis: Math.random() < 0.5 ? 'x' : 'y' }
+        : null;
+    while (pieces.length + circles.length < count && tries < 300) {
+        tries++;
+        const x = rand(0.2, 0.8), y = rand(0.14, 0.86);
+        if (placed.some(p => Math.hypot((p.x - x) * W, (p.y - y) * H) < 110)) continue;
+        placed.push({ x, y });
+        if (Math.random() < 0.25) {
+            circles.push({ xFrac: x, yFrac: y, rFrac: rand(0.03, 0.05), type: 'solid', osc: drift() });
+        } else {
+            pieces.push({ xFrac: x, yFrac: y, wFrac: rand(0.04, 0.09), hFrac: rand(0.05, 0.13), type: 'solid', osc: drift() });
+        }
+    }
+    return { walls: [], blocks: pieces, circles: circles, tunnels: [] };
+}
+
+// Brick pattern masks (from Neon Breakout). . empty, x 1hp, X 2hp, E explosive, S steel
+const PATTERNS = {
+    DIAMOND: ['....xx....', '...xXXx...', '..xxEExx..', '.xxxXXxxx.', 'xxxxEExxxx', '.xxxXXxxx.', '..xxEExx..', '...xXXx...', '....xx....'],
+    SMILEY: ['..XX..XX..', '..XX..XX..', '..........', 'X........X', '.Xx....xX.', '..XXxxXX..'],
+    FORTRESS: ['S...xx...S', 'Sx.xXXx.xS', 'S.xxEExx.S', 'S...XX...S', 'SSS....SSS']
+};
+
+// =========================================================================
+// 20-level roster. Each level declares an objective + layout + a single gold
+// par (seconds). Coordinates are fractions of the 1200x675 arena.
+// =========================================================================
+const LEVELS = [
+    // 1 — BEACON RUN (teach flight + fire)
+    {
+        name: 'BEACON RUN', objective: 'beacons', gold: 12,
+        intro: 'Shoot all 3 beacons.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        layout: {},
+        beacons: [{ xFrac: 0.45, yFrac: 0.25 }, { xFrac: 0.72, yFrac: 0.55 }, { xFrac: 0.55, yFrac: 0.80 }]
+    },
+    // 2 — THE GATE (oscillating bands)
+    {
+        name: 'OPEN THE GATE', objective: 'gate', gold: 14,
+        intro: 'Weave the moving walls, reach the gate.',
+        spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
+        layout: {
+            blocks: [
+                { xFrac: 0.34, yFrac: 0.0, wFrac: 0.02, hFrac: 0.55, type: 'solid', osc: { amp: 0.06, speed: 0.9, phase: 0, axis: 'y' } },
+                { xFrac: 0.58, yFrac: 0.45, wFrac: 0.02, hFrac: 0.55, type: 'solid', osc: { amp: 0.06, speed: 0.9, phase: PI, axis: 'y' } }
+            ]
+        },
+        gate: { xFrac: 0.90, yFrac: 0.20 }
+    },
+    // 3 — DEMO (break all cracks)
+    {
+        name: 'DEMOLITION', objective: 'breakables', gold: 16,
+        intro: 'Blast every orange block.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        layout: {
+            circles: mirrorCircles([{ xFrac: 0.32, yFrac: 0.30, rFrac: 0.045 }, { xFrac: 0.32, yFrac: 0.70, rFrac: 0.045 }]),
+            blocks: [
+                { xFrac: 0.24, yFrac: 0.14, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.50, yFrac: 0.10, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.70, yFrac: 0.26, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.70, yFrac: 0.68, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.50, yFrac: 0.82, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.24, yFrac: 0.78, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 }
+            ]
+        }
+    },
+    // 4 — beacons behind cover
+    {
+        name: 'FLUSH THEM OUT', objective: 'beacons', gold: 20,
+        intro: 'Angle around cover — shoot all 5 beacons.',
+        spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: '>', xFrac: 0.2, yFrac: 0.5, at: 0 }],
+        layout: {
+            blocks: mirrorBlocks([
+                { xFrac: 0.30, yFrac: 0.10, wFrac: 0.02, hFrac: 0.30, type: 'solid' },
+                { xFrac: 0.30, yFrac: 0.60, wFrac: 0.02, hFrac: 0.30, type: 'solid' }
+            ])
+        },
+        beacons: [{ xFrac: 0.40, yFrac: 0.22 }, { xFrac: 0.40, yFrac: 0.78 }, { xFrac: 0.62, yFrac: 0.35 }, { xFrac: 0.62, yFrac: 0.65 }, { xFrac: 0.80, yFrac: 0.50 }]
+    },
+    // 5 — BRICKS: SMILEY
+    {
+        name: 'CARVE THE GRIN', objective: 'bricks', gold: 22,
+        intro: 'Break every brick with your guns.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'R', xFrac: 0.22, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.5, yFrac: 0.88, at: 8 }],
+        layout: {},
+        bricks: { pattern: 'SMILEY', origin: { xFrac: 0.30, yFrac: 0.22 }, cell: 0.058, steelLevel: false }
+    },
+    // 6 — TURRETS: sweep, destroy all
+    {
+        name: 'PEEK AND POP', objective: 'turrets', gold: 22,
+        intro: 'Destroy both turrets. Use cover.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.24, yFrac: 0.5, at: 0 }],
+        layout: {
+            blocks: mirrorBlocks([{ xFrac: 0.42, yFrac: 0.32, wFrac: 0.03, hFrac: 0.36, type: 'solid' }])
+        },
+        turrets: [
+            { xFrac: 0.75, yFrac: 0.25, hp: 4, mode: 'sweep', fireInterval: 1.6, projSpeed: 300 },
+            { xFrac: 0.75, yFrac: 0.75, hp: 4, mode: 'sweep', fireInterval: 1.6, projSpeed: 300 }
+        ]
+    },
+    // 7 — GATE: corridors
+    {
+        name: 'THE SERPENT', objective: 'gate', gold: 24,
+        intro: 'Thread the corridors to the far gate.',
+        spawn: { xFrac: 0.06, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'G', xFrac: 0.14, yFrac: 0.5, at: 0 }],
+        layout: { generate: genCorridors },
+        gate: { xFrac: 0.93, yFrac: 0.5 }
+    },
+    // 8 — STORM: 4 cores, slow
+    {
+        name: 'CURSE STORM', objective: 'storm', gold: 24,
+        intro: 'Grab all 4 cyan cores. Dodge the cursed rain.',
+        spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.5, yFrac: 0.5, at: 0 }],
+        layout: {},
+        storm: {
+            cores: [{ xFrac: 0.15, yFrac: 0.2 }, { xFrac: 0.85, yFrac: 0.2 }, { xFrac: 0.15, yFrac: 0.8 }, { xFrac: 0.85, yFrac: 0.8 }],
+            rate: 1.3, speed: 150
+        }
+    },
+    // 9 — BREAKABLES in spinning ring
+    {
+        name: 'CORE BREACH', objective: 'breakables', gold: 26,
+        intro: 'Shoot the cracks — some hide inside the ring.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }],
+        layout: {
+            tunnels: [{ xFrac: 0.5, yFrac: 0.5, outerRFrac: 0.11, innerRFrac: 0.055, spinRate: 0.4, segCount: 4, segHalf: 0.5, hp: 3 }],
+            blocks: [
+                { xFrac: 0.5, yFrac: 0.47, wFrac: 0.04, hFrac: 0.04, type: 'crack', hp: 2 },
+                { xFrac: 0.20, yFrac: 0.20, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.74, yFrac: 0.72, wFrac: 0.06, hFrac: 0.05, type: 'crack', hp: 2 }
+            ]
+        }
+    },
+    // 10 — BEACONS + harassing tracking turret
+    {
+        name: 'UNDER FIRE', objective: 'beacons', gold: 28,
+        intro: 'Shoot all 6 beacons while the turret hunts you.',
+        spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.16, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.5, yFrac: 0.5, at: 6 }],
+        layout: { circles: mirrorCircles([{ xFrac: 0.35, yFrac: 0.5, rFrac: 0.05 }]) },
+        beacons: [
+            { xFrac: 0.30, yFrac: 0.20 }, { xFrac: 0.30, yFrac: 0.80 }, { xFrac: 0.55, yFrac: 0.30 },
+            { xFrac: 0.55, yFrac: 0.70 }, { xFrac: 0.82, yFrac: 0.35 }, { xFrac: 0.82, yFrac: 0.65 }
+        ],
+        turrets: [{ xFrac: 0.5, yFrac: 0.5, hp: 999, mode: 'track', fireInterval: 1.9, projSpeed: 300, invincible: true }]
+    },
+    // 11 — BRICKS: FORTRESS
+    {
+        name: 'FORTRESS', objective: 'bricks', gold: 30,
+        intro: 'Thread shots through the steel columns.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.2, yFrac: 0.85, at: 7 }],
+        layout: {},
+        bricks: { pattern: 'FORTRESS', origin: { xFrac: 0.30, yFrac: 0.24 }, cell: 0.06, steelLevel: true }
+    },
+    // 12 — GATE: moving maze + sealed crack wall
+    {
+        name: 'SEALED VAULT', objective: 'gate', gold: 30,
+        intro: 'Shoot open the orange seal, then reach the gate.',
+        spawn: { xFrac: 0.07, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'G', xFrac: 0.16, yFrac: 0.5, at: 0 }],
+        layout: {
+            blocks: [
+                { xFrac: 0.30, yFrac: 0.1, wFrac: 0.02, hFrac: 0.4, type: 'solid', osc: { amp: 0.05, speed: 0.8, phase: 0, axis: 'y' } },
+                { xFrac: 0.50, yFrac: 0.5, wFrac: 0.02, hFrac: 0.4, type: 'solid', osc: { amp: 0.05, speed: 0.8, phase: PI, axis: 'y' } },
+                { xFrac: 0.78, yFrac: 0.0, wFrac: 0.02, hFrac: 0.35, type: 'crack', hp: 4 },
+                { xFrac: 0.78, yFrac: 0.65, wFrac: 0.02, hFrac: 0.35, type: 'crack', hp: 4 }
+            ],
+            circles: [{ xFrac: 0.62, yFrac: 0.3, rFrac: 0.04, type: 'solid', osc: { amp: 0.05, speed: 1.1, phase: 1, axis: 'y' } }]
+        },
+        gate: { xFrac: 0.90, yFrac: 0.5 }
+    },
+    // 13 — TURRETS: 3 in scrapyard
+    {
+        name: 'SCRAPYARD DUEL', objective: 'turrets', gold: 30,
+        intro: 'Destroy all 3 turrets amid the debris.',
+        spawn: { xFrac: 0.09, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.16, yFrac: 0.5, at: 0 }, { type: '+', xFrac: 0.5, yFrac: 0.5, at: 5 }],
+        layout: { generate: genScrapyard },
+        turrets: [
+            { xFrac: 0.55, yFrac: 0.22, hp: 4, mode: 'track', fireInterval: 2.0, projSpeed: 300 },
+            { xFrac: 0.85, yFrac: 0.5, hp: 4, mode: 'sweep', fireInterval: 1.7, projSpeed: 300 },
+            { xFrac: 0.55, yFrac: 0.78, hp: 4, mode: 'track', fireInterval: 2.0, projSpeed: 300 }
+        ]
+    },
+    // 14 — STORM: 5 cores, fast, decoys
+    {
+        name: 'MAELSTROM', objective: 'storm', gold: 30,
+        intro: 'Collect all 5 cores through the heavy storm.',
+        spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: '>', xFrac: 0.5, yFrac: 0.5, at: 0 }],
+        layout: { circles: [{ xFrac: 0.5, yFrac: 0.5, rFrac: 0.05, type: 'solid' }] },
+        storm: {
+            cores: [{ xFrac: 0.12, yFrac: 0.5 }, { xFrac: 0.88, yFrac: 0.5 }, { xFrac: 0.5, yFrac: 0.12 }, { xFrac: 0.5, yFrac: 0.88 }, { xFrac: 0.2, yFrac: 0.2 }],
+            rate: 0.7, speed: 240
+        }
+    },
+    // 15 — BREAKABLES: demolition derby (bazooka)
+    {
+        name: 'WRECKING CREW', objective: 'breakables', gold: 30,
+        intro: 'Level every crack. The bazooka clears clusters fast.',
+        spawn: { xFrac: 0.09, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'B', xFrac: 0.18, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.5, yFrac: 0.85, at: 9 }, { type: 'B', xFrac: 0.5, yFrac: 0.15, at: 18 }],
+        layout: {
+            blocks: mirrorBlocks([
+                { xFrac: 0.28, yFrac: 0.20, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.28, yFrac: 0.40, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.28, yFrac: 0.60, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.28, yFrac: 0.80, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2 },
+                { xFrac: 0.40, yFrac: 0.30, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2, osc: { amp: 0.04, speed: 0.9, phase: 0, axis: 'y' } },
+                { xFrac: 0.40, yFrac: 0.65, wFrac: 0.05, hFrac: 0.05, type: 'crack', hp: 2, osc: { amp: 0.04, speed: 0.9, phase: PI, axis: 'y' } }
+            ])
+        }
+    },
+    // 16 — BEACONS: 7, two inside rings
+    {
+        name: 'RINGMASTER', objective: 'beacons', gold: 32,
+        intro: 'Shoot all 7 beacons — two hide in spinning rings.',
+        spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'R', xFrac: 0.16, yFrac: 0.5, at: 0 }],
+        layout: {
+            tunnels: [
+                { xFrac: 0.35, yFrac: 0.3, outerRFrac: 0.09, innerRFrac: 0.045, spinRate: 0.5, segCount: 3, segHalf: 0.55, hp: 2 },
+                { xFrac: 0.65, yFrac: 0.7, outerRFrac: 0.09, innerRFrac: 0.045, spinRate: -0.5, segCount: 3, segHalf: 0.55, hp: 2 }
+            ]
+        },
+        beacons: [
+            { xFrac: 0.35, yFrac: 0.3 }, { xFrac: 0.65, yFrac: 0.7 }, { xFrac: 0.5, yFrac: 0.15 },
+            { xFrac: 0.5, yFrac: 0.85 }, { xFrac: 0.82, yFrac: 0.3 }, { xFrac: 0.82, yFrac: 0.5 }, { xFrac: 0.2, yFrac: 0.7 }
+        ]
+    },
+    // 17 — BRICKS: DIAMOND (explosive) + sniping turret
+    {
+        name: 'CHAIN REACTION', objective: 'bricks', gold: 34,
+        intro: 'Explosive bricks chain — a sniper watches. Break them all.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }, { type: 'S', xFrac: 0.2, yFrac: 0.85, at: 6 }],
+        layout: {},
+        bricks: { pattern: 'DIAMOND', origin: { xFrac: 0.33, yFrac: 0.10 }, cell: 0.052, steelLevel: false },
+        turrets: [{ xFrac: 0.9, yFrac: 0.5, hp: 999, mode: 'burst', fireInterval: 2.6, projSpeed: 320, invincible: true }]
+    },
+    // 18 — TURRETS: 4, burst
+    {
+        name: 'CROSSFIRE', objective: 'turrets', gold: 34,
+        intro: 'Four turrets, little cover. Take them all down.',
+        spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.5, yFrac: 0.5, at: 0 }, { type: 'G', xFrac: 0.5, yFrac: 0.5, at: 8 }, { type: '+', xFrac: 0.5, yFrac: 0.5, at: 16 }],
+        layout: { circles: mirrorCircles([{ xFrac: 0.4, yFrac: 0.5, rFrac: 0.045 }]) },
+        turrets: [
+            { xFrac: 0.15, yFrac: 0.18, hp: 5, mode: 'track', fireInterval: 2.1, projSpeed: 320 },
+            { xFrac: 0.85, yFrac: 0.18, hp: 5, mode: 'burst', fireInterval: 2.6, projSpeed: 320 },
+            { xFrac: 0.15, yFrac: 0.82, hp: 5, mode: 'burst', fireInterval: 2.6, projSpeed: 320 },
+            { xFrac: 0.85, yFrac: 0.82, hp: 5, mode: 'track', fireInterval: 2.1, projSpeed: 320 }
+        ]
+    },
+    // 19 — GATE + storm dressing
+    {
+        name: 'EYE OF THE STORM', objective: 'gate', gold: 34,
+        intro: 'Reach the gate through the maze while cursed rain falls.',
+        spawn: { xFrac: 0.06, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.14, yFrac: 0.5, at: 0 }, { type: 'G', xFrac: 0.5, yFrac: 0.5, at: 7 }],
+        layout: {
+            blocks: mirrorBlocks([
+                { xFrac: 0.30, yFrac: 0.0, wFrac: 0.02, hFrac: 0.45, type: 'solid' },
+                { xFrac: 0.48, yFrac: 0.55, wFrac: 0.02, hFrac: 0.45, type: 'solid' }
+            ])
+        },
+        storm: { cores: [], rate: 1.1, speed: 200 },
+        gate: { xFrac: 0.92, yFrac: 0.5 }
+    },
+    // 20 — FINALE
+    {
+        name: 'THE GAUNTLET', objective: 'finale', gold: 40,
+        intro: 'Kill 2 turrets, then the 3 beacons light — shoot them, then fly the ring gate.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        pickups: [{ type: 'S', xFrac: 0.18, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.18, yFrac: 0.85, at: 0 }, { type: 'R', xFrac: 0.18, yFrac: 0.15, at: 10 }],
+        layout: {
+            tunnels: [{ xFrac: 0.5, yFrac: 0.5, outerRFrac: 0.10, innerRFrac: 0.05, spinRate: 0.6, segCount: 4, segHalf: 0.5, hp: 3 }]
+        },
+        turrets: [
+            { xFrac: 0.75, yFrac: 0.22, hp: 5, mode: 'track', fireInterval: 1.9, projSpeed: 320 },
+            { xFrac: 0.75, yFrac: 0.78, hp: 5, mode: 'track', fireInterval: 1.9, projSpeed: 320 }
+        ],
+        beacons: [{ xFrac: 0.25, yFrac: 0.25, inactive: true }, { xFrac: 0.25, yFrac: 0.75, inactive: true }, { xFrac: 0.85, yFrac: 0.5, inactive: true }],
+        gate: { xFrac: 0.5, yFrac: 0.5, closed: true }
+    }
+];
+
+// =========================================================================
+// Drawing helpers
+// =========================================================================
+function drawShip(color, accelerating) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10);
+    ctx.closePath(); ctx.stroke();
+    if (accelerating) {
+        ctx.strokeStyle = '#ff55aa';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-10, 5); ctx.lineTo(-15 - rand(0, 5), 0); ctx.lineTo(-10, -5);
+        ctx.stroke();
+    }
+}
+
+function drawPowerupIcon(type, s, color) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1.25, s * 0.16);
+    ctx.lineJoin = 'round';
+    switch (type) {
+        case 'S': {
+            ctx.beginPath();
+            ctx.moveTo(-s, -s); ctx.lineTo(s, -s); ctx.lineTo(s, s * 0.15); ctx.lineTo(0, s); ctx.lineTo(-s, s * 0.15);
+            ctx.closePath();
+            ctx.globalAlpha = 0.2; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+            break;
+        }
+        case 'B': {
+            const pts = 8;
+            ctx.beginPath();
+            for (let i = 0; i < pts * 2; i++) {
+                const r = (i % 2 === 0) ? s : s * 0.45;
+                const a = (i / (pts * 2)) * PI * 2 - PI / 2;
+                const px = Math.cos(a) * r, py = Math.sin(a) * r;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+            break;
+        }
+        case 'G': {
+            const top = -s, bot = s * 0.55;
+            ctx.beginPath();
+            ctx.moveTo(-s, bot); ctx.lineTo(-s, top + s * 0.5);
+            ctx.quadraticCurveTo(-s, top, 0, top);
+            ctx.quadraticCurveTo(s, top, s, top + s * 0.5);
+            ctx.lineTo(s, bot);
+            ctx.lineTo(s * 0.5, bot + s * 0.35); ctx.lineTo(s * 0.17, bot);
+            ctx.lineTo(-s * 0.17, bot + s * 0.35); ctx.lineTo(-s * 0.5, bot); ctx.lineTo(-s, bot + s * 0.35);
+            ctx.closePath();
+            ctx.globalAlpha = 0.2; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(-s * 0.38, -s * 0.15, s * 0.2, 0, PI * 2);
+            ctx.arc(s * 0.38, -s * 0.15, s * 0.2, 0, PI * 2);
+            ctx.fill();
+            break;
+        }
+        case 'R': {
+            const w = s * 0.55;
+            for (let i = -1; i <= 1; i++) {
+                const cx = i * s * 0.72;
+                ctx.beginPath();
+                ctx.moveTo(cx - w * 0.45, -s * 0.75); ctx.lineTo(cx + w * 0.55, 0); ctx.lineTo(cx - w * 0.45, s * 0.75);
+                ctx.closePath(); ctx.fill();
+            }
+            break;
+        }
+        case '+': {
+            ctx.lineWidth = Math.max(2, s * 0.4);
+            ctx.beginPath();
+            ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+            ctx.stroke();
+            break;
+        }
+        case '>': {
+            ctx.beginPath();
+            ctx.moveTo(s * 0.1, -s * 0.75); ctx.lineTo(s, 0); ctx.lineTo(s * 0.1, s * 0.75);
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1, s * 0.14);
+            for (let i = 0; i < 2; i++) {
+                const ly = (i === 0 ? -1 : 1) * s * 0.35;
+                ctx.beginPath(); ctx.moveTo(-s, ly); ctx.lineTo(-s * 0.15, ly); ctx.stroke();
+            }
+            ctx.beginPath(); ctx.moveTo(-s, 0); ctx.lineTo(-s * 0.05, 0); ctx.stroke();
+            break;
+        }
+        default:
+            ctx.font = `bold ${Math.round(s * 1.8)}px monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(type, 0, 1);
+    }
+    ctx.restore();
+}
+
+// =========================================================================
+// Entities
+// =========================================================================
+class Bullet {
+    constructor(x, y, angle, owner, opts = {}) {
+        this.x = x; this.y = y; this.radius = opts.radius || 3;
+        this.owner = owner; // 'ship' | 'turret'
+        this.speed = opts.speed || 720;
+        this.color = opts.color || (owner === 'turret' ? '#ff5a5a' : SHIP_COLOR);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.lifetime = opts.lifetime || 1.1; this.age = 0; this.isAlive = true;
+    }
+    update(dt) {
+        this.x += this.vx * dt; this.y += this.vy * dt; this.age += dt;
+        if (this.age > this.lifetime) this.isAlive = false;
+    }
+    draw() {
+        ctx.fillStyle = this.color;
+        const size = this.radius * 2;
+        ctx.fillRect(this.x - size / 2, this.y - size / 2, size, size);
+    }
+}
+
+class Rocket {
+    constructor(x, y, angle, damage) {
+        this.x = x; this.y = y; this.radius = 6;
+        this.owner = 'ship'; this.damage = damage;
+        this.speed = 400;
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.lifetime = 3.2; this.age = 0; this.isAlive = true; this.trailTimer = 0;
+    }
+    update(dt) {
+        this.x += this.vx * dt; this.y += this.vy * dt; this.age += dt; this.trailTimer -= dt;
+        if (this.trailTimer <= 0) {
+            this.trailTimer = 0.02;
+            G.particles.push(new Particle(this.x, this.y, rand(-20, 20), rand(-20, 20), '#ff8a3d', rand(2, 4), 0.4));
+        }
+        if (this.age > this.lifetime) { this.isAlive = false; explodeRocket(this); }
+    }
+    draw() {
+        ctx.fillStyle = '#ff8a3d';
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, PI * 2); ctx.fill();
+    }
+}
+
+class Particle {
+    constructor(x, y, vx, vy, color, size, lifetime) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.color = color; this.size = size; this.lifetime = lifetime; this.age = 0; this.isAlive = true;
+    }
+    update(dt) {
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        this.vx *= 0.95; this.vy *= 0.95; this.age += dt;
+        if (this.age >= this.lifetime) this.isAlive = false;
+    }
+    draw() {
+        ctx.globalAlpha = Math.max(0, 1 - this.age / this.lifetime);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        ctx.globalAlpha = 1;
+    }
+}
+
+class Ship {
+    constructor(color) {
+        this.radius = 11; this.color = color;
+        this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.angle = 0;
+        this.rotationSpeed = 3.2; this.thrustPower = 260; this.maxSpeed = 300;
+        this.hull = 3; this.maxHull = 3;
+        this.turnLeft = false; this.turnRight = false; this.thrusting = false; this.fireHeld = false;
+        this.thrustScale = 1;
+        this.bulletCooldown = 0; this.wallHitCooldown = 0;
+        this.shieldTimer = 0; this.ghostTimer = 0; this.speedTimer = 0; this.rapidTimer = 0;
+        this.bazookaArmed = false; this.charging = false; this.charge = 0;
+        this.fireHoldTime = 0; this.overheatTimer = 0;
+        this.reverseTimer = 0; this.stallTimer = 0; this.slowTimer = 0;
+    }
+    get shielded() { return this.shieldTimer > 0; }
+    get ghost() { return this.ghostTimer > 0; }
+    get speedBoost() { return this.speedTimer > 0; }
+    get rapid() { return this.rapidTimer > 0; }
+    get overheated() { return this.overheatTimer > 0; }
+    placeAtStart(x, y, angle) {
+        this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.angle = angle;
+        this.hull = this.maxHull;
+        this.turnLeft = this.turnRight = this.thrusting = this.fireHeld = false;
+        this.thrustScale = 1;
+        this.bulletCooldown = 0; this.wallHitCooldown = 0;
+        this.shieldTimer = 2.2; this.ghostTimer = 0; this.speedTimer = 0; this.rapidTimer = 0;
+        this.bazookaArmed = false; this.charging = false; this.charge = 0;
+        this.fireHoldTime = 0; this.overheatTimer = 0;
+        this.reverseTimer = 0; this.stallTimer = 0; this.slowTimer = 0;
+    }
+    updatePhysics(dt) {
+        let left = this.turnLeft, right = this.turnRight;
+        if (this.reverseTimer > 0) { const t = left; left = right; right = t; }
+        if (left) this.angle -= this.rotationSpeed * dt;
+        if (right) this.angle += this.rotationSpeed * dt;
+        const slow = this.slowTimer > 0 ? 0.55 : 1;
+        const boost = this.speedBoost ? 1.5 : 1;
+        const thrustPower = this.thrustPower * boost * slow;
+        const maxSpeed = this.maxSpeed * boost * slow;
+        const canThrust = this.thrusting && this.stallTimer <= 0;
+        if (canThrust) {
+            const sc = this.thrustScale;
+            this.vx += Math.cos(this.angle) * thrustPower * sc * dt;
+            this.vy += Math.sin(this.angle) * thrustPower * sc * dt;
+        }
+        const drag = canThrust ? 0.3 : 1.6;
+        this.vx -= this.vx * drag * dt; this.vy -= this.vy * drag * dt;
+        const speed = Math.hypot(this.vx, this.vy);
+        if (speed > maxSpeed) { this.vx = (this.vx / speed) * maxSpeed; this.vy = (this.vy / speed) * maxSpeed; }
+        this.x += this.vx * dt; this.y += this.vy * dt;
+
+        const r = this.radius;
+        if (this.x < r) { this.x = r; this.vx = Math.abs(this.vx) * 0.4; }
+        if (this.x > W - r) { this.x = W - r; this.vx = -Math.abs(this.vx) * 0.4; }
+        if (this.y < r) { this.y = r; this.vy = Math.abs(this.vy) * 0.4; }
+        if (this.y > H - r) { this.y = H - r; this.vy = -Math.abs(this.vy) * 0.4; }
+
+        if (this.bulletCooldown > 0) this.bulletCooldown -= dt;
+        if (this.wallHitCooldown > 0) this.wallHitCooldown -= dt;
+        if (this.shieldTimer > 0) this.shieldTimer -= dt;
+        if (this.ghostTimer > 0) this.ghostTimer -= dt;
+        if (this.speedTimer > 0) this.speedTimer -= dt;
+        if (this.rapidTimer > 0) this.rapidTimer -= dt;
+        if (this.reverseTimer > 0) this.reverseTimer -= dt;
+        if (this.stallTimer > 0) this.stallTimer -= dt;
+        if (this.slowTimer > 0) this.slowTimer -= dt;
+        if (this.overheatTimer > 0) { this.overheatTimer -= dt; if (this.overheatTimer <= 0) this.fireHoldTime = 0; }
+    }
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.shielded) {
+            const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 90);
+            ctx.strokeStyle = `rgba(125, 211, 252, ${(0.5 + 0.4 * pulse).toFixed(2)})`;
+            ctx.lineWidth = 2; ctx.shadowColor = '#7dd3fc'; ctx.shadowBlur = 12;
+            ctx.beginPath(); ctx.arc(0, 0, this.radius + 9, 0, PI * 2); ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+        if (this.reverseTimer > 0 || this.stallTimer > 0 || this.slowTimer > 0) {
+            ctx.strokeStyle = 'rgba(255,77,109,0.7)'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(0, 0, this.radius + 5, 0, PI * 2); ctx.stroke();
+        }
+        ctx.globalAlpha = this.ghost ? 0.4 : 1;
+        ctx.rotate(this.angle);
+        drawShip(this.color, this.thrusting && this.stallTimer <= 0);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        if (this.charging) {
+            const frac = this.charge / 1.5;
+            ctx.save(); ctx.translate(this.x - 20, this.y - this.radius - 16);
+            ctx.strokeStyle = '#ff8a3d'; ctx.lineWidth = 1.5; ctx.strokeRect(0, 0, 40, 6);
+            ctx.fillStyle = '#ff8a3d'; ctx.fillRect(0, 0, 40 * frac, 6); ctx.restore();
+        } else if (this.overheated || this.fireHoldTime > 0) {
+            const frac = this.overheated ? (this.overheatTimer / 5) : (this.fireHoldTime / 7);
+            const color = this.overheated ? '#ff3b3b' : '#ffe15a';
+            ctx.save(); ctx.translate(this.x - 20, this.y - this.radius - 16);
+            ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.strokeRect(0, 0, 40, 6);
+            ctx.fillStyle = color; ctx.fillRect(0, 0, 40 * frac, 6); ctx.restore();
+        }
+    }
+}
+
+class TargetBeacon {
+    constructor(x, y, opts = {}) {
+        this.x = x; this.y = y; this.radius = 16; this.hp = opts.hp || 3; this.maxHp = this.hp;
+        this.flash = 0; this.destroyed = false; this.inactive = !!opts.inactive;
+    }
+    hit() {
+        if (this.inactive || this.destroyed) return false;
+        this.hp--; this.flash = 0.3;
+        if (this.hp <= 0) { this.destroyed = true; return true; }
+        return false;
+    }
+    draw() {
+        if (this.destroyed) return;
+        ctx.save(); ctx.translate(this.x, this.y);
+        const active = !this.inactive;
+        const col = this.inactive ? '#3a4a5a' : '#00ffaa';
+        const flashBoost = this.flash > 0 ? this.flash * 3 : 0;
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+        ctx.shadowColor = col; ctx.shadowBlur = (active ? 10 : 3) + flashBoost * 10;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.stroke();
+        ctx.fillStyle = active ? 'rgba(0,255,170,0.10)' : 'rgba(80,100,120,0.06)'; ctx.fill();
+        if (active) {
+            ctx.rotate(performance.now() / 500);
+            ctx.strokeStyle = 'rgba(0,255,170,0.5)'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(-this.radius * 0.55, 0); ctx.lineTo(this.radius * 0.55, 0); ctx.stroke();
+        }
+        ctx.shadowBlur = 0; ctx.restore();
+        if (active) {
+            const startX = this.x - (this.maxHp * 6) / 2 + 1;
+            const pipY = this.y - this.radius - 10;
+            for (let i = 0; i < this.maxHp; i++) {
+                ctx.fillStyle = i < this.hp ? '#00ffaa' : 'rgba(0,255,170,0.25)';
+                ctx.fillRect(startX + i * 6, pipY, 4, 4);
+            }
+        }
+    }
+}
+
+class Turret {
+    constructor(x, y, def) {
+        this.x = x; this.y = y; this.radius = 15;
+        this.hp = def.hp || 5; this.maxHp = this.hp;
+        this.invincible = !!def.invincible;
+        this.mode = def.mode || 'track';
+        this.fireInterval = def.fireInterval || 2.0;
+        this.projSpeed = def.projSpeed || 320;
+        this.angle = -PI / 2; this.baseAngle = Math.atan2(H / 2 - y, W / 2 - x);
+        this.timer = rand(0.6, this.fireInterval); this.state = 'idle'; this.chargeT = 0;
+        this.destroyed = false; this.flash = 0;
+    }
+    hit() {
+        if (this.destroyed) return false;
+        this.flash = 0.2;
+        if (this.invincible) return false;
+        this.hp--;
+        if (this.hp <= 0) { this.destroyed = true; return true; }
+        return false;
+    }
+    update(dt) {
+        if (this.destroyed) return;
+        if (this.flash > 0) this.flash -= dt;
+        const ship = G.ship;
+        const toShip = ship ? Math.atan2(ship.y - this.y, ship.x - this.x) : this.angle;
+        if (this.mode === 'sweep') {
+            this.angle = this.baseAngle + Math.sin(performance.now() / 1000 * 1.1) * 1.0;
+        } else {
+            // track / burst: rotate toward ship, capped so you can orbit it
+            const diff = angleDiff(toShip, this.angle);
+            const maxTurn = 1.3 * dt;
+            this.angle += clamp(diff, -maxTurn, maxTurn);
+        }
+        this.timer -= dt;
+        if (this.state === 'idle') {
+            if (this.timer <= 0) { this.state = 'charging'; this.chargeT = 0.4; }
+        } else if (this.state === 'charging') {
+            this.chargeT -= dt;
+            if (this.chargeT <= 0) { this.fire(); this.state = 'idle'; this.timer = this.fireInterval; }
+        }
+    }
+    fire() {
+        const mx = this.x + Math.cos(this.angle) * (this.radius + 4);
+        const my = this.y + Math.sin(this.angle) * (this.radius + 4);
+        const opts = { speed: this.projSpeed, lifetime: 2.4 };
+        if (this.mode === 'burst') {
+            for (let i = -1; i <= 1; i++) G.bullets.push(new Bullet(mx, my, this.angle + i * 0.13, 'turret', opts));
+        } else {
+            G.bullets.push(new Bullet(mx, my, this.angle, 'turret', opts));
+        }
+        sfx.turret();
+    }
+    draw() {
+        if (this.destroyed) return;
+        ctx.save(); ctx.translate(this.x, this.y);
+        const charging = this.state === 'charging';
+        const col = this.flash > 0 ? '#ffffff' : '#ff5a5a';
+        // barrel
+        ctx.save(); ctx.rotate(this.angle);
+        ctx.strokeStyle = charging ? '#ffd23f' : '#ff8a5a'; ctx.lineWidth = 5;
+        if (charging) { ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 14; }
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(this.radius + 10, 0); ctx.stroke();
+        ctx.shadowBlur = 0; ctx.restore();
+        // body
+        ctx.fillStyle = 'rgba(255,90,90,0.18)';
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.shadowColor = '#ff5a5a'; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        if (!this.invincible) {
+            const startX = this.x - (this.maxHp * 6) / 2 + 1;
+            const pipY = this.y - this.radius - 10;
+            for (let i = 0; i < this.maxHp; i++) {
+                ctx.fillStyle = i < this.hp ? '#ff5a5a' : 'rgba(255,90,90,0.25)';
+                ctx.fillRect(startX + i * 6, pipY, 4, 4);
+            }
+        }
+    }
+}
+
+class Core {
+    constructor(x, y) { this.x = x; this.y = y; this.radius = 14; this.pulse = rand(0, PI * 2); this.collected = false; }
+    update(dt) { this.pulse += dt * 3.5; }
+    draw() {
+        if (this.collected) return;
+        const p = 0.6 + 0.4 * Math.sin(this.pulse);
+        ctx.save(); ctx.translate(this.x, this.y);
+        ctx.strokeStyle = '#22e0ff'; ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#22e0ff'; ctx.shadowBlur = 10 + p * 8;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = i / 6 * PI * 2 - PI / 2;
+            const px = Math.cos(a) * this.radius, py = Math.sin(a) * this.radius;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = 'rgba(34,224,255,0.15)'; ctx.fill();
+        ctx.shadowBlur = 0; ctx.restore();
+    }
+}
+
+class Cursed {
+    constructor(type, x, y, vx, vy) {
+        this.type = type; this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.radius = 14; this.pulse = rand(0, PI * 2); this.age = 0; this.life = 8; this.isAlive = true;
+    }
+    update(dt) {
+        this.x += this.vx * dt; this.y += this.vy * dt; this.pulse += dt * 3.5; this.age += dt;
+        if (this.age > this.life || this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.isAlive = false;
+    }
+    draw() {
+        const info = CURSED_INFO[this.type];
+        const p = 0.6 + 0.4 * Math.sin(this.pulse);
+        ctx.save(); ctx.translate(this.x, this.y);
+        ctx.strokeStyle = info.color; ctx.lineWidth = 2.5;
+        ctx.shadowColor = info.color; ctx.shadowBlur = 8 + p * 6;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.stroke();
+        // skull-ish X mark
+        ctx.beginPath();
+        ctx.moveTo(-6, -6); ctx.lineTo(6, 6); ctx.moveTo(6, -6); ctx.lineTo(-6, 6);
+        ctx.stroke();
+        ctx.shadowBlur = 0; ctx.restore();
+    }
+}
+
+class Gate {
+    constructor(x, y, open) { this.x = x; this.y = y; this.radius = 26; this.open = open; }
+    draw() {
+        ctx.save(); ctx.translate(this.x, this.y);
+        const col = this.open ? '#00ffaa' : '#ff4d6d';
+        const pulse = 0.6 + 0.4 * Math.sin(performance.now() / (this.open ? 200 : 400));
+        ctx.strokeStyle = col; ctx.lineWidth = 3;
+        ctx.shadowColor = col; ctx.shadowBlur = 12 + pulse * 12;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius * 0.6 * pulse, 0, PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        ctx.fillStyle = col; ctx.font = 'bold 10px "Space Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(this.open ? 'GO' : 'LOCK', 0, 0);
+        ctx.restore();
+    }
+}
+
+// =========================================================================
+// Game state
+// =========================================================================
+const G = {
+    ship: null,
+    bullets: [], rockets: [], particles: [], powerups: [],
+    obstacles: { walls: [], blocks: [], circles: [], tunnels: [] },
+    beacons: [], turrets: [], cores: [], cursed: [], gate: null, bricks: [],
+    levelIndex: 0, levelDef: null,
+    timeLimit: 60, timeLeft: 60,
+    lives: 3, runScore: 0, attemptDamaged: false, levelPoints: 0,
+    phase: 'start', // start | intro | playing | clear | fail | gameover | victory
+    storm: null, finale: null,
+    banner: { text: '', sub: '', timer: 0, color: '#7dd3fc' },
+    scheduledPickups: []
+};
+
+let muted = localStorage.getItem(LS.muted) === '1';
+
+function loadMedals() {
+    try { return JSON.parse(localStorage.getItem(LS.medals)) || []; } catch (e) { return []; }
+}
+function saveMedal(levelIdx, elapsed, medalKey) {
+    const medals = loadMedals();
+    const prev = medals[levelIdx];
+    const order = { g: 3, s: 2, b: 1, '': 0 };
+    if (!prev || elapsed < prev.best || order[medalKey] > order[prev.medal]) {
+        medals[levelIdx] = { best: Math.min(elapsed, prev ? prev.best : Infinity), medal: (order[medalKey] > (prev ? order[prev.medal] : 0)) ? medalKey : (prev ? prev.medal : medalKey) };
+    }
+    localStorage.setItem(LS.medals, JSON.stringify(medals));
+}
+
+// =========================================================================
+// Level loading
+// =========================================================================
+function mapObstacles(src) {
+    const out = { walls: [], blocks: [], circles: [], tunnels: [] };
+    out.walls = (src.walls || []).map(w => ({
+        yFrac: w.yFrac,
+        cells: w.cells.map(c => ({ w: c.w, type: c.type, hp: c.type === 'crack' ? (c.hp || 3) : 0, destroyed: false }))
+    }));
+    out.blocks = (src.blocks || []).map(b => ({
+        xFrac: b.xFrac, yFrac: b.yFrac, wFrac: b.wFrac, hFrac: b.hFrac, type: b.type,
+        hp: b.type === 'crack' ? (b.hp || 3) : 0, destroyed: false, osc: b.osc ? { ...b.osc } : null
+    }));
+    out.circles = (src.circles || []).map(c => ({
+        xFrac: c.xFrac, yFrac: c.yFrac, rFrac: c.rFrac, type: c.type || 'solid',
+        hp: c.type === 'crack' ? (c.hp || 4) : 0, destroyed: false, spin: rand(0, PI * 2), osc: c.osc ? { ...c.osc } : null
+    }));
+    out.tunnels = (src.tunnels || []).map(t => {
+        const segCount = t.segCount || 4, half = t.segHalf || 0.45, hp = t.hp || 4;
+        const segments = [];
+        for (let i = 0; i < segCount; i++) segments.push({ center0: i * (PI * 2 / segCount), half, hp, maxHp: hp, destroyed: false });
+        return {
+            xFrac: t.xFrac, yFrac: t.yFrac, outerRFrac: t.outerRFrac, innerRFrac: t.innerRFrac,
+            spinRate: t.spinRate || 0, spin0: rand(0, PI * 2), segments
+        };
+    });
+    return out;
+}
+
+function buildBricks(def) {
+    const rows = PATTERNS[def.pattern];
+    const cols = rows[0].length;
+    const cell = def.cell * W;
+    const ox = def.origin.xFrac * W, oy = def.origin.yFrac * H;
+    const bricks = [];
+    rows.forEach((rowStr, r) => {
+        for (let c = 0; c < cols; c++) {
+            const ch = rowStr[c];
+            if (ch === '.') continue;
+            let hp = 1, explosive = false, steel = false;
+            if (ch === 'X') hp = 2;
+            else if (ch === 'E') explosive = true;
+            else if (ch === 'S') { if (def.steelLevel) { hp = Infinity; steel = true; } else hp = 2; }
+            bricks.push({
+                x: ox + c * cell, y: oy + r * cell, w: cell - 4, h: cell - 4,
+                hp, maxHp: hp === Infinity ? 1 : hp, explosive, steel,
+                color: steel ? '#b8c4d0' : `hsl(${(r * 40) % 360}, 80%, 62%)`,
+                destroyed: false
+            });
+        }
+    });
+    return bricks;
+}
+
+function loadLevel(idx) {
+    const def = LEVELS[idx];
+    G.levelDef = def;
+    G.levelIndex = idx;
+    G.timeLimit = timeLimitFor(def);
+    G.timeLeft = G.timeLimit;
+    G.bullets = []; G.rockets = []; G.particles = []; G.powerups = [];
+    G.cursed = []; G.cores = []; G.beacons = []; G.turrets = []; G.bricks = []; G.gate = null;
+
+    const srcRaw = def.layout || {};
+    const src = srcRaw.generate ? srcRaw.generate() : srcRaw;
+    G.obstacles = mapObstacles(src);
+
+    (def.beacons || []).forEach(b => G.beacons.push(new TargetBeacon(b.xFrac * W, b.yFrac * H, { hp: b.hp || 3, inactive: b.inactive })));
+    (def.turrets || []).forEach(t => G.turrets.push(new Turret(t.xFrac * W, t.yFrac * H, t)));
+    if (def.bricks) G.bricks = buildBricks(def.bricks);
+    if (def.gate) G.gate = new Gate(def.gate.xFrac * W, def.gate.yFrac * H, !def.gate.closed);
+
+    G.storm = null;
+    if (def.storm) {
+        G.storm = { rate: def.storm.rate, speed: def.storm.speed, timer: def.storm.rate };
+        (def.storm.cores || []).forEach(c => G.cores.push(new Core(c.xFrac * W, c.yFrac * H)));
+    }
+
+    G.finale = def.objective === 'finale' ? { stage: 0 } : null;
+
+    // Scripted pickups (spawn at t = `at` seconds into the attempt)
+    G.scheduledPickups = (def.pickups || []).map(p => ({ ...p, spawned: false }));
+
+    const sp = def.spawn;
+    G.ship = new Ship(SHIP_COLOR);
+    G.ship.placeAtStart(sp.xFrac * W, sp.yFrac * H, sp.angle || 0);
+    G.attemptDamaged = false;
+    G.levelPoints = 0;
+}
+
+// =========================================================================
+// Obstacle geometry (lifted from Duel)
+// =========================================================================
+function blockRect(b) {
+    let x = b.xFrac * W, y = b.yFrac * H;
+    if (b.osc) {
+        const span = (b.osc.axis === 'y') ? H : W;
+        const o = b.osc.amp * span * Math.sin(performance.now() / 1000 * b.osc.speed + b.osc.phase);
+        if (b.osc.axis === 'y') y += o; else x += o;
+    }
+    return { ref: b, type: b.type, x, y, w: b.wFrac * W, h: b.hFrac * H };
+}
+function circleGeom(c) {
+    let x = c.xFrac * W, y = c.yFrac * H;
+    if (c.osc) {
+        const span = (c.osc.axis === 'y') ? H : W;
+        const o = c.osc.amp * span * Math.sin(performance.now() / 1000 * c.osc.speed + c.osc.phase);
+        if (c.osc.axis === 'y') y += o; else x += o;
+    }
+    return { ref: c, type: c.type, x, y, r: c.rFrac * W };
+}
+function wallCells(wall) {
+    const yc = wall.yFrac * H; const cells = []; let xf = 0;
+    for (const c of wall.cells) {
+        if (c.type !== 'gap' && !c.destroyed) cells.push({ ref: c, type: c.type, x: xf * W, y: yc - WALL_H / 2, w: c.w * W, h: WALL_H });
+        xf += c.w;
+    }
+    return cells;
+}
+function tunnelGeom(t) {
+    const spin = t.spin0 + performance.now() / 1000 * t.spinRate;
+    return { ref: t, x: t.xFrac * W, y: t.yFrac * H, outerR: t.outerRFrac * W, innerR: t.innerRFrac * W, spin, segments: t.segments };
+}
+function obstacleRects() {
+    const rects = [];
+    for (const wall of G.obstacles.walls) for (const cell of wallCells(wall)) rects.push(cell);
+    for (const b of G.obstacles.blocks) if (!b.destroyed) rects.push(blockRect(b));
+    return rects;
+}
+function obstacleCircles() { return G.obstacles.circles.filter(c => !c.destroyed).map(circleGeom); }
+function obstacleTunnels() { return G.obstacles.tunnels.map(tunnelGeom); }
+
+function resolveCircleRect(obj, rx, ry, rw, rh, restitution) {
+    const nx = Math.max(rx, Math.min(obj.x, rx + rw));
+    const ny = Math.max(ry, Math.min(obj.y, ry + rh));
+    let dx = obj.x - nx, dy = obj.y - ny;
+    let d2 = dx * dx + dy * dy; const r = obj.radius;
+    if (d2 >= r * r) return false;
+    let normX, normY, pen; const d = Math.sqrt(d2);
+    if (d > 0.0001) { normX = dx / d; normY = dy / d; pen = r - d; }
+    else {
+        const left = obj.x - rx, right = rx + rw - obj.x, top = obj.y - ry, bottom = ry + rh - obj.y;
+        const minH = Math.min(left, right), minV = Math.min(top, bottom);
+        if (minH < minV) { normX = left < right ? -1 : 1; normY = 0; pen = r + minH; }
+        else { normX = 0; normY = top < bottom ? -1 : 1; pen = r + minV; }
+    }
+    obj.x += normX * pen; obj.y += normY * pen;
+    const vdot = obj.vx * normX + obj.vy * normY;
+    if (vdot < 0) { obj.vx -= (1 + restitution) * vdot * normX; obj.vy -= (1 + restitution) * vdot * normY; }
+    return true;
+}
+function resolveCircleCircle(obj, cx, cy, cr, restitution) {
+    let dx = obj.x - cx, dy = obj.y - cy; let d = Math.hypot(dx, dy);
+    const min = obj.radius + cr;
+    if (d >= min) return false;
+    let nx, ny;
+    if (d > 0.0001) { nx = dx / d; ny = dy / d; } else { nx = 0; ny = -1; d = 0; }
+    obj.x += nx * (min - d); obj.y += ny * (min - d);
+    const vdot = obj.vx * nx + obj.vy * ny;
+    if (vdot < 0) { obj.vx -= (1 + restitution) * vdot * nx; obj.vy -= (1 + restitution) * vdot * ny; }
+    return true;
+}
+function resolveTunnelObstacle(obj, tg) {
+    const dx = obj.x - tg.x, dy = obj.y - tg.y; const d = Math.hypot(dx, dy);
+    const outer = tg.outerR + obj.radius, inner = Math.max(0, tg.innerR - obj.radius);
+    if (d >= outer || d <= inner) return false;
+    const theta = Math.atan2(dy, dx);
+    let inSolid = false;
+    for (const seg of tg.segments) { if (seg.destroyed) continue; if (Math.abs(angleDiff(theta, tg.spin + seg.center0)) < seg.half) { inSolid = true; break; } }
+    if (!inSolid) return false;
+    const nx = d > 0.0001 ? dx / d : 0, ny = d > 0.0001 ? dy / d : -1;
+    const targetD = (outer - d) < (d - inner) ? outer : inner;
+    obj.x = tg.x + nx * targetD; obj.y = tg.y + ny * targetD;
+    const pushSign = Math.sign(targetD - d) || 1; const restitution = 0.35;
+    const vAlong = (obj.vx * nx + obj.vy * ny) * pushSign;
+    if (vAlong < 0) { obj.vx -= (1 + restitution) * vAlong * nx * pushSign; obj.vy -= (1 + restitution) * vAlong * ny * pushSign; }
+    return true;
+}
+
+function spark(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+        const a = rand(0, PI * 2), s = rand(40, 220);
+        G.particles.push(new Particle(x, y, Math.cos(a) * s, Math.sin(a) * s, color, rand(2, 5), rand(0.3, 0.9)));
+    }
+}
+
+// =========================================================================
+// Damage / combat
+// =========================================================================
+function hurtShip(cause) {
+    const ship = G.ship;
+    if (!ship || (G.phase !== 'playing')) return;
+    if (cause === 'wall') { if (ship.wallHitCooldown > 0) return; ship.wallHitCooldown = 0.8; }
+    if (ship.shielded) { spark(ship.x, ship.y, '#7dd3fc', 5); return; }
+    ship.hull -= 1;
+    G.attemptDamaged = true;
+    spark(ship.x, ship.y, '#ff6b9d', 8);
+    sfx.hit();
+    if (ship.hull <= 0) { failLevel('HULL BREACH'); }
+}
+
+function explodeRocket(rocket) {
+    spark(rocket.x, rocket.y, '#ff8a3d', 24);
+    sfx.boom();
+    const R = 70;
+    // break cracks + damage entities in radius
+    for (const b of G.obstacles.blocks) if (!b.destroyed && b.type === 'crack') { const g = blockRect(b); if (dist(rocket.x, rocket.y, g.x + g.w / 2, g.y + g.h / 2) < R) { b.destroyed = true; spark(g.x + g.w / 2, g.y + g.h / 2, '#ffbb33', 10); } }
+    for (const c of G.obstacles.circles) if (!c.destroyed && c.type === 'crack') { const g = circleGeom(c); if (dist(rocket.x, rocket.y, g.x, g.y) < R + g.r) { c.destroyed = true; spark(g.x, g.y, '#ffbb33', 10); } }
+    for (const t of G.turrets) if (!t.destroyed && dist(rocket.x, rocket.y, t.x, t.y) < R + t.radius) { if (t.hit()) onTurretDestroyed(t); }
+    for (const bc of G.beacons) if (!bc.destroyed && !bc.inactive && dist(rocket.x, rocket.y, bc.x, bc.y) < R + bc.radius) { if (bc.hit()) sfx.beaconDown(); }
+    for (const br of G.bricks) if (!br.destroyed && !br.steel && dist(rocket.x, rocket.y, br.x + br.w / 2, br.y + br.h / 2) < R) damageBrick(br, true);
+}
+
+function damageBrick(brick, fromExplosion) {
+    if (brick.destroyed || brick.steel) return;
+    if (brick.explosive) {
+        brick.destroyed = true;
+        spark(brick.x + brick.w / 2, brick.y + brick.h / 2, '#ff8a3d', 16);
+        sfx.boom();
+        const cx = brick.x + brick.w / 2, cy = brick.y + brick.h / 2;
+        for (const b of G.bricks) {
+            if (b.destroyed || b === brick) continue;
+            const bx = b.x + b.w / 2, by = b.y + b.h / 2;
+            if (dist(cx, cy, bx, by) < 70) damageBrick(b, true);
+        }
+        return;
+    }
+    brick.hp--;
+    spark(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.color, 6);
+    if (brick.hp <= 0) { brick.destroyed = true; sfx.brick(); }
+}
+
+function onTurretDestroyed(t) {
+    spark(t.x, t.y, '#ff8a3d', 26); sfx.boom();
+}
+
+// Ship-bullet hits: obstacles, then turrets, beacons, bricks.
+function bulletHitsWorld(b) {
+    // obstacle rects
+    for (const rect of obstacleRects()) {
+        const cx = clamp(b.x, rect.x, rect.x + rect.w), cy = clamp(b.y, rect.y, rect.y + rect.h);
+        if (dist(b.x, b.y, cx, cy) < b.radius + 1) {
+            if (rect.type === 'crack') { rect.ref.hp--; spark(b.x, b.y, '#ffbb33', 6); if (rect.ref.hp <= 0) { rect.ref.destroyed = true; spark(b.x, b.y, '#ffbb33', 16); } }
+            else spark(b.x, b.y, '#b26bff', 4);
+            return true;
+        }
+    }
+    for (const c of obstacleCircles()) {
+        if (dist(b.x, b.y, c.x, c.y) < b.radius + c.r) {
+            if (c.type === 'crack') { c.ref.hp--; spark(b.x, b.y, '#ffbb33', 6); if (c.ref.hp <= 0) { c.ref.destroyed = true; spark(b.x, b.y, '#ffbb33', 20); } }
+            else spark(b.x, b.y, '#b26bff', 4);
+            return true;
+        }
+    }
+    for (const tg of obstacleTunnels()) {
+        const bd = dist(b.x, b.y, tg.x, tg.y);
+        if (bd > tg.outerR + b.radius || bd < tg.innerR - b.radius) continue;
+        const theta = Math.atan2(b.y - tg.y, b.x - tg.x);
+        let segHit = null;
+        for (const seg of tg.segments) { if (seg.destroyed) continue; if (Math.abs(angleDiff(theta, tg.spin + seg.center0)) < seg.half) { segHit = seg; break; } }
+        if (!segHit) continue;
+        segHit.hp--; spark(b.x, b.y, '#ffbb33', 6);
+        if (segHit.hp <= 0) { segHit.destroyed = true; spark(b.x, b.y, '#ffbb33', 24); }
+        return true;
+    }
+    if (b.owner === 'ship') {
+        for (const t of G.turrets) {
+            if (t.destroyed) continue;
+            if (dist(b.x, b.y, t.x, t.y) < b.radius + t.radius) { spark(b.x, b.y, '#ff5a5a', 8); if (t.hit()) onTurretDestroyed(t); return true; }
+        }
+        for (const bc of G.beacons) {
+            if (bc.destroyed || bc.inactive) continue;
+            if (dist(b.x, b.y, bc.x, bc.y) < b.radius + bc.radius) { spark(b.x, b.y, '#00ffaa', 8); if (bc.hit()) sfx.beaconDown(); else sfx.beaconHit(); return true; }
+        }
+        for (const br of G.bricks) {
+            if (br.destroyed) continue;
+            if (b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
+                if (br.steel) { spark(b.x, b.y, '#b8c4d0', 4); return true; }
+                damageBrick(br, false); return true;
+            }
+        }
+    }
+    return false;
+}
+
+function updateBullets(dt) {
+    for (const b of G.bullets) {
+        if (!b.isAlive) continue;
+        b.update(dt);
+        if (!b.isAlive) continue;
+        if (b.x < 0 || b.x > W || b.y < 0 || b.y > H) { b.isAlive = false; continue; }
+        if (bulletHitsWorld(b)) { b.isAlive = false; continue; }
+        if (b.owner === 'turret' && G.ship) {
+            if (dist(b.x, b.y, G.ship.x, G.ship.y) < b.radius + G.ship.radius) {
+                hurtShip('bullet'); spark(b.x, b.y, '#ff5a5a', 8); b.isAlive = false;
+            }
+        }
+    }
+    G.bullets = G.bullets.filter(b => b.isAlive);
+}
+
+function updateRockets(dt) {
+    for (const r of G.rockets) {
+        if (!r.isAlive) continue;
+        r.update(dt);
+        if (!r.isAlive) continue;
+        const rr = r.radius;
+        if (r.x < rr || r.x > W - rr || r.y < rr || r.y > H - rr) { r.isAlive = false; explodeRocket(r); continue; }
+        // rockets detonate on solid contact
+        let hit = false;
+        for (const rect of obstacleRects()) { const cx = clamp(r.x, rect.x, rect.x + rect.w), cy = clamp(r.y, rect.y, rect.y + rect.h); if (dist(r.x, r.y, cx, cy) < r.radius) { hit = true; break; } }
+        if (!hit) for (const c of obstacleCircles()) if (dist(r.x, r.y, c.x, c.y) < r.radius + c.r) { hit = true; break; }
+        if (!hit) for (const t of G.turrets) if (!t.destroyed && dist(r.x, r.y, t.x, t.y) < r.radius + t.radius) { hit = true; break; }
+        if (!hit) for (const br of G.bricks) if (!br.destroyed && r.x > br.x && r.x < br.x + br.w && r.y > br.y && r.y < br.y + br.h) { hit = true; break; }
+        if (hit) { r.isAlive = false; explodeRocket(r); continue; }
+    }
+    G.rockets = G.rockets.filter(r => r.isAlive);
+}
+
+function handleFiring(ship, dt) {
+    if (ship.bazookaArmed) {
+        if (ship.fireHeld) { ship.charging = true; ship.charge = Math.min(1.5, ship.charge + dt); }
+        else if (ship.charging) {
+            const chargeFrac = ship.charge / 1.5; const dmg = 20 + chargeFrac * 20;
+            const bx = ship.x + Math.cos(ship.angle) * ship.radius * 1.5;
+            const by = ship.y + Math.sin(ship.angle) * ship.radius * 1.5;
+            G.rockets.push(new Rocket(bx, by, ship.angle, dmg));
+            sfx.bazookaFire(); ship.bazookaArmed = false; ship.charging = false; ship.charge = 0;
+        }
+    } else if (ship.overheated) {
+        ship.fireHoldTime = 0;
+    } else if (ship.fireHeld) {
+        ship.fireHoldTime += dt;
+        if (ship.fireHoldTime >= 7) { ship.overheatTimer = 5; ship.fireHoldTime = 0; sfx.overheat(); }
+        else if (ship.bulletCooldown <= 0) {
+            const bx = ship.x + Math.cos(ship.angle) * ship.radius * 1.5;
+            const by = ship.y + Math.sin(ship.angle) * ship.radius * 1.5;
+            G.bullets.push(new Bullet(bx, by, ship.angle, 'ship', { color: ship.color }));
+            ship.bulletCooldown = ship.rapid ? 0.09 : 0.18; sfx.shoot();
+        }
+    } else { ship.fireHoldTime = 0; }
+}
+
+function applyPowerup(type) {
+    const ship = G.ship;
+    switch (type) {
+        case 'S': ship.shieldTimer = Math.max(ship.shieldTimer, 8); break;
+        case 'B': ship.bazookaArmed = true; ship.charging = false; ship.charge = 0; break;
+        case 'R': ship.rapidTimer = Math.max(ship.rapidTimer, 6); break;
+        case '+': ship.hull = Math.min(ship.maxHull, ship.hull + 1); break;
+        case '>': ship.speedTimer = Math.max(ship.speedTimer, 6); break;
+        case 'G': ship.ghostTimer = Math.max(ship.ghostTimer, 4); break;
+    }
+    sfx.powerup();
+    G.banner = { text: POWERUP_INFO[type].name, sub: '', timer: 1.2, color: POWERUP_INFO[type].color };
+}
+
+function applyCursed(type) {
+    const ship = G.ship;
+    switch (type) {
+        case 'REVERSE': ship.reverseTimer = 2.5; break;
+        case 'STALL': ship.stallTimer = 1.2; break;
+        case 'DRAIN':
+            ship.shieldTimer = 0; ship.rapidTimer = 0; ship.speedTimer = 0; ship.ghostTimer = 0; ship.bazookaArmed = false;
+            ship.slowTimer = 1.5; break;
+    }
+    sfx.cursed();
+    G.banner = { text: CURSED_INFO[type].name + '!', sub: 'CURSED', timer: 1.1, color: CURSED_INFO[type].color };
+}
+
+function updatePickups(dt) {
+    // scripted spawns
+    const elapsed = G.timeLimit - G.timeLeft;
+    for (const sp of G.scheduledPickups) {
+        if (!sp.spawned && elapsed >= (sp.at || 0)) {
+            sp.spawned = true;
+            G.powerups.push({ type: sp.type, x: sp.xFrac * W, y: sp.yFrac * H, radius: 16, pulse: rand(0, PI * 2), isAlive: true });
+        }
+    }
+    for (const pu of G.powerups) {
+        if (!pu.isAlive) continue;
+        pu.pulse += dt * 3.5;
+        if (dist(G.ship.x, G.ship.y, pu.x, pu.y) < G.ship.radius + pu.radius) { pu.isAlive = false; applyPowerup(pu.type); }
+    }
+    G.powerups = G.powerups.filter(pu => pu.isAlive);
+}
+
+function drawPowerup(pu) {
+    const info = POWERUP_INFO[pu.type];
+    const p = 0.6 + 0.4 * Math.sin(pu.pulse);
+    ctx.save(); ctx.translate(pu.x, pu.y);
+    ctx.strokeStyle = info.color; ctx.lineWidth = 2.5;
+    ctx.shadowColor = info.color; ctx.shadowBlur = 10 + p * 6;
+    ctx.beginPath(); ctx.arc(0, 0, pu.radius, 0, PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    drawPowerupIcon(pu.type, 9, info.color);
+    ctx.restore();
+}
+
+function updateStorm(dt) {
+    if (!G.storm) return;
+    G.cores.forEach(c => c.update(dt));
+    // collect cores
+    for (const c of G.cores) {
+        if (c.collected) continue;
+        if (dist(G.ship.x, G.ship.y, c.x, c.y) < G.ship.radius + c.radius) { c.collected = true; sfx.core(); spark(c.x, c.y, '#22e0ff', 14); }
+    }
+    G.cores = G.cores.filter(c => !c.collected);
+    // spawn cursed rain
+    G.storm.timer -= dt;
+    if (G.storm.timer <= 0) {
+        G.storm.timer = G.storm.rate;
+        const edge = Math.floor(rand(0, 4));
+        let x, y, ang;
+        if (edge === 0) { x = rand(0, W); y = -20; }
+        else if (edge === 1) { x = rand(0, W); y = H + 20; }
+        else if (edge === 2) { x = -20; y = rand(0, H); }
+        else { x = W + 20; y = rand(0, H); }
+        // aim toward a random interior point for varied trajectories
+        ang = Math.atan2(rand(0.3, 0.7) * H - y, rand(0.3, 0.7) * W - x);
+        const sp = G.storm.speed;
+        G.cursed.push(new Cursed(CURSED_TYPES[Math.floor(rand(0, CURSED_TYPES.length))], x, y, Math.cos(ang) * sp, Math.sin(ang) * sp));
+    }
+    for (const c of G.cursed) {
+        if (!c.isAlive) continue;
+        c.update(dt);
+        if (dist(G.ship.x, G.ship.y, c.x, c.y) < G.ship.radius + c.radius) { c.isAlive = false; applyCursed(c.type); }
+    }
+    G.cursed = G.cursed.filter(c => c.isAlive);
+}
+
+function updateShipCollisions() {
+    const p = G.ship;
+    let hit = false;
+    if (!p.ghost) {
+        for (const rect of obstacleRects()) if (resolveCircleRect(p, rect.x, rect.y, rect.w, rect.h, 0.35)) hit = true;
+        for (const c of obstacleCircles()) if (resolveCircleCircle(p, c.x, c.y, c.r, 0.35)) hit = true;
+        for (const tg of obstacleTunnels()) if (resolveTunnelObstacle(p, tg)) hit = true;
+        for (const bc of G.beacons) if (!bc.destroyed) if (resolveCircleCircle(p, bc.x, bc.y, bc.radius, 0.35)) hit = true;
+        for (const t of G.turrets) if (!t.destroyed) if (resolveCircleCircle(p, t.x, t.y, t.radius, 0.35)) hit = true;
+        for (const br of G.bricks) if (!br.destroyed) if (resolveCircleRect(p, br.x, br.y, br.w, br.h, 0.35)) hit = true;
+    }
+    if (hit) hurtShip('wall');
+}
+
+// =========================================================================
+// Objective completion
+// =========================================================================
+function allCracksDestroyed() {
+    for (const b of G.obstacles.blocks) if (b.type === 'crack' && !b.destroyed) return false;
+    for (const c of G.obstacles.circles) if (c.type === 'crack' && !c.destroyed) return false;
+    for (const w of G.obstacles.walls) for (const cell of w.cells) if (cell.type === 'crack' && !cell.destroyed) return false;
+    return true;
+}
+function shipInGate() { return G.gate && G.gate.open && dist(G.ship.x, G.ship.y, G.gate.x, G.gate.y) < G.gate.radius; }
+
+function updateFinale() {
+    if (!G.finale) return;
+    if (G.finale.stage === 0) {
+        if (G.turrets.every(t => t.destroyed)) {
+            G.finale.stage = 1;
+            G.beacons.forEach(b => b.inactive = false);
+            G.banner = { text: 'BEACONS ONLINE', sub: 'SHOOT ALL 3', timer: 1.8, color: '#00ffaa' };
+        }
+    } else if (G.finale.stage === 1) {
+        if (G.beacons.every(b => b.destroyed)) {
+            G.finale.stage = 2;
+            if (G.gate) G.gate.open = true;
+            G.banner = { text: 'GATE OPEN', sub: 'FLY THE RING', timer: 1.8, color: '#00ffaa' };
+        }
+    }
+}
+
+function objectiveComplete() {
+    const def = G.levelDef;
+    switch (def.objective) {
+        case 'beacons': return G.beacons.every(b => b.destroyed);
+        case 'breakables': return allCracksDestroyed();
+        case 'gate': return shipInGate();
+        case 'turrets': return G.turrets.every(t => t.destroyed);
+        case 'storm': return G.cores.length === 0;
+        case 'bricks': return G.bricks.every(b => b.steel || b.destroyed);
+        case 'finale': return G.finale.stage >= 2 && shipInGate();
+    }
+    return false;
+}
+
+function objectiveProgress() {
+    const def = G.levelDef;
+    switch (def.objective) {
+        case 'beacons': return `BEACONS ${G.beacons.filter(b => b.destroyed).length}/${G.beacons.length}`;
+        case 'turrets': return `TURRETS ${G.turrets.filter(t => t.destroyed).length}/${G.turrets.filter(t => !t.invincible).length}`;
+        case 'storm': { const total = (def.storm.cores || []).length; return `CORES ${total - G.cores.length}/${total}`; }
+        case 'bricks': { const fin = G.bricks.filter(b => !b.steel); return `BRICKS ${fin.filter(b => b.destroyed).length}/${fin.length}`; }
+        case 'breakables': { let tot = 0, done = 0; const add = (c) => { tot++; if (c.destroyed) done++; }; G.obstacles.blocks.forEach(b => { if (b.type === 'crack') add(b); }); G.obstacles.circles.forEach(c => { if (c.type === 'crack') add(c); }); G.obstacles.walls.forEach(w => w.cells.forEach(c => { if (c.type === 'crack') add(c); })); return `TARGETS ${done}/${tot}`; }
+        case 'gate': return 'REACH THE GATE';
+        case 'finale': return ['KILL TURRETS', 'SHOOT BEACONS', 'FLY THE GATE'][G.finale.stage] || '';
+    }
+    return '';
+}
+
+// =========================================================================
+// Flow / state machine
+// =========================================================================
+function startRun() {
+    G.lives = 3; G.runScore = 0;
+    ensureAudio();
+    showIntro(0);
+}
+
+function showIntro(idx) {
+    loadLevel(idx);
+    G.phase = 'intro';
+    const def = G.levelDef;
+    const p = parTimes(def.gold);
+    modalContent.innerHTML =
+        `<h1>LEVEL ${idx + 1} / ${TOTAL_LEVELS}</h1>` +
+        `<p style="color:#eaf6ff;font-size:1rem;">${def.name}</p>` +
+        `<p>${def.intro}</p>` +
+        `<div class="par-row">` +
+        `<div class="par-chip par-gold"><span class="par-name">GOLD</span><span class="par-time">${fmtTime(p.gold)}</span></div>` +
+        `<div class="par-chip par-silver"><span class="par-name">SILVER</span><span class="par-time">${fmtTime(p.silver)}</span></div>` +
+        `<div class="par-chip par-bronze"><span class="par-name">BRONZE</span><span class="par-time">${fmtTime(p.bronze)}</span></div>` +
+        `</div>` +
+        `<p style="font-size:0.72rem;color:#9fb8c8;">TIME LIMIT ${fmtTime(G.timeLimit)} &middot; LIVES ${G.lives} &middot; SCORE ${G.runScore.toLocaleString()}</p>` +
+        `<button class="ag-btn" id="go-btn">GO</button>`;
+    modal.style.display = 'block';
+    document.getElementById('go-btn').addEventListener('click', () => { sfx.select(); beginLevel(); });
+}
+
+function beginLevel() {
+    // reload to reset a retried level cleanly (obstacles, pickups, timer, hull)
+    loadLevel(G.levelIndex);
+    G.phase = 'playing';
+    G.banner = { text: G.levelDef.name, sub: '', timer: 1.2, color: '#7dd3fc' };
+    modal.style.display = 'none';
+}
+
+function completeLevel() {
+    G.phase = 'clear';
+    const elapsed = G.timeLimit - G.timeLeft;
+    const medalKey = medalFor(elapsed, G.levelDef.gold);
+    const medal = MEDAL[medalKey];
+    const timeBonus = Math.ceil(G.timeLeft) * 10;
+    const noDmg = G.attemptDamaged ? 0 : NO_DAMAGE_BONUS;
+    const points = timeBonus + medal.bonus + noDmg;
+    G.levelPoints = points;
+    G.runScore += points;
+    saveMedal(G.levelIndex, elapsed, medal.key);
+    sfx.levelClear();
+
+    const last = G.levelIndex >= TOTAL_LEVELS - 1;
+    modalContent.innerHTML =
+        `<h1 style="color:${medal.color}">LEVEL CLEAR</h1>` +
+        `<p style="color:#eaf6ff;">${G.levelDef.name}</p>` +
+        `<p>TIME ${fmtTime(elapsed)} &middot; <span style="color:${medal.color}">${medal.label} MEDAL</span></p>` +
+        `<ul>` +
+        `<li><span>TIME BONUS</span><span>${timeBonus.toLocaleString()}</span></li>` +
+        `<li><span>MEDAL BONUS</span><span>${medal.bonus.toLocaleString()}</span></li>` +
+        `<li><span>NO-DAMAGE BONUS</span><span>${noDmg.toLocaleString()}</span></li>` +
+        `<li style="border-top:1px solid #333;margin-top:4px;padding-top:4px;color:#eaf6ff;"><span>LEVEL TOTAL</span><span>${points.toLocaleString()}</span></li>` +
+        `<li style="color:#7dff9d;"><span>RUN SCORE</span><span>${G.runScore.toLocaleString()}</span></li>` +
+        `</ul>` +
+        `<button class="ag-btn" id="next-btn">${last ? 'FINISH' : 'NEXT LEVEL'}</button>`;
+    modal.style.display = 'block';
+    document.getElementById('next-btn').addEventListener('click', () => {
+        sfx.select();
+        if (last) victory(); else showIntro(G.levelIndex + 1);
+    });
+}
+
+function failLevel(reason) {
+    if (G.phase !== 'playing') return;
+    G.phase = 'fail';
+    G.lives -= 1;
+    sfx.fail();
+    spark(G.ship.x, G.ship.y, '#ff6b9d', 30);
+    if (G.lives <= 0) { gameOver(); return; }
+    modalContent.innerHTML =
+        `<h1 style="color:#ff6b9d">${reason}</h1>` +
+        `<p>Level ${G.levelIndex + 1} failed.</p>` +
+        `<p style="font-size:0.8rem;color:#9fb8c8;">LIVES REMAINING: ${G.lives}</p>` +
+        `<button class="ag-btn" id="retry-btn">RETRY</button>`;
+    modal.style.display = 'block';
+    document.getElementById('retry-btn').addEventListener('click', () => { sfx.select(); beginLevel(); });
+}
+
+function renderMedalCase() {
+    const medals = loadMedals();
+    let cells = '';
+    for (let i = 0; i < TOTAL_LEVELS; i++) {
+        const m = medals[i];
+        const cls = m && m.medal ? m.medal : '';
+        cells += `<div class="medal-cell ${cls}">${i + 1}</div>`;
+    }
+    return `<div class="medal-case">${cells}</div>`;
+}
+
+function submitScore(finalScore, onDone) {
+    if (typeof HS !== 'undefined' && HS.checkQualifies(SLUG, finalScore)) {
+        HS.showInitialsOverlay({ onSubmit: (name) => { HS.recordScore(SLUG, name, finalScore); onDone(); } });
+    } else { onDone(); }
+}
+
+function boardHtml() {
+    if (typeof HS === 'undefined') return '';
+    const board = HS.getBoard(SLUG);
+    const rows = board.top10.length
+        ? board.top10.map((r, i) => `<li><span>#${i + 1} <span style="font-style:italic;">${r.name}</span></span><span style="color:#00ffaa;">${r.score.toLocaleString()}</span></li>`).join('')
+        : '<li>No scores yet.</li>';
+    return `<h2>TOP 10 — GAUNTLET</h2><ul>${rows}</ul>`;
+}
+
+function gameOver() {
+    G.phase = 'gameover';
+    const finalScore = G.runScore;
+    sfx.gameover();
+    const finish = () => {
+        modalContent.innerHTML =
+            `<h1 style="color:#ff6b9d">GAME OVER</h1>` +
+            `<p>You reached level ${G.levelIndex + 1}.</p>` +
+            `<p style="color:#eaf6ff;">FINAL SCORE ${finalScore.toLocaleString()}</p>` +
+            renderMedalCase() + boardHtml() +
+            `<button class="ag-btn" id="again-btn">PLAY AGAIN</button>`;
+        modal.style.display = 'block';
+        document.getElementById('again-btn').addEventListener('click', () => { sfx.select(); startRun(); });
+    };
+    submitScore(finalScore, finish);
+}
+
+function victory() {
+    G.phase = 'victory';
+    const finalScore = G.runScore;
+    sfx.victory();
+    const finish = () => {
+        modalContent.innerHTML =
+            `<h1 style="color:#ffd23f">GAUNTLET CLEARED!</h1>` +
+            `<p>All 20 levels down.</p>` +
+            `<p style="color:#eaf6ff;">FINAL SCORE ${finalScore.toLocaleString()}</p>` +
+            renderMedalCase() + boardHtml() +
+            `<button class="ag-btn" id="again-btn">RUN AGAIN</button>`;
+        modal.style.display = 'block';
+        document.getElementById('again-btn').addEventListener('click', () => { sfx.select(); startRun(); });
+    };
+    submitScore(finalScore, finish);
+}
+
+function showStartScreen() {
+    G.phase = 'start';
+    G.ship = null;
+    modalContent.innerHTML =
+        `<h1>ASTEROIDS: GAUNTLET</h1>` +
+        `<p>20 levels. Beat the clock on every one — shoot beacons, break bricks, kill turrets, run mazes and survive the storm.</p>` +
+        `<p style="font-size:0.8rem;color:#7dd3fc;">3 hull per attempt &middot; 3 lives per run &middot; gold/silver/bronze medals for speed</p>` +
+        `<p style="font-size:0.78rem;color:#9fb8c8;">PC: WASD or Arrows to fly, SPACE to fire.<br>Mobile: drag to steer, tap a 2nd finger to fire.</p>` +
+        renderMedalCase() +
+        `<button class="ag-btn" id="start-btn">START RUN</button>`;
+    modal.style.display = 'block';
+    document.getElementById('start-btn').addEventListener('click', () => { ensureAudio(); sfx.select(); startRun(); });
+}
+
+// =========================================================================
+// Update loop
+// =========================================================================
+function update(dt) {
+    if (G.banner.timer > 0) G.banner.timer -= dt;
+    G.beacons.forEach(b => { if (b.flash > 0) b.flash -= dt; });
+
+    if (G.phase !== 'playing') {
+        G.particles.forEach(p => p.update(dt));
+        G.particles = G.particles.filter(p => p.isAlive);
+        return;
+    }
+
+    handleFiring(G.ship, dt);
+    G.ship.updatePhysics(dt);
+    updateShipCollisions();
+    if (G.phase !== 'playing') return; // hull breach may have failed the level
+
+    G.turrets.forEach(t => t.update(dt));
+    updateBullets(dt);
+    updateRockets(dt);
+    updatePickups(dt);
+    updateStorm(dt);
+    updateFinale();
+
+    G.particles.forEach(p => p.update(dt));
+    G.particles = G.particles.filter(p => p.isAlive);
+
+    G.timeLeft -= dt;
+    if (G.timeLeft <= 0) { G.timeLeft = 0; failLevel('TIME UP'); return; }
+
+    if (objectiveComplete()) completeLevel();
+}
+window.update = update;
+
+// =========================================================================
+// Rendering
+// =========================================================================
+function drawObstacleRect(r) {
+    if (r.type === 'crack') {
+        ctx.fillStyle = '#2a1710'; ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.strokeStyle = '#ffbb33'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    } else {
+        ctx.fillStyle = 'rgba(178, 107, 255, 0.18)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.strokeStyle = '#b26bff'; ctx.lineWidth = 2; ctx.shadowColor = '#b26bff'; ctx.shadowBlur = 8;
+        ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); ctx.shadowBlur = 0;
+    }
+}
+function drawCircleObstacle(c) {
+    const spin = c.ref.spin + performance.now() / 1000 * 0.4;
+    ctx.save(); ctx.translate(c.x, c.y);
+    if (c.type === 'crack') {
+        ctx.fillStyle = '#2a1710'; ctx.beginPath(); ctx.arc(0, 0, c.r, 0, PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffbb33'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, 0, c.r - 1, 0, PI * 2); ctx.stroke();
+    } else {
+        ctx.fillStyle = 'rgba(178, 107, 255, 0.15)'; ctx.beginPath(); ctx.arc(0, 0, c.r, 0, PI * 2); ctx.fill();
+        ctx.strokeStyle = '#b26bff'; ctx.lineWidth = 2.5; ctx.shadowColor = '#b26bff'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(0, 0, c.r - 1, 0, PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(178, 107, 255, 0.5)'; ctx.lineWidth = 1.5; ctx.rotate(spin);
+        ctx.beginPath(); ctx.moveTo(-c.r * 0.6, 0); ctx.lineTo(c.r * 0.6, 0); ctx.stroke();
+    }
+    ctx.restore(); ctx.shadowBlur = 0;
+}
+function drawTunnelObstacle(tg) {
+    ctx.save(); ctx.translate(tg.x, tg.y);
+    for (const seg of tg.segments) {
+        if (seg.destroyed) continue;
+        const c = tg.spin + seg.center0, a0 = c - seg.half, a1 = c + seg.half;
+        ctx.beginPath(); ctx.arc(0, 0, tg.outerR, a0, a1, false); ctx.arc(0, 0, tg.innerR, a1, a0, true); ctx.closePath();
+        ctx.fillStyle = '#2a1710'; ctx.fill();
+        const wear = seg.hp / seg.maxHp;
+        ctx.strokeStyle = `rgba(255, 187, 51, ${(0.5 + 0.5 * wear).toFixed(2)})`; ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#ffbb33'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+}
+function drawBrick(b) {
+    if (b.destroyed) return;
+    ctx.fillStyle = b.steel ? 'rgba(184,196,208,0.5)' : b.color;
+    if (b.explosive) { ctx.shadowColor = '#ff8a3d'; ctx.shadowBlur = 10; }
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(b.x, b.y, b.w, b.h);
+    if (b.explosive) { ctx.fillStyle = '#2a1710'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('E', b.x + b.w / 2, b.y + b.h / 2); }
+}
+
+function drawHUD() {
+    // timer
+    const secs = G.timeLeft;
+    const paceKey = medalFor(G.timeLimit - secs, G.levelDef.gold);
+    ctx.fillStyle = MEDAL[paceKey].color;
+    ctx.font = 'bold 24px "Space Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(fmtTime(secs), W / 2, 12);
+
+    // objective progress
+    ctx.fillStyle = '#9fb8c8'; ctx.font = 'bold 13px "Space Mono", monospace';
+    ctx.fillText(objectiveProgress(), W / 2, 40);
+
+    // level indicator
+    ctx.textAlign = 'left'; ctx.fillStyle = '#7dd3fc'; ctx.font = 'bold 14px "Space Mono", monospace';
+    ctx.fillText(`LVL ${G.levelIndex + 1}/${TOTAL_LEVELS}`, 18, 14);
+
+    // hull pips
+    for (let i = 0; i < G.ship.maxHull; i++) {
+        ctx.fillStyle = i < G.ship.hull ? '#7dff9d' : 'rgba(125,255,157,0.2)';
+        ctx.fillRect(18 + i * 16, 36, 12, 12);
+    }
+    // lives
+    ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = 'bold 14px "Space Mono", monospace';
+    ctx.fillText('LIVES ' + G.lives, W - 18, 14);
+    ctx.fillStyle = '#7dff9d'; ctx.font = 'bold 13px "Space Mono", monospace';
+    ctx.fillText('SCORE ' + G.runScore.toLocaleString(), W - 18, 36);
+
+    // active powerup chips
+    const chips = [];
+    if (G.ship.shielded) chips.push(['S', G.ship.shieldTimer]);
+    if (G.ship.bazookaArmed) chips.push(['B', null]);
+    if (G.ship.rapid) chips.push(['R', G.ship.rapidTimer]);
+    if (G.ship.speedBoost) chips.push(['>', G.ship.speedTimer]);
+    if (G.ship.ghost) chips.push(['G', G.ship.ghostTimer]);
+    chips.forEach((c, i) => {
+        const cy = 60 + i * 18;
+        ctx.save(); ctx.translate(24, cy); drawPowerupIcon(c[0], 6, POWERUP_INFO[c[0]].color); ctx.restore();
+        if (c[1] != null) { ctx.textAlign = 'left'; ctx.fillStyle = POWERUP_INFO[c[0]].color; ctx.font = '11px monospace'; ctx.fillText(c[1].toFixed(1) + 's', 34, cy - 6); }
+    });
+
+    if (DEV) {
+        ctx.textAlign = 'left'; ctx.fillStyle = '#ff66ff'; ctx.font = '11px monospace';
+        const p = parTimes(G.levelDef.gold);
+        ctx.fillText(`DEV elapsed ${fmtTime(G.timeLimit - G.timeLeft)} | gold ${p.gold} silver ${p.silver} bronze ${p.bronze}`, 18, H - 20);
+    }
+}
+
+function drawBanner() {
+    ctx.save(); ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(W / 2 - 200, H / 2 - 90, 400, G.banner.sub ? 60 : 44);
+    ctx.fillStyle = G.banner.color; ctx.font = 'bold 26px "Space Mono", monospace'; ctx.textBaseline = 'middle';
+    ctx.fillText(G.banner.text, W / 2, H / 2 - 90 + 22);
+    if (G.banner.sub) { ctx.font = '14px "Space Mono", monospace'; ctx.fillStyle = '#ffffff'; ctx.fillText(G.banner.sub, W / 2, H / 2 - 90 + 44); }
+    ctx.restore();
+}
+
+function render() {
+    ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, W, H);
+
+    G.obstacles.walls.forEach(wall => wallCells(wall).forEach(drawObstacleRect));
+    G.obstacles.blocks.forEach(b => { if (!b.destroyed) drawObstacleRect(blockRect(b)); });
+    G.obstacles.circles.forEach(c => { if (!c.destroyed) drawCircleObstacle(circleGeom(c)); });
+    G.obstacles.tunnels.forEach(t => drawTunnelObstacle(tunnelGeom(t)));
+    G.bricks.forEach(drawBrick);
+    if (G.gate) G.gate.draw();
+    G.beacons.forEach(b => b.draw());
+    G.turrets.forEach(t => t.draw());
+    G.cores.forEach(c => c.draw());
+    G.powerups.forEach(drawPowerup);
+    G.cursed.forEach(c => c.draw());
+    G.particles.forEach(p => p.draw());
+    G.bullets.forEach(b => b.draw());
+    G.rockets.forEach(r => r.draw());
+    if (G.ship) G.ship.draw();
+
+    if (G.ship && (G.phase === 'playing')) drawHUD();
+    if (G.banner.timer > 0 && G.phase === 'playing') drawBanner();
+}
+
+// =========================================================================
+// Input
+// =========================================================================
+const MOVE_KEYMAP = {
+    KeyA: 'turnLeft', ArrowLeft: 'turnLeft',
+    KeyD: 'turnRight', ArrowRight: 'turnRight',
+    KeyW: 'thrusting', ArrowUp: 'thrusting'
+};
+const FIRE_CODES = new Set(['Space', 'ShiftLeft', 'Enter']);
+const PREVENT = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
+const fireDown = new Set();
+
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') {
+        if (G.phase === 'start') window.location.href = 'index.html';
+        else showStartScreen();
+        return;
+    }
+    if (PREVENT.has(e.code)) e.preventDefault();
+    if (!G.ship || G.phase !== 'playing') {
+        // allow fire/space to dismiss the intro card
+        if ((e.code === 'Space' || e.code === 'Enter') && G.phase === 'intro') { sfx.select(); beginLevel(); }
+        return;
+    }
+    ensureAudio();
+    const m = MOVE_KEYMAP[e.code];
+    if (m) G.ship[m] = true;
+    if (FIRE_CODES.has(e.code)) { fireDown.add(e.code); G.ship.fireHeld = true; }
+});
+document.addEventListener('keyup', (e) => {
+    if (!G.ship) return;
+    const m = MOVE_KEYMAP[e.code];
+    if (m) G.ship[m] = false;
+    if (FIRE_CODES.has(e.code)) { fireDown.delete(e.code); G.ship.fireHeld = fireDown.size > 0; }
+});
+
+// Touch: one finger drags a virtual stick to steer/thrust; a second finger
+// held down auto-fires (from Maze, but hold-to-fire instead of tap-per-shot).
+const TOUCH_DEADZONE = 10, TOUCH_MAX_PULL = 90;
+let moveTouchId = null, touchAnchor = null;
+const fireTouchIds = new Set();
+function canvasPos(e) { const rect = canvas.getBoundingClientRect(); return { x: (e.clientX - rect.left) / rect.width * W, y: (e.clientY - rect.top) / rect.height * H }; }
+function setupTouch() {
+    canvas.addEventListener('pointerdown', (e) => {
+        if (G.phase === 'intro') { sfx.select(); beginLevel(); return; }
+        if (!G.ship || G.phase !== 'playing') return;
+        e.preventDefault(); ensureAudio();
+        if (moveTouchId === null) {
+            moveTouchId = e.pointerId; touchAnchor = canvasPos(e);
+            try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        } else { fireTouchIds.add(e.pointerId); G.ship.fireHeld = true; }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== moveTouchId || !touchAnchor || !G.ship) return;
+        e.preventDefault();
+        const pos = canvasPos(e);
+        const dx = pos.x - touchAnchor.x, dy = pos.y - touchAnchor.y, d = Math.hypot(dx, dy);
+        if (d > TOUCH_DEADZONE) {
+            G.ship.angle = Math.atan2(dy, dx);
+            G.ship.thrusting = true;
+            G.ship.turnLeft = false; G.ship.turnRight = false;
+            G.ship.thrustScale = Math.min(1, d / TOUCH_MAX_PULL);
+        } else { G.ship.thrusting = false; }
+    });
+    const endPtr = (e) => {
+        if (e.pointerId === moveTouchId) {
+            moveTouchId = null; touchAnchor = null;
+            if (G.ship) { G.ship.thrusting = false; G.ship.thrustScale = 1; }
+        } else if (fireTouchIds.has(e.pointerId)) {
+            fireTouchIds.delete(e.pointerId);
+            if (G.ship) G.ship.fireHeld = fireTouchIds.size > 0;
+        }
+    };
+    canvas.addEventListener('pointerup', endPtr);
+    canvas.addEventListener('pointercancel', endPtr);
+}
+
+// =========================================================================
+// Audio (tone helper from Duel)
+// =========================================================================
+let audioCtx = null;
+function ensureAudio() {
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; audioCtx = new AC(); }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone(freq, dur, type, vol, slideTo, when) {
+    if (!audioCtx || muted) return;
+    const t0 = audioCtx.currentTime + (when || 0);
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = type || 'square'; osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    gain.gain.setValueAtTime(vol || 0.06, t0); gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(audioCtx.destination); osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+const sfx = {
+    shoot: () => tone(700, 0.04, 'square', 0.03, 400),
+    hit: () => tone(220, 0.1, 'sawtooth', 0.06, 90),
+    turret: () => tone(300, 0.06, 'square', 0.03, 180),
+    bazookaFire: () => { tone(160, 0.2, 'sawtooth', 0.08, 60); tone(400, 0.1, 'square', 0.05, 200); },
+    boom: () => { tone(130, 0.35, 'sawtooth', 0.1, 30); tone(65, 0.4, 'square', 0.08, 25); },
+    powerup: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.05)),
+    cursed: () => [400, 300, 200].forEach((f, i) => tone(f, 0.1, 'sawtooth', 0.06, undefined, i * 0.05)),
+    core: () => [660, 990].forEach((f, i) => tone(f, 0.07, 'square', 0.05, undefined, i * 0.05)),
+    brick: () => tone(520, 0.05, 'square', 0.04, 700),
+    beaconHit: () => tone(500, 0.05, 'square', 0.04, 700),
+    beaconDown: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.08, 'square', 0.05, undefined, i * 0.04)),
+    overheat: () => tone(200, 0.3, 'sawtooth', 0.08, 60),
+    levelClear: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, 'square', 0.06, undefined, i * 0.08)),
+    fail: () => [330, 220, 130].forEach((f, i) => tone(f, 0.2, 'sawtooth', 0.07, undefined, i * 0.1)),
+    gameover: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.25, 'sawtooth', 0.07, undefined, i * 0.14)),
+    victory: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, 'square', 0.06, undefined, i * 0.12)),
+    select: () => tone(660, 0.05, 'square', 0.04)
+};
+
+muteBtn.textContent = 'SOUND: ' + (muted ? 'OFF' : 'ON');
+muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem(LS.muted, muted ? '1' : '0');
+    muteBtn.textContent = 'SOUND: ' + (muted ? 'OFF' : 'ON');
+    if (!muted) { ensureAudio(); sfx.select(); }
+});
+
+// =========================================================================
+// Layout / boot
+// =========================================================================
+function resizeCanvas() {
+    const rect = canvasWrap.getBoundingClientRect();
+    const availW = Math.max(200, Math.floor(rect.width));
+    const availH = Math.max(200, Math.floor(rect.height));
+    const scale = Math.min(availW / W, availH / H);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(W * scale * dpr);
+    canvas.height = Math.floor(H * scale * dpr);
+    canvas.style.width = (W * scale) + 'px';
+    canvas.style.height = (H * scale) + 'px';
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+}
+
+let lastT = 0;
+function loop(ts) {
+    const t = ts / 1000;
+    const dt = Math.min(0.05, t - lastT || 0.016);
+    lastT = t;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+}
+
+resizeCanvas();
+let resizeRAF;
+window.addEventListener('resize', () => { cancelAnimationFrame(resizeRAF); resizeRAF = requestAnimationFrame(resizeCanvas); });
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
+setupTouch();
+
+document.addEventListener('visibilitychange', () => {
+    // Pause the countdown by resetting the frame clock when we come back.
+    if (!document.hidden) lastT = performance.now() / 1000;
+});
+
+showStartScreen();
+requestAnimationFrame(loop);
+
+// =========================================================================
+// Dev / test hooks
+// =========================================================================
+window.state = G;
+window.renderFrame = render;
+window.gotoLevel = function (n) { G.lives = Math.max(G.lives, 3); showIntro(clamp(n - 1, 0, TOTAL_LEVELS - 1)); };
+window.beginLevelTest = function () { if (G.phase === 'intro') beginLevel(); };
+window.winLevel = function () { if (G.phase === 'playing') completeLevel(); };
+window.setHull = function (h) { if (G.ship) G.ship.hull = h; };
+</script>
+</body>
+</html>

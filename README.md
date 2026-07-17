@@ -144,6 +144,22 @@ Drag a cartridge into the console (or tap one) to play.
    death** — next hit wins. P1 uses WASD + Space, P2 uses the arrow keys +
    Enter.
 
+10. **Asteroids: Gauntlet**  
+   Direct link: [https://zack0liver.github.io/games/index_asteroids_gauntlet.html](https://zack0liver.github.io/games/index_asteroids_gauntlet.html)  
+   A single-player, 20-level time-trial gauntlet built on the Duel ship
+   physics, weapons and pickups. Every level is one screen with a **countdown
+   timer** and gold/silver/bronze **medals** for finishing fast — you get 3
+   hull per attempt and 3 lives per run, straight through to a combined
+   finale. Objectives rotate: shoot all the **beacons**, break every cracked
+   obstacle, thread a moving **maze** to the gate, destroy **laser turrets**
+   (sweep, tracking and burst-fire), collect cyan cores through a **storm** of
+   cursed pickups (reverse steering, engine stall, powerup drain), and
+   **brick-breaker** levels that carve Neon Breakout pattern grids (SMILEY,
+   FORTRESS, explosive-chain DIAMOND) with your guns — the bazooka clears
+   clusters. Score comes from time remaining plus medal and no-damage bonuses
+   and lands on the shared arcade leaderboard. PC: WASD/Arrows to fly, SPACE
+   to fire; mobile: drag to steer, second finger to auto-fire.
+
 ## Planned Enhancements
 
 ### Asteroids: Duel
