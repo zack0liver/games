@@ -1279,12 +1279,15 @@ function hurtShip(cause) {
 function explodeRocket(rocket) {
     spark(rocket.x, rocket.y, '#ff8a3d', 24);
     sfx.boom();
-    const R = 70;
-    // break cracks + damage entities in radius
+    const R = 85;
+    const BLAST_HITS = 3; // a bazooka blast is a power hit vs hp targets
+    // break cracks + shootable circles/walls + tunnel segments in radius
     for (const b of G.obstacles.blocks) if (!b.destroyed && b.type === 'crack') { const g = blockRect(b); if (dist(rocket.x, rocket.y, g.x + g.w / 2, g.y + g.h / 2) < R) { b.destroyed = true; spark(g.x + g.w / 2, g.y + g.h / 2, '#ffbb33', 10); } }
     for (const c of G.obstacles.circles) if (!c.destroyed && c.type === 'crack') { const g = circleGeom(c); if (dist(rocket.x, rocket.y, g.x, g.y) < R + g.r) { c.destroyed = true; spark(g.x, g.y, '#ffbb33', 10); } }
-    for (const t of G.turrets) if (!t.destroyed && dist(rocket.x, rocket.y, t.x, t.y) < R + t.radius) { if (t.hit()) onTurretDestroyed(t); }
-    for (const bc of G.beacons) if (!bc.destroyed && !bc.inactive && dist(rocket.x, rocket.y, bc.x, bc.y) < R + bc.radius) { if (bc.hit()) sfx.beaconDown(); }
+    for (const w of G.obstacles.walls) for (const cell of wallCells(w)) if (cell.type === 'crack' && !cell.ref.destroyed) { if (dist(rocket.x, rocket.y, cell.x + cell.w / 2, cell.y + cell.h / 2) < R) { cell.ref.destroyed = true; spark(cell.x + cell.w / 2, cell.y + cell.h / 2, '#ffbb33', 10); } }
+    for (const tg of obstacleTunnels()) for (const seg of tg.segments) { if (seg.destroyed) continue; const mid = tg.spin + seg.center0; const sx = tg.x + Math.cos(mid) * (tg.innerR + tg.outerR) / 2, sy = tg.y + Math.sin(mid) * (tg.innerR + tg.outerR) / 2; if (dist(rocket.x, rocket.y, sx, sy) < R) { seg.destroyed = true; spark(sx, sy, '#ffbb33', 12); } }
+    for (const t of G.turrets) if (!t.destroyed && dist(rocket.x, rocket.y, t.x, t.y) < R + t.radius) { for (let h = 0; h < BLAST_HITS && !t.destroyed; h++) if (t.hit()) onTurretDestroyed(t); }
+    for (const bc of G.beacons) if (!bc.destroyed && !bc.inactive && dist(rocket.x, rocket.y, bc.x, bc.y) < R + bc.radius) { let downed = false; for (let h = 0; h < BLAST_HITS && !bc.destroyed; h++) if (bc.hit()) downed = true; if (downed) sfx.beaconDown(); }
     for (const br of G.bricks) if (!br.destroyed && !br.steel && dist(rocket.x, rocket.y, br.x + br.w / 2, br.y + br.h / 2) < R) damageBrick(br, true);
 }
 
@@ -1388,7 +1391,15 @@ function updateRockets(dt) {
         for (const rect of obstacleRects()) { const cx = clamp(r.x, rect.x, rect.x + rect.w), cy = clamp(r.y, rect.y, rect.y + rect.h); if (dist(r.x, r.y, cx, cy) < r.radius) { hit = true; break; } }
         if (!hit) for (const c of obstacleCircles()) if (dist(r.x, r.y, c.x, c.y) < r.radius + c.r) { hit = true; break; }
         if (!hit) for (const t of G.turrets) if (!t.destroyed && dist(r.x, r.y, t.x, t.y) < r.radius + t.radius) { hit = true; break; }
+        if (!hit) for (const bc of G.beacons) if (!bc.destroyed && !bc.inactive && dist(r.x, r.y, bc.x, bc.y) < r.radius + bc.radius) { hit = true; break; }
         if (!hit) for (const br of G.bricks) if (!br.destroyed && r.x > br.x && r.x < br.x + br.w && r.y > br.y && r.y < br.y + br.h) { hit = true; break; }
+        if (!hit) for (const tg of obstacleTunnels()) {
+            const bd = dist(r.x, r.y, tg.x, tg.y);
+            if (bd > tg.outerR + r.radius || bd < tg.innerR - r.radius) continue;
+            const theta = Math.atan2(r.y - tg.y, r.x - tg.x);
+            for (const seg of tg.segments) { if (seg.destroyed) continue; if (Math.abs(angleDiff(theta, tg.spin + seg.center0)) < seg.half) { hit = true; break; } }
+            if (hit) break;
+        }
         if (hit) { r.isAlive = false; explodeRocket(r); continue; }
     }
     G.rockets = G.rockets.filter(r => r.isAlive);
