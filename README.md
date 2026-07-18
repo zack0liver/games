@@ -162,6 +162,25 @@ Drag a cartridge into the console (or tap one) to play.
 
 ## Planned Enhancements
 
+### Arcade-wide
+
+- **Shared, cross-device leaderboard**: today high scores live only in each
+  visitor's browser `localStorage` (`arcade_hs_<slug>`), so scores don't sync
+  across devices or players — Hayes's laptop board and Will's iPad board are
+  separate, and clearing browser data wipes them. A true shared board needs an
+  external backend, since GitHub Pages is static and can't run server code.
+  Sketch: one hosted table (`game_slug`, `name`, `score`, `created_at`); read
+  = top 10 for a slug, write = insert one row. Only `highscores.js` changes —
+  `getBoard`/`recordScore` become async `fetch()` calls with the current
+  localStorage kept as an offline cache/fallback, so every game inherits it
+  with no per-game edits. Recommended backend: **Supabase** (hosted Postgres +
+  auto REST API + free tier; Row-Level Security allows anonymous read + insert,
+  blocks edits/deletes). Alternatives: Cloudflare Workers + D1, or Firebase.
+  Caveat: client-side games compute their own scores, so a determined user can
+  POST fake scores via the public API — fine for a family arcade; if it ever
+  matters, front the DB with a small Cloudflare Worker that does plausibility
+  checks, rate-limits by IP, and keeps the write key server-side.
+
 ### Asteroids: Duel
 
 - **More match modes**: capture-the-flag and time-trial variants beyond the
