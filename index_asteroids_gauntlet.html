@@ -330,7 +330,7 @@ const PATTERNS = {
 const LEVELS = [
     // 1 — BEACON RUN (teach flight + fire)
     {
-        name: 'BEACON RUN', objective: 'beacons', gold: 8,
+        name: 'BEACON RUN', objective: 'beacons', gold: 7,
         intro: 'Shoot all 3 beacons.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         layout: {},
@@ -368,7 +368,7 @@ const LEVELS = [
     },
     // 4 — THE GATE (oscillating bands)
     {
-        name: 'OPEN THE GATE', objective: 'gate', gold: 5,
+        name: 'OPEN THE GATE', objective: 'gate', gold: 5.5,
         intro: 'Weave the moving walls, reach the gate.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         layout: {
@@ -381,7 +381,7 @@ const LEVELS = [
     },
     // 5 — DEMO (break all cracks)
     {
-        name: 'DEMOLITION', objective: 'breakables', gold: 10,
+        name: 'DEMOLITION', objective: 'breakables', gold: 9.5,
         intro: 'Blast every orange block.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         layout: {
@@ -398,7 +398,7 @@ const LEVELS = [
     },
     // 6 — beacons behind cover
     {
-        name: 'FLUSH THEM OUT', objective: 'beacons', gold: 10,
+        name: 'FLUSH THEM OUT', objective: 'beacons', gold: 12,
         intro: 'Angle around cover — shoot all 5 beacons.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         pickups: [{ type: '>', xFrac: 0.2, yFrac: 0.5, at: 0 }],
@@ -421,7 +421,7 @@ const LEVELS = [
     },
     // 8 — TURRETS: sweep, destroy all
     {
-        name: 'PEEK AND POP', objective: 'turrets', gold: 11,
+        name: 'PEEK AND POP', objective: 'turrets', gold: 7.5,
         intro: 'Destroy both turrets. Use cover.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.24, yFrac: 0.5, at: 0 }],
@@ -435,7 +435,7 @@ const LEVELS = [
     },
     // 9 — GATE: corridors
     {
-        name: 'THE SERPENT', objective: 'gate', gold: 12,
+        name: 'THE SERPENT', objective: 'gate', gold: 5,
         intro: 'Thread the corridors to the far gate.',
         spawn: { xFrac: 0.06, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'G', xFrac: 0.14, yFrac: 0.5, at: 0 }],
@@ -444,7 +444,7 @@ const LEVELS = [
     },
     // 10 — STORM: 4 cores, slow
     {
-        name: 'CURSE STORM', objective: 'storm', gold: 12,
+        name: 'CURSE STORM', objective: 'storm', gold: 13,
         intro: 'Grab all 4 cyan cores. Dodge the cursed rain.',
         spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.5, yFrac: 0.5, at: 0 }],
@@ -456,7 +456,7 @@ const LEVELS = [
     },
     // 11 — BREAKABLES in spinning ring
     {
-        name: 'CORE BREACH', objective: 'breakables', gold: 13,
+        name: 'CORE BREACH', objective: 'breakables', gold: 9,
         intro: 'Shoot the cracks — some hide inside the ring.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }],
@@ -471,7 +471,7 @@ const LEVELS = [
     },
     // 12 — BEACONS + harassing tracking turret
     {
-        name: 'UNDER FIRE', objective: 'beacons', gold: 14,
+        name: 'UNDER FIRE', objective: 'beacons', gold: 18,
         intro: 'Shoot all 6 beacons while the turret hunts you.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.16, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.5, yFrac: 0.5, at: 6 }],
@@ -484,7 +484,7 @@ const LEVELS = [
     },
     // 13 — BRICKS: FORTRESS
     {
-        name: 'FORTRESS', objective: 'bricks', gold: 15,
+        name: 'FORTRESS', objective: 'bricks', gold: 10,
         intro: 'Thread shots through the steel columns.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.2, yFrac: 0.85, at: 7 }],
@@ -493,7 +493,7 @@ const LEVELS = [
     },
     // 14 — GATE: moving maze + sealed crack wall
     {
-        name: 'SEALED VAULT', objective: 'gate', gold: 15,
+        name: 'SEALED VAULT', objective: 'gate', gold: 4.5,
         intro: 'Shoot open the orange seal, then reach the gate.',
         spawn: { xFrac: 0.07, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'G', xFrac: 0.16, yFrac: 0.5, at: 0 }],
