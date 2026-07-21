@@ -195,7 +195,7 @@
 <script>
 'use strict';
 // =========================================================================
-// Asteroids: Gauntlet — single-player, 20-level time-trial gauntlet.
+// Asteroids: Gauntlet — single-player, 22-level time-trial gauntlet.
 // Ship physics, weapons, powerups, obstacle geometry and audio are ported
 // from Asteroids: Duel (which itself ported them from Maze Edition). Brick
 // levels borrow the pattern-mask grids from Neon Breakout. Each level is a
@@ -214,7 +214,7 @@ const PI = Math.PI;
 const W = 1200, H = 675;
 const WALL_H = 16;
 const SLUG = 'asteroids-gauntlet';
-const TOTAL_LEVELS = 20;
+const TOTAL_LEVELS = 22;
 
 const rand = (min, max) => Math.random() * (max - min) + min;
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
@@ -324,21 +324,51 @@ const PATTERNS = {
 };
 
 // =========================================================================
-// 20-level roster. Each level declares an objective + layout + a single gold
+// 22-level roster. Each level declares an objective + layout + a single gold
 // par (seconds). Coordinates are fractions of the 1200x675 arena.
 // =========================================================================
 const LEVELS = [
     // 1 — BEACON RUN (teach flight + fire)
     {
-        name: 'BEACON RUN', objective: 'beacons', gold: 12,
+        name: 'BEACON RUN', objective: 'beacons', gold: 8,
         intro: 'Shoot all 3 beacons.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         layout: {},
         beacons: [{ xFrac: 0.45, yFrac: 0.25 }, { xFrac: 0.72, yFrac: 0.55 }, { xFrac: 0.55, yFrac: 0.80 }]
     },
-    // 2 — THE GATE (oscillating bands)
+    // 2 — SCATTER SHOT (4 beacons, static pillars)
     {
-        name: 'OPEN THE GATE', objective: 'gate', gold: 14,
+        name: 'SCATTER SHOT', objective: 'beacons', gold: 10,
+        intro: 'Shoot all 4 beacons. Mind the pillars.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        layout: {
+            blocks: [
+                { xFrac: 0.45, yFrac: 0.18, wFrac: 0.02, hFrac: 0.28, type: 'solid' },
+                { xFrac: 0.45, yFrac: 0.54, wFrac: 0.02, hFrac: 0.28, type: 'solid' }
+            ]
+        },
+        beacons: [{ xFrac: 0.35, yFrac: 0.25 }, { xFrac: 0.35, yFrac: 0.75 }, { xFrac: 0.68, yFrac: 0.30 }, { xFrac: 0.68, yFrac: 0.70 }]
+    },
+    // 3 — PINBALL (5 beacons, central circle + drifting pillars)
+    {
+        name: 'PINBALL', objective: 'beacons', gold: 12,
+        intro: 'Five beacons among drifting cover — thread your shots.',
+        spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
+        layout: {
+            circles: [{ xFrac: 0.40, yFrac: 0.5, rFrac: 0.05, type: 'solid' }],
+            blocks: [
+                { xFrac: 0.62, yFrac: 0.10, wFrac: 0.02, hFrac: 0.30, type: 'solid', osc: { amp: 0.05, speed: 0.8, phase: 0, axis: 'y' } },
+                { xFrac: 0.62, yFrac: 0.60, wFrac: 0.02, hFrac: 0.30, type: 'solid', osc: { amp: 0.05, speed: 0.8, phase: PI, axis: 'y' } }
+            ]
+        },
+        beacons: [
+            { xFrac: 0.30, yFrac: 0.22 }, { xFrac: 0.30, yFrac: 0.78 }, { xFrac: 0.55, yFrac: 0.5 },
+            { xFrac: 0.80, yFrac: 0.30 }, { xFrac: 0.80, yFrac: 0.70 }
+        ]
+    },
+    // 4 — THE GATE (oscillating bands)
+    {
+        name: 'OPEN THE GATE', objective: 'gate', gold: 5,
         intro: 'Weave the moving walls, reach the gate.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         layout: {
@@ -349,9 +379,9 @@ const LEVELS = [
         },
         gate: { xFrac: 0.90, yFrac: 0.20 }
     },
-    // 3 — DEMO (break all cracks)
+    // 5 — DEMO (break all cracks)
     {
-        name: 'DEMOLITION', objective: 'breakables', gold: 16,
+        name: 'DEMOLITION', objective: 'breakables', gold: 10,
         intro: 'Blast every orange block.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         layout: {
@@ -366,9 +396,9 @@ const LEVELS = [
             ]
         }
     },
-    // 4 — beacons behind cover
+    // 6 — beacons behind cover
     {
-        name: 'FLUSH THEM OUT', objective: 'beacons', gold: 20,
+        name: 'FLUSH THEM OUT', objective: 'beacons', gold: 10,
         intro: 'Angle around cover — shoot all 5 beacons.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         pickups: [{ type: '>', xFrac: 0.2, yFrac: 0.5, at: 0 }],
@@ -380,18 +410,18 @@ const LEVELS = [
         },
         beacons: [{ xFrac: 0.40, yFrac: 0.22 }, { xFrac: 0.40, yFrac: 0.78 }, { xFrac: 0.62, yFrac: 0.35 }, { xFrac: 0.62, yFrac: 0.65 }, { xFrac: 0.80, yFrac: 0.50 }]
     },
-    // 5 — BRICKS: SMILEY
+    // 7 — BRICKS: SMILEY
     {
-        name: 'CARVE THE GRIN', objective: 'bricks', gold: 22,
+        name: 'CARVE THE GRIN', objective: 'bricks', gold: 11,
         intro: 'Break every brick with your guns.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'R', xFrac: 0.22, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.5, yFrac: 0.88, at: 8 }],
         layout: {},
         bricks: { pattern: 'SMILEY', origin: { xFrac: 0.30, yFrac: 0.22 }, cell: 0.058, steelLevel: false }
     },
-    // 6 — TURRETS: sweep, destroy all
+    // 8 — TURRETS: sweep, destroy all
     {
-        name: 'PEEK AND POP', objective: 'turrets', gold: 22,
+        name: 'PEEK AND POP', objective: 'turrets', gold: 11,
         intro: 'Destroy both turrets. Use cover.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.24, yFrac: 0.5, at: 0 }],
@@ -403,18 +433,18 @@ const LEVELS = [
             { xFrac: 0.75, yFrac: 0.75, hp: 4, mode: 'sweep', fireInterval: 1.6, projSpeed: 300 }
         ]
     },
-    // 7 — GATE: corridors
+    // 9 — GATE: corridors
     {
-        name: 'THE SERPENT', objective: 'gate', gold: 24,
+        name: 'THE SERPENT', objective: 'gate', gold: 12,
         intro: 'Thread the corridors to the far gate.',
         spawn: { xFrac: 0.06, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'G', xFrac: 0.14, yFrac: 0.5, at: 0 }],
         layout: { generate: genCorridors },
         gate: { xFrac: 0.93, yFrac: 0.5 }
     },
-    // 8 — STORM: 4 cores, slow
+    // 10 — STORM: 4 cores, slow
     {
-        name: 'CURSE STORM', objective: 'storm', gold: 24,
+        name: 'CURSE STORM', objective: 'storm', gold: 12,
         intro: 'Grab all 4 cyan cores. Dodge the cursed rain.',
         spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.5, yFrac: 0.5, at: 0 }],
@@ -424,9 +454,9 @@ const LEVELS = [
             rate: 1.3, speed: 150
         }
     },
-    // 9 — BREAKABLES in spinning ring
+    // 11 — BREAKABLES in spinning ring
     {
-        name: 'CORE BREACH', objective: 'breakables', gold: 26,
+        name: 'CORE BREACH', objective: 'breakables', gold: 13,
         intro: 'Shoot the cracks — some hide inside the ring.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }],
@@ -439,9 +469,9 @@ const LEVELS = [
             ]
         }
     },
-    // 10 — BEACONS + harassing tracking turret
+    // 12 — BEACONS + harassing tracking turret
     {
-        name: 'UNDER FIRE', objective: 'beacons', gold: 28,
+        name: 'UNDER FIRE', objective: 'beacons', gold: 14,
         intro: 'Shoot all 6 beacons while the turret hunts you.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.16, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.5, yFrac: 0.5, at: 6 }],
@@ -452,18 +482,18 @@ const LEVELS = [
         ],
         turrets: [{ xFrac: 0.5, yFrac: 0.5, hp: 999, mode: 'track', fireInterval: 1.9, projSpeed: 300, invincible: true }]
     },
-    // 11 — BRICKS: FORTRESS
+    // 13 — BRICKS: FORTRESS
     {
-        name: 'FORTRESS', objective: 'bricks', gold: 30,
+        name: 'FORTRESS', objective: 'bricks', gold: 15,
         intro: 'Thread shots through the steel columns.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }, { type: 'R', xFrac: 0.2, yFrac: 0.85, at: 7 }],
         layout: {},
         bricks: { pattern: 'FORTRESS', origin: { xFrac: 0.30, yFrac: 0.24 }, cell: 0.06, steelLevel: true }
     },
-    // 12 — GATE: moving maze + sealed crack wall
+    // 14 — GATE: moving maze + sealed crack wall
     {
-        name: 'SEALED VAULT', objective: 'gate', gold: 30,
+        name: 'SEALED VAULT', objective: 'gate', gold: 15,
         intro: 'Shoot open the orange seal, then reach the gate.',
         spawn: { xFrac: 0.07, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'G', xFrac: 0.16, yFrac: 0.5, at: 0 }],
@@ -478,9 +508,9 @@ const LEVELS = [
         },
         gate: { xFrac: 0.90, yFrac: 0.5 }
     },
-    // 13 — TURRETS: 3 in scrapyard
+    // 15 — TURRETS: 3 in scrapyard
     {
-        name: 'SCRAPYARD DUEL', objective: 'turrets', gold: 30,
+        name: 'SCRAPYARD DUEL', objective: 'turrets', gold: 15,
         intro: 'Destroy all 3 turrets amid the debris.',
         spawn: { xFrac: 0.09, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.16, yFrac: 0.5, at: 0 }, { type: '+', xFrac: 0.5, yFrac: 0.5, at: 5 }],
@@ -491,9 +521,9 @@ const LEVELS = [
             { xFrac: 0.55, yFrac: 0.78, hp: 4, mode: 'track', fireInterval: 2.0, projSpeed: 300 }
         ]
     },
-    // 14 — STORM: 5 cores, fast, decoys
+    // 16 — STORM: 5 cores, fast, decoys
     {
-        name: 'MAELSTROM', objective: 'storm', gold: 30,
+        name: 'MAELSTROM', objective: 'storm', gold: 15,
         intro: 'Collect all 5 cores through the heavy storm.',
         spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
         pickups: [{ type: '>', xFrac: 0.5, yFrac: 0.5, at: 0 }],
@@ -503,9 +533,9 @@ const LEVELS = [
             rate: 0.7, speed: 240
         }
     },
-    // 15 — BREAKABLES: demolition derby (bazooka)
+    // 17 — BREAKABLES: demolition derby (bazooka)
     {
-        name: 'WRECKING CREW', objective: 'breakables', gold: 30,
+        name: 'WRECKING CREW', objective: 'breakables', gold: 15,
         intro: 'Level every crack. The bazooka clears clusters fast.',
         spawn: { xFrac: 0.09, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.18, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.5, yFrac: 0.85, at: 9 }, { type: 'B', xFrac: 0.5, yFrac: 0.15, at: 18 }],
@@ -520,9 +550,9 @@ const LEVELS = [
             ])
         }
     },
-    // 16 — BEACONS: 7, two inside rings
+    // 18 — BEACONS: 7, two inside rings
     {
-        name: 'RINGMASTER', objective: 'beacons', gold: 32,
+        name: 'RINGMASTER', objective: 'beacons', gold: 16,
         intro: 'Shoot all 7 beacons — two hide in spinning rings.',
         spawn: { xFrac: 0.08, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'R', xFrac: 0.16, yFrac: 0.5, at: 0 }],
@@ -537,9 +567,9 @@ const LEVELS = [
             { xFrac: 0.5, yFrac: 0.85 }, { xFrac: 0.82, yFrac: 0.3 }, { xFrac: 0.82, yFrac: 0.5 }, { xFrac: 0.2, yFrac: 0.7 }
         ]
     },
-    // 17 — BRICKS: DIAMOND (explosive) + sniping turret
+    // 19 — BRICKS: DIAMOND (explosive) + sniping turret
     {
-        name: 'CHAIN REACTION', objective: 'bricks', gold: 34,
+        name: 'CHAIN REACTION', objective: 'bricks', gold: 17,
         intro: 'Explosive bricks chain — a sniper watches. Break them all.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'B', xFrac: 0.2, yFrac: 0.5, at: 0 }, { type: 'S', xFrac: 0.2, yFrac: 0.85, at: 6 }],
@@ -547,9 +577,9 @@ const LEVELS = [
         bricks: { pattern: 'DIAMOND', origin: { xFrac: 0.33, yFrac: 0.10 }, cell: 0.052, steelLevel: false },
         turrets: [{ xFrac: 0.9, yFrac: 0.5, hp: 999, mode: 'burst', fireInterval: 2.6, projSpeed: 320, invincible: true }]
     },
-    // 18 — TURRETS: 4, burst
+    // 20 — TURRETS: 4, burst
     {
-        name: 'CROSSFIRE', objective: 'turrets', gold: 34,
+        name: 'CROSSFIRE', objective: 'turrets', gold: 17,
         intro: 'Four turrets, little cover. Take them all down.',
         spawn: { xFrac: 0.5, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.5, yFrac: 0.5, at: 0 }, { type: 'G', xFrac: 0.5, yFrac: 0.5, at: 8 }, { type: '+', xFrac: 0.5, yFrac: 0.5, at: 16 }],
@@ -561,9 +591,9 @@ const LEVELS = [
             { xFrac: 0.85, yFrac: 0.82, hp: 5, mode: 'track', fireInterval: 2.1, projSpeed: 320 }
         ]
     },
-    // 19 — GATE + storm dressing
+    // 21 — GATE + storm dressing
     {
-        name: 'EYE OF THE STORM', objective: 'gate', gold: 34,
+        name: 'EYE OF THE STORM', objective: 'gate', gold: 17,
         intro: 'Reach the gate through the maze while cursed rain falls.',
         spawn: { xFrac: 0.06, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.14, yFrac: 0.5, at: 0 }, { type: 'G', xFrac: 0.5, yFrac: 0.5, at: 7 }],
@@ -576,9 +606,9 @@ const LEVELS = [
         storm: { cores: [], rate: 1.1, speed: 200 },
         gate: { xFrac: 0.92, yFrac: 0.5 }
     },
-    // 20 — FINALE
+    // 22 — FINALE
     {
-        name: 'THE GAUNTLET', objective: 'finale', gold: 40,
+        name: 'THE GAUNTLET', objective: 'finale', gold: 20,
         intro: 'Kill 2 turrets, then the 3 beacons light — shoot them, then fly the ring gate.',
         spawn: { xFrac: 0.10, yFrac: 0.5, angle: 0 },
         pickups: [{ type: 'S', xFrac: 0.18, yFrac: 0.5, at: 0 }, { type: 'B', xFrac: 0.18, yFrac: 0.85, at: 0 }, { type: 'R', xFrac: 0.18, yFrac: 0.15, at: 10 }],
@@ -1524,7 +1554,10 @@ function updateShipCollisions() {
         for (const rect of obstacleRects()) if (resolveCircleRect(p, rect.x, rect.y, rect.w, rect.h, 0.35)) hit = true;
         for (const c of obstacleCircles()) if (resolveCircleCircle(p, c.x, c.y, c.r, 0.35)) hit = true;
         for (const tg of obstacleTunnels()) if (resolveTunnelObstacle(p, tg)) hit = true;
-        for (const bc of G.beacons) if (!bc.destroyed) if (resolveCircleCircle(p, bc.x, bc.y, bc.radius, 0.35)) hit = true;
+        // Beacons are shoot-only objectives: the ship must approach to fire at them, so
+        // solid ship-vs-beacon contact (which routes through hurtShip('wall') below) unfairly
+        // cost a hull point / the no-damage bonus and could fail the level on a mere nudge.
+        // Beacons still block enemy fire (see enemy-projectile path) and take gun/rocket hits.
         for (const t of G.turrets) if (!t.destroyed) if (resolveCircleCircle(p, t.x, t.y, t.radius, 0.35)) hit = true;
         for (const br of G.bricks) if (!br.destroyed) if (resolveCircleRect(p, br.x, br.y, br.w, br.h, 0.35)) hit = true;
     }
@@ -1640,7 +1673,7 @@ function completeLevel() {
     const last = G.levelIndex >= TOTAL_LEVELS - 1;
     modalContent.innerHTML =
         `<h1 style="color:${medal.color}">LEVEL CLEAR</h1>` +
-        `<p style="color:#eaf6ff;">${G.levelDef.name}</p>` +
+        `<p style="color:#eaf6ff;">LEVEL ${G.levelIndex + 1} / ${TOTAL_LEVELS} &middot; ${G.levelDef.name}</p>` +
         `<p>TIME ${fmtTime(elapsed)} &middot; <span style="color:${medal.color}">${medal.label} MEDAL</span></p>` +
         `<ul>` +
         `<li><span>TIME BONUS</span><span>${timeBonus.toLocaleString()}</span></li>` +
@@ -1723,7 +1756,7 @@ function victory() {
     const finish = () => {
         modalContent.innerHTML =
             `<h1 style="color:#ffd23f">GAUNTLET CLEARED!</h1>` +
-            `<p>All 20 levels down.</p>` +
+            `<p>All 22 levels down.</p>` +
             `<p style="color:#eaf6ff;">FINAL SCORE ${finalScore.toLocaleString()}</p>` +
             renderMedalCase() + boardHtml() +
             `<button class="ag-btn" id="again-btn">RUN AGAIN</button>`;
@@ -1738,7 +1771,7 @@ function showStartScreen() {
     G.ship = null;
     modalContent.innerHTML =
         `<h1>ASTEROIDS: GAUNTLET</h1>` +
-        `<p>20 levels. Beat the clock on every one — shoot beacons, break bricks, kill turrets, run mazes and survive the storm.</p>` +
+        `<p>22 levels. Beat the clock on every one — shoot beacons, break bricks, kill turrets, run mazes and survive the storm.</p>` +
         `<p style="font-size:0.8rem;color:#7dd3fc;">3 hull per attempt &middot; 3 lives per run &middot; gold/silver/bronze medals for speed</p>` +
         `<p style="font-size:0.78rem;color:#9fb8c8;">PC: WASD or Arrows to fly, SPACE to fire.<br>Mobile: drag to steer, tap a 2nd finger to fire.</p>` +
         renderMedalCase() +
