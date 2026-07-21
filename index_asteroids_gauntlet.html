@@ -1524,7 +1524,10 @@ function updateShipCollisions() {
         for (const rect of obstacleRects()) if (resolveCircleRect(p, rect.x, rect.y, rect.w, rect.h, 0.35)) hit = true;
         for (const c of obstacleCircles()) if (resolveCircleCircle(p, c.x, c.y, c.r, 0.35)) hit = true;
         for (const tg of obstacleTunnels()) if (resolveTunnelObstacle(p, tg)) hit = true;
-        for (const bc of G.beacons) if (!bc.destroyed) if (resolveCircleCircle(p, bc.x, bc.y, bc.radius, 0.35)) hit = true;
+        // Beacons are shoot-only objectives: the ship must approach to fire at them, so
+        // solid ship-vs-beacon contact (which routes through hurtShip('wall') below) unfairly
+        // cost a hull point / the no-damage bonus and could fail the level on a mere nudge.
+        // Beacons still block enemy fire (see enemy-projectile path) and take gun/rocket hits.
         for (const t of G.turrets) if (!t.destroyed) if (resolveCircleCircle(p, t.x, t.y, t.radius, 0.35)) hit = true;
         for (const br of G.bricks) if (!br.destroyed) if (resolveCircleRect(p, br.x, br.y, br.w, br.h, 0.35)) hit = true;
     }
