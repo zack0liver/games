@@ -101,23 +101,68 @@
                 letter-spacing: 2px;
                 margin-bottom: 22px;
             }
+            #hs-overlay .hs-panel { max-width: 92vw; box-sizing: border-box; }
             #hs-overlay .hs-slots {
                 display: flex;
-                gap: 16px;
+                gap: 14px;
                 justify-content: center;
-                margin-bottom: 20px;
+                margin-bottom: 18px;
+            }
+            #hs-overlay .hs-col {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
+            }
+            #hs-overlay .hs-arrow {
+                width: 48px;
+                height: 40px;
+                font-size: 20px;
+                line-height: 1;
+                color: #00cc6e;
+                background: transparent;
+                border: 2px solid #0f4a2c;
+                border-radius: 8px;
+                cursor: pointer;
+                font-family: inherit;
+                -webkit-tap-highlight-color: transparent;
+                touch-action: manipulation;
+                user-select: none;
+            }
+            #hs-overlay .hs-arrow:active {
+                background: #00ff8822;
+                border-color: #00ff88;
+                color: #e8fff2;
             }
             #hs-overlay .hs-slot {
-                width: 40px;
+                width: 48px;
                 font-size: 40px;
+                text-align: center;
                 color: #00cc6e;
                 border-bottom: 3px solid #0f4a2c;
+                cursor: pointer;
             }
             #hs-overlay .hs-slot.active {
                 color: #e8fff2;
                 text-shadow: 0 0 10px #00ff88;
                 border-bottom-color: #00ff88;
             }
+            #hs-overlay .hs-done {
+                display: block;
+                margin: 4px auto 14px;
+                padding: 12px 30px;
+                font-family: 'Press Start 2P', monospace;
+                font-size: 12px;
+                color: #04040c;
+                background: #00ff88;
+                border: none;
+                border-radius: 8px;
+                box-shadow: 0 4px #0a8a4e;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+                touch-action: manipulation;
+            }
+            #hs-overlay .hs-done:active { transform: translateY(4px); box-shadow: none; }
             #hs-overlay .hs-hint {
                 font-size: 16px;
                 color: #00ff8899;
@@ -131,17 +176,32 @@
         const slots = ['A', 'A', 'A'];
         let active = 0;
 
+        let submitted = false;
+
         const overlay = document.createElement('div');
         overlay.id = 'hs-overlay';
         overlay.innerHTML = `
             <div class="hs-panel">
                 <div class="hs-title">NEW HIGH SCORE</div>
                 <div class="hs-slots">
-                    <span class="hs-slot" data-i="0"></span>
-                    <span class="hs-slot" data-i="1"></span>
-                    <span class="hs-slot" data-i="2"></span>
+                    <div class="hs-col">
+                        <button class="hs-arrow" data-i="0" data-dir="1" aria-label="Letter up">&#9650;</button>
+                        <span class="hs-slot" data-i="0"></span>
+                        <button class="hs-arrow" data-i="0" data-dir="-1" aria-label="Letter down">&#9660;</button>
+                    </div>
+                    <div class="hs-col">
+                        <button class="hs-arrow" data-i="1" data-dir="1" aria-label="Letter up">&#9650;</button>
+                        <span class="hs-slot" data-i="1"></span>
+                        <button class="hs-arrow" data-i="1" data-dir="-1" aria-label="Letter down">&#9660;</button>
+                    </div>
+                    <div class="hs-col">
+                        <button class="hs-arrow" data-i="2" data-dir="1" aria-label="Letter up">&#9650;</button>
+                        <span class="hs-slot" data-i="2"></span>
+                        <button class="hs-arrow" data-i="2" data-dir="-1" aria-label="Letter down">&#9660;</button>
+                    </div>
                 </div>
-                <div class="hs-hint">&uarr;&darr; LETTER &middot; &rarr; NEXT &middot; &larr; BACK &middot; ENTER DONE</div>
+                <button class="hs-done">DONE</button>
+                <div class="hs-hint">TAP &#9650;&#9660; &middot; OR TYPE A&ndash;Z &middot; ENTER DONE</div>
             </div>
         `;
         document.body.appendChild(overlay);
@@ -155,38 +215,59 @@
         }
 
         function submit() {
+            if (submitted) return;
+            submitted = true;
             window.removeEventListener('keydown', onKey, true);
             overlay.remove();
             opts.onSubmit(slots.join(''));
         }
 
+        function cycleLetter(i, delta) {
+            active = i;
+            slots[i] = String.fromCharCode(((slots[i].charCodeAt(0) - 65 + delta + 26) % 26) + 65);
+            render();
+        }
+
         function onKey(e) {
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                slots[active] = String.fromCharCode(((slots[active].charCodeAt(0) - 65 + 1) % 26) + 65);
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                slots[active] = String.fromCharCode(((slots[active].charCodeAt(0) - 65 + 25) % 26) + 65);
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                active = Math.min(2, active + 1);
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                active = Math.max(0, active - 1);
-            } else if (e.key === 'Enter') {
+            const k = e.key;
+            if (k === 'ArrowUp') {
+                e.preventDefault(); cycleLetter(active, 1); return;
+            } else if (k === 'ArrowDown') {
+                e.preventDefault(); cycleLetter(active, -1); return;
+            } else if (k === 'ArrowRight') {
+                e.preventDefault(); active = Math.min(2, active + 1);
+            } else if (k === 'ArrowLeft') {
+                e.preventDefault(); active = Math.max(0, active - 1);
+            } else if (k === 'Backspace') {
+                e.preventDefault(); active = Math.max(0, active - 1);
+            } else if (k === 'Enter') {
                 e.preventDefault();
                 if (active === 2) { submit(); return; }
                 active += 1;
+            } else if (k.length === 1 && /[a-zA-Z]/.test(k)) {
+                // Type a letter directly, then advance.
+                e.preventDefault();
+                slots[active] = k.toUpperCase();
+                if (active < 2) active += 1;
             } else {
                 return;
             }
             render();
         }
 
+        // Tap ▲/▼ to change a letter; tap a slot to focus it.
+        overlay.querySelectorAll('.hs-arrow').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                cycleLetter(parseInt(btn.dataset.i, 10), parseInt(btn.dataset.dir, 10));
+            });
+        });
+        overlay.querySelector('.hs-done').addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation(); submit();
+        });
         overlay.addEventListener('click', (e) => {
             const slotEl = e.target.closest('.hs-slot');
-            if (slotEl) active = parseInt(slotEl.dataset.i, 10);
-            render();
+            if (slotEl) { active = parseInt(slotEl.dataset.i, 10); render(); }
         });
 
         window.addEventListener('keydown', onKey, true);
