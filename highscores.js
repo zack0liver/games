@@ -229,6 +229,8 @@
         }
 
         function onKey(e) {
+            // Modal: keep keystrokes from reaching the game underneath (e.g. Enter = restart).
+            e.stopPropagation();
             const k = e.key;
             if (k === 'ArrowUp') {
                 e.preventDefault(); cycleLetter(active, 1); return;
