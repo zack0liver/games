@@ -505,9 +505,12 @@
 
     const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
-    // Touch (1P): drag = move, tap = rotate, hold-drag down = soft drop (fall
-    // faster), quick flick down = hard drop, swipe up = hold.
+    // Touch (1P): drag = move, tap = rotate, two-finger tap = rotate back,
+    // hold-drag down = soft drop (fall faster), quick flick down = hard drop,
+    // swipe up = hold.
     let touch = null;
+    const pointers = new Map();   // active pointerId -> start {x, y}
+    let twoTap = null;            // set while a second finger is down
     function endSoftDrop(g) { if (g && touch && touch.softing) { g.softDrop = false; touch.softing = false; } }
     canvas.addEventListener('pointerdown', (e) => {
         ensureAudio();
@@ -515,11 +518,25 @@
         if (app.phase !== 'playing' || app.numPlayers !== 1) return;
         e.preventDefault();
         const rect = canvas.getBoundingClientRect(), now = performance.now();
-        touch = { x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, t0: now, lt: now,
-            moved: 0, dropped: false, softing: false, cell: rect.width / LAY.W * LAY.boards[0].cell };
+        const cell = rect.width / LAY.W * LAY.boards[0].cell;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         canvas.setPointerCapture(e.pointerId);
+        if (pointers.size === 2) {
+            // Second finger: this becomes a two-finger tap, unless the first finger already did something.
+            twoTap = { t0: now, cell, ok: !touch || (touch.moved < touch.cell * 0.6 && !touch.dropped && !touch.softing) };
+            endSoftDrop(app.games[0]); touch = null;
+            return;
+        }
+        if (pointers.size > 2) { if (twoTap) twoTap.ok = false; return; }
+        touch = { x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, t0: now, lt: now,
+            moved: 0, dropped: false, softing: false, cell };
     });
     canvas.addEventListener('pointermove', (e) => {
+        if (twoTap) {
+            const p = pointers.get(e.pointerId);
+            if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > twoTap.cell * 0.8) twoTap.ok = false;
+            return;
+        }
         if (!touch) return; const g = app.games[0]; if (!g || g.clearing) return;
         e.preventDefault();
         const now = performance.now(), step = touch.cell * 0.75;
@@ -538,6 +555,16 @@
         }
     });
     canvas.addEventListener('pointerup', (e) => {
+        pointers.delete(e.pointerId);
+        if (twoTap) {
+            // Fire once the last finger lifts.
+            if (pointers.size === 0) {
+                const g = app.games[0];
+                if (twoTap.ok && performance.now() - twoTap.t0 < 400 && g && !g.clearing && !g.dead && !g.won) tryRotate(g, -1);
+                twoTap = null;
+            }
+            return;
+        }
         if (!touch) return; const g = app.games[0];
         endSoftDrop(g);
         if (g && !g.clearing && !touch.dropped && !touch.softing) {
@@ -547,7 +574,11 @@
         }
         touch = null;
     });
-    canvas.addEventListener('pointercancel', () => { endSoftDrop(app.games[0]); touch = null; });
+    canvas.addEventListener('pointercancel', (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size === 0) twoTap = null;
+        endSoftDrop(app.games[0]); touch = null;
+    });
 
     // --- Update loop --------------------------------------------------------
     let ambT = 0;
@@ -611,11 +642,11 @@
             // Portrait phones: give the board nearly the whole screen. HOLD, score and
             // NEXT live in one thin strip up top; stage/lines/goal in a thin strip below.
             const cell = 30, bw = COLS * cell, bh = ROWS * cell;
-            const margin = 10, topH = 56, botH = 52;
+            const margin = 10, topH = 48, botH = 52;
             const bx = margin, by = topH, W = bw + margin * 2;
             const board = { index: 0, bx, by, cell, bw, bh, side: 'left', portrait: true,
-                holdX: margin, holdY: 15, holdW: 46, holdH: 36,
-                nextX: W - margin - 36 - 2 * 42, nextY: 15, nextW: 36, nextH: 36, nextGap: 42, nextCount: 3,
+                holdX: margin, holdY: 14, holdW: 44, holdH: 30,
+                nextX: W - margin - 34 - 40, nextY: 14, nextW: 34, nextH: 30, nextGap: 40, nextCount: 2,
                 statX: margin };
             LAY = { W, H: by + bh + botH, boards: [board], center: null };
             return;
@@ -759,8 +790,8 @@
         ctx.strokeStyle = 'rgba(120,110,160,0.4)'; ctx.lineWidth = 1.5; ctx.strokeRect(lay.holdX, lay.holdY, lay.holdW, lay.holdH);
         if (g.hold) drawPreview(g.hold, lay.holdX, lay.holdY, lay.holdW, lay.holdH, 11);
         const gapC = (lay.holdX + lay.holdW + lay.nextX) / 2;
-        txt(g.score.toLocaleString(), gapC, 27, '#38e8ff', 16, 'center');
-        if (g.high) txt('HI ' + Math.max(g.high, g.score).toLocaleString(), gapC, 43, '#ff4d9d', 9, 'center');
+        txt(g.score.toLocaleString(), gapC, 28, '#38e8ff', 16, 'center');
+        if (g.high) txt('HI ' + Math.max(g.high, g.score).toLocaleString(), gapC, 41, '#ff4d9d', 9, 'center');
         txt('NEXT', lay.nextX, 11, '#7a8aaa', 7);
         for (let i = 0; i < lay.nextCount; i++) {
             const nx = lay.nextX + i * lay.nextGap;
@@ -900,7 +931,7 @@
         const modeDesc = app.mode === 'race' ? 'First to <b>' + RACE_GOALS[app.raceGoal].menu + '</b> wins.' : 'Gravity ramps up <b>fast</b> — outlast it.';
         const controls = app.numPlayers === 1
             ? (IS_TOUCH
-                ? 'TAP to <b>rotate</b> &middot; DRAG to <b>move</b> &middot; HOLD-DRAG <b>&#9660;</b> to soft drop &middot; FLICK <b>&#9660;</b> to hard drop &middot; SWIPE <b>&#9650;</b> to hold.'
+                ? 'TAP to <b>rotate</b> (two-finger tap rotates back) &middot; DRAG to <b>move</b> &middot; HOLD-DRAG <b>&#9660;</b> to soft drop &middot; FLICK <b>&#9660;</b> to hard drop &middot; SWIPE <b>&#9650;</b> to hold.'
                 : 'MOVE <b>&#9668;&#9658;</b> &middot; ROTATE <b>&#9650;/X</b> &middot; FLIP <b>Z</b> &middot; SOFT <b>&#9660;</b> &middot; DROP <b>SPACE</b> &middot; HOLD <b>C</b>')
             : 'P1 <b>WASD</b> + Q flip + <b>SPACE</b> drop + E hold<br>P2 <b>ARROWS</b> + / flip + <b>ENTER</b> drop + RSHIFT hold';
         document.getElementById('menu-legend').innerHTML =
@@ -918,7 +949,7 @@
         hudMode.textContent = (app.numPlayers === 2 ? '2P ' : '') + (app.mode === 'race' ? 'RACE · ' + RACE_GOALS[app.raceGoal].menu : 'SURVIVAL') + ' · ' + DIFF[app.difficulty].label;
         hintText.innerHTML = app.numPlayers === 1
             ? (IS_TOUCH
-                ? 'TAP ROTATE &middot; DRAG MOVE &middot; HOLD-DRAG&#9660; SOFT &middot; FLICK&#9660; DROP &middot; SWIPE&#9650; HOLD'
+                ? 'TAP &#8635; &middot; 2 FINGERS &#8634; &middot; DRAG MOVE &middot; DRAG&#9660; SOFT &middot; FLICK&#9660; DROP &middot; SWIPE&#9650; HOLD'
                 : '&#9668;&#9658; MOVE &middot; &#9650;/X ROTATE &middot; Z FLIP &middot; SPACE DROP &middot; C HOLD &middot; P PAUSE')
             : 'P1: WASD / Q / SPACE / E &nbsp;&nbsp; P2: ARROWS / / / ENTER / RSHIFT &nbsp;&nbsp; P PAUSE';
     }
