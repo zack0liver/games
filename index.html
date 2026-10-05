@@ -398,6 +398,20 @@
             letter-spacing: 1px;
             text-align: center;
         }
+
+        #joystick, #buttons .btn { touch-action: manipulation; }
+        .btn.active { box-shadow: inset 0 2px 6px #0009; transform: translateY(4px); }
+
+        /* ---- Mobile ---- */
+        @media (max-width: 560px) {
+            #screen-content { padding: 18px 14px 22px; }
+            #game-list { max-height: 46vh; }
+            .game-row { padding: 5px 8px; gap: 8px; margin: 0 -8px 2px; }
+            .game-row .name { font-size: 15px; }
+            .game-row .tag { font-size: 12px; }
+            #screen-footer { font-size: 14px; }
+            #caption { font-size: 16px; margin-top: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -453,7 +467,7 @@
         <div id="base-shadow"></div>
     </div>
 
-    <p id="caption">Click a game, or use &uarr;&darr; and ENTER</p>
+    <p id="caption">Tap a game &mdash; or use the joystick &amp; A/B buttons</p>
 
     <script src="highscores.js"></script>
     <script>
@@ -603,6 +617,47 @@
         }
 
         hsLinkEl.addEventListener('click', openScores);
+
+        // ---- Cabinet controls (make the joystick + buttons real, esp. on touch) ----
+        const joystickEl = document.getElementById('joystick');
+        const joyBallEl = document.getElementById('joystick-ball');
+        const btnB = document.getElementById('btn-b');
+
+        function tiltJoystick(dir) {
+            joyBallEl.style.transition = 'transform 0.08s';
+            joyBallEl.style.transform = 'translateY(' + (dir < 0 ? -14 : 14) + 'px)';
+            setTimeout(() => { joyBallEl.style.transform = ''; }, 150);
+        }
+        function pressBtn(el) {
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 160);
+        }
+        function joyNudge(dir) {
+            tiltJoystick(dir);
+            if (screen === 'select') {
+                move(dir);
+            } else {
+                scoresTabIndex = (scoresTabIndex + dir + SCORE_GAMES.length) % SCORE_GAMES.length;
+                renderScreen();
+            }
+        }
+        joystickEl.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            const rect = joystickEl.getBoundingClientRect();
+            joyNudge((e.clientY - rect.top) < rect.height / 2 ? -1 : 1);
+        });
+        // A = select / launch (or back out of high scores); B = toggle high scores.
+        btnA.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            if (screen === 'select') launch(selected);
+            else { pressBtn(btnA); closeScores(); }
+        });
+        btnB.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            pressBtn(btnB);
+            if (screen === 'select') openScores();
+            else closeScores();
+        });
 
         window.addEventListener('keydown', (e) => {
             if (screen === 'select') {
