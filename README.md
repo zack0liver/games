@@ -146,6 +146,20 @@ Drag a cartridge into the console (or tap one) to play.
    ship colors before each match; a tie at the buzzer triggers **sudden
    death** — next hit wins. P1 uses WASD + Space, P2 uses the arrow keys +
    Enter.
+   Pick a **mode** before each match. A knockout wins in every mode; the
+   other three add an objective as a second way to win:
+   - **Classic**: as above.
+   - **Capture the Flag**: grab the enemy flag off their beacon and carry it
+     to yours while your own flag is home. Carriers fly a little slower, and
+     a hit from the opponent drops the flag (a shield protects it). Touch your
+     own dropped flag to send it home; untouched flags return after 12s.
+     First to 3 captures.
+   - **King of the Hill**: bank time inside a drifting mid-field hill, but
+     only while you're in it alone. First to 30 seconds.
+   - **Ring Race**: numbered rings appear one at a time in open space; first
+     through scores. First to 7 rings.
+   A tie at the buzzer in these modes goes to sudden death: the next hit, or
+   the next capture / ring / second on the hill, wins.
 
 10. **Asteroids: Gauntlet**  
    Direct link: [https://zack0liver.github.io/games/index_asteroids_gauntlet.html](https://zack0liver.github.io/games/index_asteroids_gauntlet.html)  
@@ -183,11 +197,6 @@ Drag a cartridge into the console (or tap one) to play.
   POST fake scores via the public API — fine for a family arcade; if it ever
   matters, front the DB with a small Cloudflare Worker that does plausibility
   checks, rate-limits by IP, and keeps the write key server-side.
-
-### Asteroids: Duel
-
-- **More match modes**: capture-the-flag and time-trial variants beyond the
-  current single-round duel.
 
 ### Tank Wars
 
