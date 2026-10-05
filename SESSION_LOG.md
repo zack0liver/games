@@ -5,6 +5,84 @@ top.
 
 ---
 
+## 2026-07-23 → 2026-10-05 — Mobile pass, Maze scoring, Duel match modes
+
+**Branch:** `claude/mobile-landing-shape-lock-pd03pw` (restarted from `main`
+after each merge) · **PRs:** #22, #23, #24, #25 (all merged)
+
+### Mobile: landing page + Shape Lock (#22, #23)
+
+- **Landing page** (`index.html`): narrow-screen media query (names no longer
+  wrap to 3 lines, ~8 games visible instead of ~4); the decorative joystick
+  and A/B buttons now work (tap the stick's top/bottom half to move, A =
+  select/back, B = toggle high scores).
+- **Shape Lock** portrait layout: thin top strip (HOLD · score · 2 NEXT) and
+  thin bottom strip (stage/lines/shapes · goal bar), so the board fills
+  nearly the whole phone screen. Landscape/desktop and 2P are unchanged.
+- **Pure-gesture touch controls** (an on-screen button deck was tried first,
+  then removed at the user's request to give the board more room): tap =
+  rotate, two-finger tap = rotate back, drag = move, slow drag down = soft
+  drop, quick flick down = hard drop, swipe up = hold. Soft vs. hard drop is
+  told apart by downward speed. A PAUSE pill appears in the HUD on touch
+  devices.
+- **High-score initials overlay** (`highscores.js`, shared by every
+  single-player game) was keyboard-only, so phones couldn't enter initials.
+  It now has tap ▲/▼ per letter and a DONE button, plus direct A–Z typing and
+  Backspace. It also stops key propagation: pressing Enter in the overlay
+  used to restart Shape Lock underneath it.
+
+### Asteroids: Maze Edition scoring (#24)
+
+Shipped the three open README items:
+- Shot payouts with floating "+N" popups and a score pulse; values raised so
+  they matter next to the level bonus (rock 100, crack wall 50, crack
+  circle 75, tunnel plug 100, upgrade 250).
+- Full-clear bonus: HUD `CRACKS x/y` counter; destroying every shootable
+  obstacle doubles the level bonus.
+- Time bonus: per-level **TIME LEFT TO BONUS** countdown (30 × cycle per
+  second left). The budget is distance-based (course px ÷ 100 px/s) because
+  the view height, and so the course length, depends on the device.
+- **Tune in playtesting:** budgets run ~19–43s (laptop) / ~23–51s (phone);
+  new scores outrank older leaderboard entries because payouts went up.
+
+### Asteroids: Duel match modes (#25)
+
+New MODE row in settings (saved in `ad_mode`). Per the user's call, a
+knockout still wins instantly in every mode; objectives are a second way to
+win.
+- **Capture the Flag** (first to 3): flags on the beacons; enemy hits drop
+  the flag (wall bumps don't, shields protect); 1.5s re-grab lock for the
+  dropper (bug found by the test suite: carriers instantly re-grabbed);
+  12s auto-return; carriers 15% slower; stand bumps free.
+- **King of the Hill** (first to 30s): drifting mid-field hill, time only
+  while alone in it.
+- **Ring Race** (first to 7): numbered rings spawned in open space in the
+  central band. Replaces the README's "time trial" idea, which Gauntlet
+  already covers.
+- Buzzer ties go to sudden death (next hit, or next whole objective unit).
+  Settings spacing tightened so it still fits at 1280×720.
+- Verified with a 28-check Playwright suite over the real update loop
+  (Classic regression included). **Tune in playtesting:** the targets
+  (3 / 30s / 7) and the carrier slowdown.
+
+### Notes for next time
+
+- Remaining backlog (README § Planned Enhancements): Galaga per-stage enemy
+  themes, Tank Wars void-battlefield polish, Maze 2D themes (deliberately
+  deferred), shared cross-device leaderboard (needs a backend such as
+  Supabase).
+- Not yet checked on a phone: the games other than the landing page,
+  Shape Lock and the high-score overlay.
+- Shape Lock is still missing from the README's game list (it stops at
+  #10, Gauntlet).
+- `next-session/` holds an old handoff for the landing page / high scores /
+  initials overlay. All of it is built, so the folder can be archived.
+- Testing tip: Maze runs as an ES module, so tests reach it only through
+  `window.game` (take the `Bullet` class from a fired bullet's
+  `constructor`; read the view size from the canvas style).
+
+---
+
 ## 2026-07-16 — Asteroids: Gauntlet (new game)
 
 **Branch:** `feat/asteroids-gauntlet`
