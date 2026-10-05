@@ -30,6 +30,9 @@ Drag a cartridge into the console (or tap one) to play.
    tunnel-ring obstacle: permanently solid except one shootable orange arc —
    blast it open and fly in for a permanent ship upgrade (+1 hull, +30% size,
    fancier hull trim). Every full loop replays all seven faster and harder.
+   Shots pay out with floating "+N" scores; destroy every crack in a level
+   (tracked in the HUD) for a **double** level bonus, and beat the per-level
+   **TIME LEFT TO BONUS** clock to bank extra points for every second left.
 
 4. **Candy Checkers**  
    Direct link: [https://zack0liver.github.io/games/index_candy_checkers.html](https://zack0liver.github.io/games/index_candy_checkers.html)  
@@ -212,18 +215,22 @@ arc, hiding a permanent ship upgrade (+1 hull, +30% size, gold hull trim) at
 the hollow center. Player-facing wording also switched from "planetoids" to
 "space obstacles."
 
+Also shipped from the second playtest list:
+
+- **Bonus points for shooting**: rocks +100, cracked walls +50, cracked space
+  obstacles +75, tunnel plugs +100, ship upgrade +250, each shown as a floating
+  "+N" at the hit location with a pulse on the HUD score.
+- **Full-clear bonus**: a HUD counter (`CRACKS x/y`) tracks the level's
+  shootable obstacles; destroy them all before the finish for a **double**
+  level bonus, called out as **FULL CLEAR!**
+- **Speed / time bonus**: a per-level **TIME LEFT TO BONUS** countdown
+  (top-right, flashes red under 5s). Each second left at the finish pays
+  30 × cycle. The budget scales with course length in pixels (100 px/s), so
+  tall phone screens get proportionally more time. *Tuning to check in
+  playtesting:* budgets run ~19–43s on a laptop and ~23–51s on a phone.
+
 Still open:
 
-- **Bonus points for shooting**: award bonus points for destroying asteroids
-  and cracked obstacles, and make the reward *obvious* — e.g. a floating "+N"
-  popup at the hit location and/or a score-tick flourish, so it's clear the
-  shot paid off.
-- **Full-clear bonus**: if every cracked/shootable wall in a level is destroyed
-  by the time you cross the finish line, grant a **double bonus** (with clear
-  feedback that the level was fully cleared).
-- **Speed / time bonus**: put a per-level countdown timer up; reach the finish
-  before it hits zero for a bonus that scales with time remaining. Surface it
-  in the HUD with a catchy label (e.g. "TIME LEFT TO BONUS").
 - **More 2D themes**: additional visual themes (color schemes / backdrops /
   wall + enemy styling), e.g. per-level or per-cycle theming so the course
   looks fresh as you advance. (Intentionally deferred — keeping the current
